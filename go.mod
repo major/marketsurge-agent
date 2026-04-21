@@ -2,7 +2,11 @@ module github.com/major/marketsurge-agent
 
 go 1.25.0
 
-require github.com/stretchr/testify v1.11.1
+require (
+	github.com/stretchr/testify v1.11.1
+	github.com/urfave/cli/v3 v3.8.0
+	modernc.org/sqlite v1.49.1
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -17,5 +21,4 @@ require (
 	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.49.1 // indirect
 )

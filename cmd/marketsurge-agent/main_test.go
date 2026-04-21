@@ -50,7 +50,6 @@ func TestUnknownCommandReturnsError(t *testing.T) {
 func TestErrorOutputIsValidJSON(t *testing.T) {
 	// Force auth failure by clearing all JWT sources.
 	t.Setenv("MARKETSURGE_JWT", "")
-	t.Setenv("TICKERSCOPE_JWT", "")
 
 	var jsonBuf bytes.Buffer
 	app := buildApp(&jsonBuf)

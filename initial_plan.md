@@ -6,8 +6,8 @@ Inspired by [Google Workspace CLI (gws)](https://github.com/googleworkspace/cli)
 
 ## Background
 
-- **tickerscope** (`~/git/major/tickerscope`): Async Python client library for MarketSurge's GraphQL API. 20+ endpoints, 70+ data models, cookie-based auth, optional caching.
-- **tickerscope-mcp** (`~/git/major/tickerscope-mcp`): FastMCP server wrapping 9 curated tickerscope tools for AI agents.
+- **Python client library** (`~/git/major/marketsurge-python`): Async Python client for MarketSurge's GraphQL API. 20+ endpoints, 70+ data models, cookie-based auth, optional caching.
+- **MCP server** (`~/git/major/marketsurge-mcp`): FastMCP server wrapping 9 curated tools for AI agents.
 - **This project**: Native Go reimplementation of the GraphQL client as a CLI tool. Not a Python wrapper - standalone single binary.
 
 ## Tech Stack
@@ -24,7 +24,7 @@ Inspired by [Google Workspace CLI (gws)](https://github.com/googleworkspace/cli)
 
 ## API Scope (Phase 1)
 
-Starting with the 9 tools already proven useful in tickerscope-mcp, not the full 20+ endpoint surface.
+Starting with the 9 tools already proven useful in the MCP server, not the full 20+ endpoint surface.
 
 ### Commands
 
@@ -67,8 +67,7 @@ Priority order (first match wins):
 
 1. `--jwt` flag
 2. `MARKETSURGE_JWT` environment variable
-3. `TICKERSCOPE_JWT` environment variable (backward compat with Python lib)
-4. Browser cookie extraction (Firefox, then Chrome) + JWT exchange
+3. Browser cookie extraction (Firefox, then Chrome) + JWT exchange
 
 Cookie extraction reads the MarketSurge session cookie from the browser's SQLite database, then exchanges it for a JWT against MarketSurge's token endpoint. Same flow as the Python library's `resolve_jwt` chain but reimplemented in Go.
 

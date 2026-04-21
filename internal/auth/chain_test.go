@@ -13,14 +13,12 @@ import (
 func clearAuthEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("MARKETSURGE_JWT", "")
-	t.Setenv("TICKERSCOPE_JWT", "")
 }
 
 // TestResolveJWT_FlagPrecedence verifies that the --jwt flag takes highest
 // priority, even when env vars are also set.
 func TestResolveJWT_FlagPrecedence(t *testing.T) {
 	t.Setenv("MARKETSURGE_JWT", "env-jwt")
-	t.Setenv("TICKERSCOPE_JWT", "ts-jwt")
 
 	jwt, err := ResolveJWT(context.Background(), "flag-jwt", "")
 	require.NoError(t, err)
@@ -32,28 +30,6 @@ func TestResolveJWT_FlagPrecedence(t *testing.T) {
 func TestResolveJWT_MarketSurgeEnv(t *testing.T) {
 	clearAuthEnv(t)
 	t.Setenv("MARKETSURGE_JWT", "ms-jwt")
-
-	jwt, err := ResolveJWT(context.Background(), "", "")
-	require.NoError(t, err)
-	assert.Equal(t, "ms-jwt", jwt)
-}
-
-// TestResolveJWT_TickerScopeEnv verifies TICKERSCOPE_JWT is used when neither
-// flag nor MARKETSURGE_JWT are set.
-func TestResolveJWT_TickerScopeEnv(t *testing.T) {
-	clearAuthEnv(t)
-	t.Setenv("TICKERSCOPE_JWT", "ts-jwt")
-
-	jwt, err := ResolveJWT(context.Background(), "", "")
-	require.NoError(t, err)
-	assert.Equal(t, "ts-jwt", jwt)
-}
-
-// TestResolveJWT_MarketSurgePrecedence verifies MARKETSURGE_JWT takes priority
-// over TICKERSCOPE_JWT when both are set.
-func TestResolveJWT_MarketSurgePrecedence(t *testing.T) {
-	t.Setenv("MARKETSURGE_JWT", "ms-jwt")
-	t.Setenv("TICKERSCOPE_JWT", "ts-jwt")
 
 	jwt, err := ResolveJWT(context.Background(), "", "")
 	require.NoError(t, err)

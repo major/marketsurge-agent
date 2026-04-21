@@ -176,7 +176,7 @@ func runCatalogEntries(
 		}
 
 		entries := applyCatalogRunFilters(result.Entries, filters)
-		return projectWatchlistEntries(paginateWatchlistEntries(entries, limit, offset), fields), len(entries), nil
+		return projectWatchlistEntries(paginateSlice(entries, limit, offset), fields), len(entries), nil
 	case models.CatalogKindWatchlist:
 		watchlistID := cmd.Int64("watchlist-id")
 		if watchlistID == 0 {
@@ -189,7 +189,7 @@ func runCatalogEntries(
 		}
 
 		entries := applyCatalogRunFilters(result.Entries, filters)
-		return projectWatchlistEntries(paginateWatchlistEntries(entries, limit, offset), fields), len(entries), nil
+		return projectWatchlistEntries(paginateSlice(entries, limit, offset), fields), len(entries), nil
 	case models.CatalogKindCoachScreen:
 		coachScreenID := cmd.String("coach-screen-id")
 		if coachScreenID == "" {
@@ -201,7 +201,7 @@ func runCatalogEntries(
 			return nil, 0, err
 		}
 
-		rows := paginateCoachScreenRows(result.Rows, limit, offset)
+		rows := paginateSlice(result.Rows, limit, offset)
 		return rows, len(result.Rows), nil
 	default:
 		return nil, 0, mserrors.NewValidationError("kind must be one of: watchlist, screen, report, coach_screen", nil)
@@ -238,36 +238,20 @@ func isSPACEntry(entry *models.WatchlistEntry) bool {
 	return strings.EqualFold(*entry.InstrumentSubType, "BLANK_CHECK")
 }
 
-// paginateWatchlistEntries slices watchlist entries using limit and offset.
-func paginateWatchlistEntries(entries []models.WatchlistEntry, limit, offset int) []models.WatchlistEntry {
-	start := clampCatalogOffset(offset, len(entries))
+// paginateSlice returns a sub-slice bounded by limit and offset.
+func paginateSlice[T any](items []T, limit, offset int) []T {
+	start := clampCatalogOffset(offset, len(items))
 	if limit < 0 {
 		limit = 0
 	}
-	end := len(entries)
+	end := len(items)
 	if limit > 0 && start+limit < end {
 		end = start + limit
 	}
 	if start > end {
 		start = end
 	}
-	return entries[start:end]
-}
-
-// paginateCoachScreenRows slices coach screen rows using limit and offset.
-func paginateCoachScreenRows(rows []map[string]*string, limit, offset int) []map[string]*string {
-	start := clampCatalogOffset(offset, len(rows))
-	if limit < 0 {
-		limit = 0
-	}
-	end := len(rows)
-	if limit > 0 && start+limit < end {
-		end = start + limit
-	}
-	if start > end {
-		start = end
-	}
-	return rows[start:end]
+	return items[start:end]
 }
 
 // clampCatalogOffset bounds the offset to the available entry count.

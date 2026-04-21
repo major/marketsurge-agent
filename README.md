@@ -2,6 +2,8 @@
 
 CLI tool that gives AI agents structured access to [MarketSurge](https://marketsurge.investors.com) stock research data. Every command returns JSON, making it easy to integrate with agent frameworks, pipelines, or scripts.
 
+> **Disclaimer**: This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily. Use at your own risk.
+
 ## Install
 
 Pre-built binaries are available on the [Releases](https://github.com/major/marketsurge-agent/releases) page for Linux and macOS (amd64/arm64).

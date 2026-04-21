@@ -2,6 +2,8 @@
 
 Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, auto-generated skill files for agent consumption.
 
+This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily.
+
 ## Architecture
 
 ```text

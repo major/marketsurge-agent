@@ -2,13 +2,10 @@ package commands
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
@@ -20,18 +17,10 @@ func TestChartMarkupsSuccess(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartMarkupsCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	require.NoError(t, runTestCommand(t, cmd, "markups", "AAPL"))
 
-	err := cmd.Run(context.Background(), []string{"markups", "AAPL"})
-	require.NoError(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
-	assert.Contains(t, result, "metadata")
-
-	meta, _ := result["metadata"].(map[string]any)
-	assert.Equal(t, "AAPL", meta["symbol"])
+	result := parseJSONEnvelope(t, &buf)
+	assertSymbolMeta(t, result, "AAPL")
 }
 
 func TestChartMarkupsWithFlags(t *testing.T) {
@@ -41,16 +30,11 @@ func TestChartMarkupsWithFlags(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartMarkupsCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	require.NoError(t, runTestCommand(t, cmd,
 		"markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL",
-	})
-	require.NoError(t, err)
+	))
 
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
+	parseJSONEnvelope(t, &buf)
 }
 
 func TestChartMarkupsMissingSymbol(t *testing.T) {
@@ -60,9 +44,7 @@ func TestChartMarkupsMissingSymbol(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartMarkupsCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"markups"})
+	err := runTestCommand(t, cmd, "markups")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError

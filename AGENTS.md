@@ -121,6 +121,11 @@ CI pipeline: `go vet` -> `go test -v -race` -> `go build`
 
 Release: push `v*` tag -> goreleaser v2 -> multi-platform binaries (linux/darwin, amd64/arm64, CGO disabled) -> GitHub Releases
 
+## Maintenance
+
+- **Keep this file updated**: When adding, removing, or changing commands, error types, conventions, or architecture, update this file and subdirectory AGENTS.md files to match.
+- **Keep README.md updated**: When changing commands, flags, output format, install instructions, or development workflow, update README.md as well.
+
 ## Dependencies
 
 - `github.com/nicholasgasior/urfave-cli-v3-docs-markdown` - CLI doc generation

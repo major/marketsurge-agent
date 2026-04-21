@@ -39,6 +39,12 @@ func (e *MarketSurgeError) As(target interface{}) bool {
 	return false
 }
 
+// ErrorCode returns the error classification code for JSON responses.
+func (e *MarketSurgeError) ErrorCode() string { return "GENERAL_ERROR" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *MarketSurgeError) ExitCode() int { return ExitGeneral }
+
 // AuthenticationError indicates an authentication failure (cookie extraction or token expiry).
 type AuthenticationError struct {
 	MarketSurgeError
@@ -54,6 +60,12 @@ func (e *AuthenticationError) As(target interface{}) bool {
 	}
 	return false
 }
+
+// ErrorCode returns the error classification code for JSON responses.
+func (e *AuthenticationError) ErrorCode() string { return "AUTH_FAILED" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *AuthenticationError) ExitCode() int { return ExitAuthFailure }
 
 // CookieExtractionError indicates failure to extract browser cookies.
 // It is a subtype of AuthenticationError.
@@ -76,6 +88,12 @@ func (e *CookieExtractionError) As(target interface{}) bool {
 	return false
 }
 
+// ErrorCode returns the error classification code for JSON responses.
+func (e *CookieExtractionError) ErrorCode() string { return "AUTH_FAILED" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *CookieExtractionError) ExitCode() int { return ExitAuthFailure }
+
 // TokenExpiredError indicates that the JWT token has expired or been rejected.
 // It is a subtype of AuthenticationError.
 type TokenExpiredError struct {
@@ -97,6 +115,12 @@ func (e *TokenExpiredError) As(target interface{}) bool {
 	return false
 }
 
+// ErrorCode returns the error classification code for JSON responses.
+func (e *TokenExpiredError) ErrorCode() string { return "AUTH_FAILED" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *TokenExpiredError) ExitCode() int { return ExitAuthFailure }
+
 // APIError indicates that the GraphQL API returned errors.
 type APIError struct {
 	MarketSurgeError
@@ -112,6 +136,12 @@ func (e *APIError) As(target interface{}) bool {
 	}
 	return false
 }
+
+// ErrorCode returns the error classification code for JSON responses.
+func (e *APIError) ErrorCode() string { return "API_ERROR" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *APIError) ExitCode() int { return ExitAPIError }
 
 // SymbolNotFoundError indicates that the API returned empty marketData for a requested symbol.
 // It is a subtype of APIError.
@@ -134,6 +164,12 @@ func (e *SymbolNotFoundError) As(target interface{}) bool {
 	return false
 }
 
+// ErrorCode returns the error classification code for JSON responses.
+func (e *SymbolNotFoundError) ErrorCode() string { return "SYMBOL_NOT_FOUND" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *SymbolNotFoundError) ExitCode() int { return ExitNotFound }
+
 // HTTPError indicates that an HTTP request returned a non-2xx error status code.
 type HTTPError struct {
 	MarketSurgeError
@@ -152,6 +188,12 @@ func (e *HTTPError) As(target interface{}) bool {
 	return false
 }
 
+// ErrorCode returns the error classification code for JSON responses.
+func (e *HTTPError) ErrorCode() string { return "HTTP_ERROR" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *HTTPError) ExitCode() int { return ExitAPIError }
+
 // ValidationError indicates that input validation failed.
 type ValidationError struct {
 	MarketSurgeError
@@ -167,6 +209,12 @@ func (e *ValidationError) As(target interface{}) bool {
 	}
 	return false
 }
+
+// ErrorCode returns the error classification code for JSON responses.
+func (e *ValidationError) ErrorCode() string { return "VALIDATION_ERROR" }
+
+// ExitCode returns the process exit code for this error type.
+func (e *ValidationError) ExitCode() int { return ExitGeneral }
 
 // NewMarketSurgeError creates a new MarketSurgeError wrapping the given cause.
 func NewMarketSurgeError(message string, cause error) *MarketSurgeError {
@@ -252,54 +300,19 @@ func NewValidationError(message string, cause error) *ValidationError {
 }
 
 // ExitCodeFor determines the appropriate exit code for the given error.
-// It checks error types from most specific to least specific using errors.As().
+// Each error type implements ExitCode() to declare its own exit code.
 // Returns ExitSuccess (0) if err is nil, otherwise returns the appropriate exit code.
 func ExitCodeFor(err error) int {
 	if err == nil {
 		return ExitSuccess
 	}
 
-	// Check most specific types first
-	var symbolNotFound *SymbolNotFoundError
-	if errors.As(err, &symbolNotFound) {
-		return ExitNotFound
+	type exitCoder interface{ ExitCode() int }
+
+	var coder exitCoder
+	if errors.As(err, &coder) {
+		return coder.ExitCode()
 	}
 
-	var cookieExtraction *CookieExtractionError
-	if errors.As(err, &cookieExtraction) {
-		return ExitAuthFailure
-	}
-
-	var tokenExpired *TokenExpiredError
-	if errors.As(err, &tokenExpired) {
-		return ExitAuthFailure
-	}
-
-	var authentication *AuthenticationError
-	if errors.As(err, &authentication) {
-		return ExitAuthFailure
-	}
-
-	var httpErr *HTTPError
-	if errors.As(err, &httpErr) {
-		return ExitAPIError
-	}
-
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return ExitAPIError
-	}
-
-	var validation *ValidationError
-	if errors.As(err, &validation) {
-		return ExitGeneral
-	}
-
-	var marketSurge *MarketSurgeError
-	if errors.As(err, &marketSurge) {
-		return ExitGeneral
-	}
-
-	// Default to general error for unknown error types
 	return ExitGeneral
 }

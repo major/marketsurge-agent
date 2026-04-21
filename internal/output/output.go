@@ -86,49 +86,14 @@ func WritePartial(w io.Writer, data any, errs []string, metadata map[string]any)
 }
 
 // errorCode maps an error to its corresponding error code string.
-// It uses errors.As() to check error types from most specific to least specific.
+// Each error type implements ErrorCode() to declare its own classification code.
 func errorCode(err error) string {
-	// Check most specific types first
-	var symbolNotFound *mserr.SymbolNotFoundError
-	if errors.As(err, &symbolNotFound) {
-		return "SYMBOL_NOT_FOUND"
+	type errorCoder interface{ ErrorCode() string }
+
+	var coder errorCoder
+	if errors.As(err, &coder) {
+		return coder.ErrorCode()
 	}
 
-	var cookieExtraction *mserr.CookieExtractionError
-	if errors.As(err, &cookieExtraction) {
-		return "AUTH_FAILED"
-	}
-
-	var tokenExpired *mserr.TokenExpiredError
-	if errors.As(err, &tokenExpired) {
-		return "AUTH_FAILED"
-	}
-
-	var authentication *mserr.AuthenticationError
-	if errors.As(err, &authentication) {
-		return "AUTH_FAILED"
-	}
-
-	var httpErr *mserr.HTTPError
-	if errors.As(err, &httpErr) {
-		return "HTTP_ERROR"
-	}
-
-	var apiErr *mserr.APIError
-	if errors.As(err, &apiErr) {
-		return "API_ERROR"
-	}
-
-	var validation *mserr.ValidationError
-	if errors.As(err, &validation) {
-		return "VALIDATION_ERROR"
-	}
-
-	var marketSurge *mserr.MarketSurgeError
-	if errors.As(err, &marketSurge) {
-		return "GENERAL_ERROR"
-	}
-
-	// Default to general error for unknown error types
 	return "GENERAL_ERROR"
 }

@@ -5,12 +5,17 @@ import (
 	"time"
 )
 
+// utcTimestamp returns the current UTC time formatted as RFC3339.
+func utcTimestamp() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
 // SymbolMeta creates metadata for a symbol query response.
 // It includes the symbol and a UTC timestamp in RFC3339 format.
 func SymbolMeta(symbol string) map[string]any {
 	return map[string]any{
 		"symbol":    symbol,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"timestamp": utcTimestamp(),
 	}
 }
 
@@ -22,6 +27,6 @@ func CatalogMeta(kind string, total, limit, offset int) map[string]any {
 		"total":     total,
 		"limit":     limit,
 		"offset":    offset,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"timestamp": utcTimestamp(),
 	}
 }

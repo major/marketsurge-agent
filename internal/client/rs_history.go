@@ -35,23 +35,17 @@ func (c *Client) GetRSRatingHistory(ctx context.Context, symbol string) (*models
 	ratings := getNestedSlice(item, "ratings", "rsRating")
 	intraday := getNestedMap(item, "pricingStatistics", "intradayStatistics")
 	result := &models.RSRatingHistory{
-		Symbol:  symbol,
-		Ratings: make([]models.RSRatingSnapshot, 0, len(ratings)),
+		Symbol: symbol,
+		Ratings: buildSlice(ratings, func(item map[string]any) models.RSRatingSnapshot {
+			return models.RSRatingSnapshot{
+				LetterValue:  stringPtr(item["letterValue"]),
+				Period:       stringPtr(item["period"]),
+				PeriodOffset: stringPtr(item["periodOffset"]),
+				Value:        intPtr(item["value"]),
+			}
+		}),
 	}
 	result.RSLineNewHigh = boolPtr(intraday["rsLineNewHigh"])
-
-	for _, entry := range ratings {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result.Ratings = append(result.Ratings, models.RSRatingSnapshot{
-			LetterValue:  stringPtr(item["letterValue"]),
-			Period:       stringPtr(item["period"]),
-			PeriodOffset: stringPtr(item["periodOffset"]),
-			Value:        intPtr(item["value"]),
-		})
-	}
 
 	return result, nil
 }

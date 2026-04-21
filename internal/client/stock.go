@@ -172,13 +172,8 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 }
 
 func buildQuarterlyReported(items []any) []models.QuarterlyReportedPeriod {
-	result := make([]models.QuarterlyReportedPeriod, 0, len(items))
-	for _, entry := range items {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result = append(result, models.QuarterlyReportedPeriod{
+	return buildSlice(items, func(item map[string]any) models.QuarterlyReportedPeriod {
+		return models.QuarterlyReportedPeriod{
 			Value:           floatPtr(item["value"]),
 			PctChangeYoY:    floatPtr(item["percentChangeYOY"]),
 			PeriodOffset:    stringify(item["periodOffset"]),
@@ -189,45 +184,32 @@ func buildQuarterlyReported(items []any) []models.QuarterlyReportedPeriod {
 			QuarterNumber:   intPtr(item["quarterNumber"]),
 			FiscalYear:      intPtr(item["fiscalYear"]),
 			Period:          stringPtr(item["period"]),
-		})
-	}
-	return result
+		}
+	})
 }
 
 func buildQuarterlyEstimates(items []any) []models.QuarterlyEstimate {
-	result := make([]models.QuarterlyEstimate, 0, len(items))
-	for _, entry := range items {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result = append(result, models.QuarterlyEstimate{
+	return buildSlice(items, func(item map[string]any) models.QuarterlyEstimate {
+		return models.QuarterlyEstimate{
 			Value:             floatPtr(item["value"]),
 			PctChangeYoY:      floatPtr(item["percentChangeYOY"]),
 			PeriodEndDate:     stringPtr(item["periodEndDate"]),
 			EffectiveDate:     stringPtr(item["effectiveDate"]),
 			RevisionDirection: stringPtr(item["revisionDirection"]),
 			EstimateType:      stringPtr(item["type"]),
-		})
-	}
-	return result
+		}
+	})
 }
 
 func buildQuarterlyProfitMargins(items []any) []models.QuarterlyProfitMargin {
-	result := make([]models.QuarterlyProfitMargin, 0, len(items))
-	for _, entry := range items {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result = append(result, models.QuarterlyProfitMargin{
+	return buildSlice(items, func(item map[string]any) models.QuarterlyProfitMargin {
+		return models.QuarterlyProfitMargin{
 			PeriodOffset:   stringify(item["periodOffset"]),
 			PeriodEndDate:  stringPtr(item["periodEndDate"]),
 			PreTaxMargin:   floatPtr(item["preTaxMargin"]),
 			AfterTaxMargin: floatPtr(item["afterTaxMargin"]),
 			GrossMargin:    floatPtr(item["grossMargin"]),
 			ReturnOnEquity: floatPtr(item["returnOnEquity"]),
-		})
-	}
-	return result
+		}
+	})
 }

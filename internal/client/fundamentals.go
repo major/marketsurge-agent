@@ -53,36 +53,25 @@ func (c *Client) GetFundamentals(ctx context.Context, symbol string) (*models.Fu
 }
 
 func buildReportedPeriods(items []any) []models.ReportedPeriod {
-	result := make([]models.ReportedPeriod, 0, len(items))
-	for _, entry := range items {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
+	return buildSlice(items, func(item map[string]any) models.ReportedPeriod {
 		valueMap, _ := item["value"].(map[string]any)
 		pctMap, _ := item["percentChangeYOY"].(map[string]any)
-		result = append(result, models.ReportedPeriod{
+		return models.ReportedPeriod{
 			Value:              floatPtr(item["value"]),
 			FormattedValue:     stringPtr(valueMap["formattedValue"]),
 			PctChangeYoY:       floatPtr(item["percentChangeYOY"]),
 			FormattedPctChange: stringPtr(pctMap["formattedValue"]),
 			PeriodOffset:       stringify(item["periodOffset"]),
 			PeriodEndDate:      stringPtr(item["periodEndDate"]),
-		})
-	}
-	return result
+		}
+	})
 }
 
 func buildEstimatePeriods(items []any) []models.EstimatePeriod {
-	result := make([]models.EstimatePeriod, 0, len(items))
-	for _, entry := range items {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
+	return buildSlice(items, func(item map[string]any) models.EstimatePeriod {
 		valueMap, _ := item["value"].(map[string]any)
 		pctMap, _ := item["percentChangeYOY"].(map[string]any)
-		result = append(result, models.EstimatePeriod{
+		return models.EstimatePeriod{
 			Value:              floatPtr(item["value"]),
 			FormattedValue:     stringPtr(valueMap["formattedValue"]),
 			PctChangeYoY:       floatPtr(item["percentChangeYOY"]),
@@ -90,7 +79,6 @@ func buildEstimatePeriods(items []any) []models.EstimatePeriod {
 			PeriodOffset:       stringify(item["periodOffset"]),
 			Period:             stringPtr(item["period"]),
 			RevisionDirection:  stringPtr(item["revisionDirection"]),
-		})
-	}
-	return result
+		}
+	})
 }

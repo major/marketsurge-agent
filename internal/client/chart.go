@@ -99,47 +99,38 @@ func buildTimeSeries(item map[string]any) *models.TimeSeries {
 	if len(item) == 0 {
 		return nil
 	}
-	result := &models.TimeSeries{Period: stringify(item["period"]), DataPoints: []models.DataPoint{}}
-	for _, entry := range getNestedSlice(item, "dataPoints") {
-		point, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result.DataPoints = append(result.DataPoints, models.DataPoint{
-			StartDateTime: stringPtr(point["startDateTime"]),
-			EndDateTime:   stringPtr(point["endDateTime"]),
-			Open:          floatPtr(point["open"]),
-			High:          floatPtr(point["high"]),
-			Low:           floatPtr(point["low"]),
-			Close:         floatPtr(point["last"]),
-			Volume:        floatPtr(point["volume"]),
-		})
+	return &models.TimeSeries{
+		Period: stringify(item["period"]),
+		DataPoints: buildSlice(getNestedSlice(item, "dataPoints"), func(point map[string]any) models.DataPoint {
+			return models.DataPoint{
+				StartDateTime: stringPtr(point["startDateTime"]),
+				EndDateTime:   stringPtr(point["endDateTime"]),
+				Open:          floatPtr(point["open"]),
+				High:          floatPtr(point["high"]),
+				Low:           floatPtr(point["low"]),
+				Close:         floatPtr(point["last"]),
+				Volume:        floatPtr(point["volume"]),
+			}
+		}),
 	}
-	return result
 }
 
 func buildExchange(item map[string]any) *models.ExchangeInfo {
 	if len(item) == 0 {
 		return nil
 	}
-	result := &models.ExchangeInfo{
+	return &models.ExchangeInfo{
 		City:        stringPtr(item["city"]),
 		CountryCode: stringPtr(item["countryCode"]),
 		ExchangeISO: stringPtr(item["exchangeISO"]),
-		Holidays:    []models.ExchangeHoliday{},
+		Holidays: buildSlice(getNestedSlice(item, "holidays"), func(holiday map[string]any) models.ExchangeHoliday {
+			return models.ExchangeHoliday{
+				Name:          stringify(holiday["name"]),
+				HolidayType:   stringPtr(holiday["holidayType"]),
+				Description:   stringPtr(holiday["description"]),
+				StartDateTime: stringify(holiday["startDateTime"]),
+				EndDateTime:   stringify(holiday["endDateTime"]),
+			}
+		}),
 	}
-	for _, entry := range getNestedSlice(item, "holidays") {
-		holiday, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result.Holidays = append(result.Holidays, models.ExchangeHoliday{
-			Name:          stringify(holiday["name"]),
-			HolidayType:   stringPtr(holiday["holidayType"]),
-			Description:   stringPtr(holiday["description"]),
-			StartDateTime: stringify(holiday["startDateTime"]),
-			EndDateTime:   stringify(holiday["endDateTime"]),
-		})
-	}
-	return result
 }

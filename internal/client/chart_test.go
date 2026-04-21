@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,16 +12,11 @@ import (
 
 func TestGetChartHistoryDailyIncludesExchangeAndBenchmark(t *testing.T) {
 	var captured Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		_, _ = w.Write([]byte(chartResponseJSON(true)))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.GetChartHistory(context.Background(), "AAPL", "2024-01-01", "2024-02-01", "P1D", true, "NYSE", "0S&P5")
 	require.NoError(t, err)
@@ -35,16 +29,11 @@ func TestGetChartHistoryDailyIncludesExchangeAndBenchmark(t *testing.T) {
 
 func TestGetChartHistoryWeeklyOmitsExchange(t *testing.T) {
 	var captured Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		_, _ = w.Write([]byte(chartResponseJSON(false)))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.GetChartHistory(context.Background(), "AAPL", "2024-01-01", "2024-02-01", "P1W", false, "", "")
 	require.NoError(t, err)
@@ -55,14 +44,9 @@ func TestGetChartHistoryWeeklyOmitsExchange(t *testing.T) {
 }
 
 func TestGetChartMarkupsSuccess(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"chartMarkups":{"cursorId":"cursor-1","chartMarkups":[{"id":"m1","name":"Base","data":"{}","frequency":"DAILY","site":"marketsurge"}]}}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.GetChartMarkups(context.Background(), "DJ:1", "DAILY", "ASC")
 	require.NoError(t, err)
@@ -73,16 +57,11 @@ func TestGetChartMarkupsSuccess(t *testing.T) {
 
 func TestGetChartMarkupsPassesOperationName(t *testing.T) {
 	var captured Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		_, _ = w.Write([]byte(`{"data":{"user":{"chartMarkups":{"cursorId":"","chartMarkups":[]}}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.GetChartMarkups(context.Background(), "DJ:1", "WEEKLY", "DESC")
 	require.NoError(t, err)
@@ -92,14 +71,9 @@ func TestGetChartMarkupsPassesOperationName(t *testing.T) {
 }
 
 func TestGetChartHistoryReturnsSymbolNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"marketData":[]}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.GetChartHistory(context.Background(), "MISS", "2024-01-01", "2024-02-01", "P1D", true, "NYSE", "")
 	require.Error(t, err)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/major/marketsurge-agent/internal/constants"
@@ -15,16 +14,11 @@ import (
 
 func TestRunReportSuccess(t *testing.T) {
 	var captured Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		_, _ = w.Write([]byte(adhocResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.RunReport(context.Background(), 124)
 	require.NoError(t, err)
@@ -35,7 +29,7 @@ func TestRunReportSuccess(t *testing.T) {
 
 func TestRunWatchlistTwoStepFlow(t *testing.T) {
 	requests := []Request{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
@@ -45,12 +39,7 @@ func TestRunWatchlistTwoStepFlow(t *testing.T) {
 			return
 		}
 		_, _ = w.Write([]byte(adhocResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.RunWatchlist(context.Background(), 922337203685477580)
 	require.NoError(t, err)
@@ -64,14 +53,9 @@ func TestRunWatchlistTwoStepFlow(t *testing.T) {
 }
 
 func TestRunWatchlistReturnsEmptyForNoSymbols(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"watchlist":{"id":"123","items":[]}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.RunWatchlist(context.Background(), 123)
 	require.NoError(t, err)
@@ -79,14 +63,9 @@ func TestRunWatchlistReturnsEmptyForNoSymbols(t *testing.T) {
 }
 
 func TestRunWatchlistReturnsNotFoundWhenMissing(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"watchlist":null}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.RunWatchlist(context.Background(), 123)
 	require.Error(t, err)
@@ -94,14 +73,9 @@ func TestRunWatchlistReturnsNotFoundWhenMissing(t *testing.T) {
 }
 
 func TestRunCoachScreenSuccess(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":2,"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"}]]}}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.RunCoachScreen(context.Background(), "screen-1")
 	require.NoError(t, err)
@@ -110,14 +84,9 @@ func TestRunCoachScreenSuccess(t *testing.T) {
 }
 
 func TestRunCoachScreenReturnsAPIErrorForMissingPayload(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"user":{}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.RunCoachScreen(context.Background(), "screen-1")
 	require.Error(t, err)
@@ -125,7 +94,7 @@ func TestRunCoachScreenReturnsAPIErrorForMissingPayload(t *testing.T) {
 }
 
 func TestListCatalogAggregatesAllSources(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
@@ -139,12 +108,7 @@ func TestListCatalogAggregatesAllSources(t *testing.T) {
 		default:
 			t.Fatalf("unexpected operation %s", payload.OperationName)
 		}
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	catalog, err := client.ListCatalog(context.Background(), nil)
 	require.NoError(t, err)
@@ -155,18 +119,13 @@ func TestListCatalogAggregatesAllSources(t *testing.T) {
 
 func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
 	requests := []string{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
 		requests = append(requests, payload.OperationName)
 		_, _ = w.Write([]byte(`{"data":{}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 	kind := models.CatalogKindReport
 
 	catalog, err := client.ListCatalog(context.Background(), &kind)
@@ -177,7 +136,7 @@ func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
 }
 
 func TestListCatalogPartialFailure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
@@ -190,12 +149,7 @@ func TestListCatalogPartialFailure(t *testing.T) {
 			return
 		}
 		_, _ = w.Write([]byte(`{"data":{"user":{"screens":[],"watchlists":[]}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	catalog, err := client.ListCatalog(context.Background(), nil)
 	require.NoError(t, err)
@@ -205,7 +159,7 @@ func TestListCatalogPartialFailure(t *testing.T) {
 }
 
 func TestListCatalogFiltersKind(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
@@ -217,12 +171,7 @@ func TestListCatalogFiltersKind(t *testing.T) {
 		case "CoachTree":
 			_, _ = w.Write([]byte(`{"data":{"user":{"screens":[],"watchlists":[]}}}`))
 		}
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 	kind := models.CatalogKindReport
 
 	catalog, err := client.ListCatalog(context.Background(), &kind)
@@ -235,14 +184,9 @@ func TestListCatalogFiltersKind(t *testing.T) {
 }
 
 func TestParseAdhocScreenResultIncludesErrorValues(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"marketDataAdhocScreen":{"responseValues":[],"errorValues":["bad symbol"]}}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.RunReport(context.Background(), 124)
 	require.NoError(t, err)
@@ -250,14 +194,9 @@ func TestParseAdhocScreenResultIncludesErrorValues(t *testing.T) {
 }
 
 func TestParseAdhocScreenResultMapsFields(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(adhocResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.RunReport(context.Background(), 124)
 	require.NoError(t, err)

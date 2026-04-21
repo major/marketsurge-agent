@@ -25,12 +25,12 @@ func TestGraphQLHeaders(t *testing.T) {
 		{
 			name:     "Referer",
 			key:      "Referer",
-			expected: "https://marketsurge-beta.investors.com/",
+			expected: "https://marketsurge.investors.com/",
 		},
 		{
 			name:     "Origin",
 			key:      "Origin",
-			expected: "https://marketsurge-beta.investors.com",
+			expected: "https://marketsurge.investors.com",
 		},
 		{
 			name:     "Content-Type",
@@ -60,17 +60,17 @@ func TestJWTExchangeHeaders(t *testing.T) {
 		{
 			name:     "x-original-host",
 			key:      "X-Original-Host",
-			expected: "marketsurge-beta.investors.com",
+			expected: "marketsurge.investors.com",
 		},
 		{
 			name:     "Referer",
 			key:      "Referer",
-			expected: "https://marketsurge-beta.investors.com/",
+			expected: "https://marketsurge.investors.com/",
 		},
 		{
 			name:     "Origin",
 			key:      "Origin",
-			expected: "https://marketsurge-beta.investors.com",
+			expected: "https://marketsurge.investors.com",
 		},
 	}
 

@@ -32,17 +32,16 @@ marketsurge-agent catalog list --kind report
     {
       "name": "My Watchlist",
       "kind": "watchlist",
-      "watchlist_id": 123,
-      "source": "user"
+      "description": "",
+      "watchlist_id": 123
     },
     {
       "name": "Growth Stocks",
       "kind": "report",
-      "report_id": 456,
-      "source": "predefined"
+      "description": "Top growth stocks by earnings",
+      "report_id": 456
     }
-  ],
-  "errors": []
+  ]
 }
 `
 
@@ -61,11 +60,10 @@ server-side before they reach you.
 
 **Parameters:**
 - kind (required): Entry kind: 'watchlist', 'report', or 'coach_screen'. Screen entries cannot be dispatched.
-- name (optional): Entry name (for display purposes).
 - report_id (optional): Report ID (required when kind='report').
 - coach_screen_id (optional): Coach screen ID (required when kind='coach_screen').
 - watchlist_id (optional): Watchlist ID (required when kind='watchlist').
-- limit (optional): Maximum number of results to return. Defaults to all.
+- limit (optional): Maximum number of results to return. Defaults to 50.
 - offset (optional): Starting index for pagination (0-based). Use with limit.
 - fields (optional): Comma-separated list of fields to include per entry (e.g., 'symbol,composite_rating,rs_rating,price,industry_name'). Omit for all fields.
 - min_composite (optional): Minimum Composite Rating filter (0-99).

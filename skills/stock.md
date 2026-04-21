@@ -46,7 +46,7 @@ Partial failures in fundamentals or ownership are returned in the errors list ra
 Stock data now includes valuation ratios, risk metrics, short interest data, and blue dot event flags.
 
 **Parameters:**
-- symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
+- symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA. Each symbol is fetched concurrently.
 
 **Example:**
 `bash

@@ -41,7 +41,7 @@ func TestResolveJWT_MarketSurgeEnv(t *testing.T) {
 func TestResolveJWT_NoSources(t *testing.T) {
 	clearAuthEnv(t)
 
-	// Point HOME to a temp dir so FindFirefoxCookieDB finds nothing.
+	// Point HOME to a temp dir so kooky finds no Firefox profiles.
 	t.Setenv("HOME", t.TempDir())
 
 	jwt, err := ResolveJWT(context.Background(), "", "")

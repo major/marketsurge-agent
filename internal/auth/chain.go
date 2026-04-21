@@ -26,21 +26,12 @@ func ResolveJWT(ctx context.Context, flagJWT, cookieDBPath string) (string, erro
 	}
 
 	// 3. Firefox cookie flow: extract cookies, exchange for JWT.
-	dbPath := cookieDBPath
-	if dbPath == "" {
-		var err error
-		dbPath, err = cookies.FindFirefoxCookieDB()
-		if err != nil {
-			return "", errors.NewAuthenticationError(
-				"no JWT available: try --jwt flag, MARKETSURGE_JWT env var, or sign into MarketSurge in Firefox",
-				err,
-			)
-		}
-	}
-
-	cookieJar, err := cookies.ExtractCookies(dbPath)
+	cookieJar, err := cookies.ExtractCookies(ctx, cookieDBPath)
 	if err != nil {
-		return "", err
+		return "", errors.NewAuthenticationError(
+			"no JWT available: try --jwt flag, MARKETSURGE_JWT env var, or sign into MarketSurge in Firefox",
+			err,
+		)
 	}
 
 	return ExchangeJWT(ctx, cookieJar)

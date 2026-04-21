@@ -31,7 +31,7 @@ func SkillsGenerateCommand(w io.Writer) *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			outputDir := cmd.String("output-dir")
 
-			if err := os.MkdirAll(outputDir, 0755); err != nil {
+			if err := os.MkdirAll(outputDir, 0o755); err != nil {
 				return err
 			}
 
@@ -44,7 +44,7 @@ func SkillsGenerateCommand(w io.Writer) *cli.Command {
 				}
 
 				filename := filepath.Join(outputDir, group+".md")
-				if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
 					return err
 				}
 				generatedFiles = append(generatedFiles, filename)

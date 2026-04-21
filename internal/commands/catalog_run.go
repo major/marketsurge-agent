@@ -160,10 +160,9 @@ func runCatalogEntries(
 	kind models.CatalogKind,
 	cmd *cli.Command,
 	filters catalogRunFilters,
-	limit int,
-	offset int,
+	limit, offset int,
 	fields []string,
-) (any, int, error) {
+) (entries any, total int, err error) {
 	switch kind {
 	case models.CatalogKindReport:
 		reportID := cmd.Int("report-id")
@@ -212,27 +211,27 @@ func runCatalogEntries(
 // applyCatalogRunFilters applies rating and SPAC filters to watchlist-style entries.
 func applyCatalogRunFilters(entries []models.WatchlistEntry, filters catalogRunFilters) []models.WatchlistEntry {
 	filtered := make([]models.WatchlistEntry, 0, len(entries))
-	for _, entry := range entries {
+	for i := range entries {
 		if filters.MinComposite != nil {
-			if entry.CompositeRating == nil || *entry.CompositeRating < *filters.MinComposite {
+			if entries[i].CompositeRating == nil || *entries[i].CompositeRating < *filters.MinComposite {
 				continue
 			}
 		}
 		if filters.MinRS != nil {
-			if entry.RSRating == nil || *entry.RSRating < *filters.MinRS {
+			if entries[i].RSRating == nil || *entries[i].RSRating < *filters.MinRS {
 				continue
 			}
 		}
-		if filters.ExcludeSPACs && isSPACEntry(entry) {
+		if filters.ExcludeSPACs && isSPACEntry(&entries[i]) {
 			continue
 		}
-		filtered = append(filtered, entry)
+		filtered = append(filtered, entries[i])
 	}
 	return filtered
 }
 
 // isSPACEntry reports whether the entry is a blank-check instrument.
-func isSPACEntry(entry models.WatchlistEntry) bool {
+func isSPACEntry(entry *models.WatchlistEntry) bool {
 	if entry.InstrumentSubType == nil {
 		return false
 	}
@@ -240,7 +239,7 @@ func isSPACEntry(entry models.WatchlistEntry) bool {
 }
 
 // paginateWatchlistEntries slices watchlist entries using limit and offset.
-func paginateWatchlistEntries(entries []models.WatchlistEntry, limit int, offset int) []models.WatchlistEntry {
+func paginateWatchlistEntries(entries []models.WatchlistEntry, limit, offset int) []models.WatchlistEntry {
 	start := clampCatalogOffset(offset, len(entries))
 	if limit < 0 {
 		limit = 0
@@ -256,7 +255,7 @@ func paginateWatchlistEntries(entries []models.WatchlistEntry, limit int, offset
 }
 
 // paginateCoachScreenRows slices coach screen rows using limit and offset.
-func paginateCoachScreenRows(rows []map[string]*string, limit int, offset int) []map[string]*string {
+func paginateCoachScreenRows(rows []map[string]*string, limit, offset int) []map[string]*string {
 	start := clampCatalogOffset(offset, len(rows))
 	if limit < 0 {
 		limit = 0
@@ -272,7 +271,7 @@ func paginateCoachScreenRows(rows []map[string]*string, limit int, offset int) [
 }
 
 // clampCatalogOffset bounds the offset to the available entry count.
-func clampCatalogOffset(offset int, length int) int {
+func clampCatalogOffset(offset, length int) int {
 	if offset < 0 {
 		return 0
 	}
@@ -289,14 +288,14 @@ func projectWatchlistEntries(entries []models.WatchlistEntry, fields []string) a
 	}
 
 	projected := make([]map[string]any, 0, len(entries))
-	for _, entry := range entries {
-		projected = append(projected, projectWatchlistEntry(entry, fields))
+	for i := range entries {
+		projected = append(projected, projectWatchlistEntry(&entries[i], fields))
 	}
 	return projected
 }
 
 // projectWatchlistEntry converts a watchlist entry into a field-filtered map.
-func projectWatchlistEntry(entry models.WatchlistEntry, fields []string) map[string]any {
+func projectWatchlistEntry(entry *models.WatchlistEntry, fields []string) map[string]any {
 	encoded, err := json.Marshal(entry)
 	if err != nil {
 		return map[string]any{}

@@ -69,9 +69,9 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		// Verify skill files were created
 		expectedFiles := []string{"stock.md", "fundamental.md", "ownership.md", "rs-history.md", "chart.md", "catalog.md"}
 		for _, filename := range expectedFiles {
-			filepath := filepath.Join(outputDir, filename)
-			if _, err := os.Stat(filepath); os.IsNotExist(err) {
-				t.Errorf("Skill file was not created: %s", filepath)
+			fpath := filepath.Join(outputDir, filename)
+			if _, err := os.Stat(fpath); os.IsNotExist(err) {
+				t.Errorf("Skill file was not created: %s", fpath)
 			}
 		}
 	})
@@ -197,13 +197,13 @@ func TestSkillsGenerateCommand(t *testing.T) {
 
 		// Verify all command groups have skill files
 		for _, group := range commandGroups {
-			filepath := filepath.Join(outputDir, group+".md")
-			if _, err := os.Stat(filepath); os.IsNotExist(err) {
+			fpath := filepath.Join(outputDir, group+".md")
+			if _, err := os.Stat(fpath); os.IsNotExist(err) {
 				t.Errorf("Skill file for group '%s' was not created", group)
 			}
 
 			// Verify file has content
-			content, err := os.ReadFile(filepath)
+			content, err := os.ReadFile(fpath)
 			if err != nil {
 				t.Errorf("Failed to read skill file for group '%s': %v", group, err)
 			}

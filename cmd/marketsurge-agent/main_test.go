@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v3"
 
 	"github.com/major/marketsurge-agent/internal/output"
 )
@@ -35,25 +36,33 @@ func TestHelpContainsAllCommands(t *testing.T) {
 }
 
 // TestUnknownCommandReturnsError verifies that an unrecognized subcommand
-// produces a non-nil error from Run.
+// produces a JSON error envelope via the CommandNotFound handler.
 func TestUnknownCommandReturnsError(t *testing.T) {
 	var buf bytes.Buffer
 	app := buildApp(&buf)
 	app.Writer = io.Discard
 
-	err := app.Run(context.Background(), []string{"marketsurge-agent", "nonexistent"})
-	assert.Error(t, err)
+	_ = app.Run(context.Background(), []string{"marketsurge-agent", "nonexistent"})
+
+	var envelope output.ErrorEnvelope
+	err := json.NewDecoder(&buf).Decode(&envelope)
+	require.NoError(t, err, "unknown command should produce valid JSON error envelope")
+	assert.Equal(t, "VALIDATION_ERROR", envelope.Error.Code)
+	assert.Contains(t, envelope.Error.Message, "nonexistent")
 }
 
 // TestErrorOutputIsValidJSON verifies that error responses are valid JSON
 // with the expected envelope structure.
 func TestErrorOutputIsValidJSON(t *testing.T) {
-	// Force auth failure by clearing all JWT sources.
+	// Force auth failure by clearing all JWT sources. HOME must point at a
+	// temp directory so Firefox cookie auto-discovery finds no profiles.
 	t.Setenv("MARKETSURGE_JWT", "")
+	t.Setenv("HOME", t.TempDir())
 
 	var jsonBuf bytes.Buffer
 	app := buildApp(&jsonBuf)
 	app.Writer = io.Discard
+	app.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
 	// Running a real command without auth triggers an AuthenticationError
 	// from the Before handler.

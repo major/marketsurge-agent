@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -78,6 +79,10 @@ func buildApp(w io.Writer) *cli.Command {
 
 			*apiClient = *client.NewClient(jwt)
 			return ctx, nil
+		},
+		CommandNotFound: func(_ context.Context, _ *cli.Command, name string) {
+			err := errors.NewValidationError(fmt.Sprintf("unknown command %q", name), nil)
+			_ = output.WriteError(w, err)
 		},
 		Commands: []*cli.Command{
 			{

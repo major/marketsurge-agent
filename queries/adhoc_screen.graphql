@@ -1,0 +1,34 @@
+query MarketDataAdhocScreen(
+  $correlationTag: String!
+  $adhocQuery: MDAdhocQueryInput
+  $responseColumns: [MDAdhocScreenerDataItemInput!]!
+  $resultLimit: Int!
+  $pageSize: Int!
+  $pageSkip: Int!
+  $includeSource: MDScreenerDataSourceInput!
+  $resultType: MDScreenerResultType
+) {
+  marketDataAdhocScreen(
+    correlationTag: $correlationTag
+    adhocQuery: $adhocQuery
+    resultLimit: $resultLimit
+    pageSize: $pageSize
+    pageSkip: $pageSkip
+    includeSource: $includeSource
+    responseDataPoints: $responseColumns
+    resultType: $resultType
+  ) {
+    correlationTag
+    elapsedTime
+    errorValues
+    numberOfInstrumentsInSource
+    numberOfMatchingInstruments
+    responseValues {
+      value
+      mdItem {
+        mdItemID
+        name
+      }
+    }
+  }
+}

@@ -41,7 +41,7 @@ func TestResolveJWT_MarketSurgeEnv(t *testing.T) {
 func TestResolveJWT_NoSources(t *testing.T) {
 	clearAuthEnv(t)
 
-	// Point HOME to a temp dir so kooky finds no Firefox profiles.
+	// Point HOME to a temp dir so FindCookieDBPaths finds no profiles.
 	t.Setenv("HOME", t.TempDir())
 
 	jwt, err := ResolveJWT(context.Background(), "", "")
@@ -54,7 +54,8 @@ func TestResolveJWT_NoSources(t *testing.T) {
 }
 
 // TestResolveJWT_CookieDBPath verifies that an explicit cookieDBPath pointing
-// to a nonexistent file produces a CookieExtractionError (from ExtractCookies).
+// to a nonexistent file produces an AuthenticationError wrapping a
+// CookieExtractionError.
 func TestResolveJWT_CookieDBPath(t *testing.T) {
 	clearAuthEnv(t)
 
@@ -62,6 +63,6 @@ func TestResolveJWT_CookieDBPath(t *testing.T) {
 	assert.Empty(t, jwt)
 	require.Error(t, err)
 
-	var cookieErr *errors.CookieExtractionError
-	assert.ErrorAs(t, err, &cookieErr)
+	var authErr *errors.AuthenticationError
+	assert.ErrorAs(t, err, &authErr)
 }

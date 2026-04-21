@@ -34,7 +34,6 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if cmd.Args().Len() == 0 {
 				verr := mserrors.NewValidationError("at least one symbol argument required", nil)
-				_ = output.WriteError(w, verr)
 				return verr
 			}
 
@@ -74,7 +73,6 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 			if !hasData {
 				// Total failure: no data for any symbol.
 				err := fmt.Errorf("analysis failed for all symbols: %v", allErrors)
-				_ = output.WriteError(w, err)
 				return err
 			}
 

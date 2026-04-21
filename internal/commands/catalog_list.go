@@ -33,13 +33,11 @@ func CatalogListCommand(c *client.Client, w io.Writer) *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			kind, err := parseCatalogKind(cmd.String("kind"))
 			if err != nil {
-				_ = output.WriteError(w, err)
 				return err
 			}
 
 			catalog, err := c.ListCatalog(ctx, kind)
 			if err != nil {
-				_ = output.WriteError(w, err)
 				return err
 			}
 

@@ -3,12 +3,23 @@ package commands
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 )
+
+type skillsGenerateEnvelope struct {
+	Data struct {
+		GeneratedFiles []string `json:"generated_files"`
+		OutputDir      string   `json:"output_dir"`
+	} `json:"data"`
+	Metadata map[string]any `json:"metadata"`
+}
 
 func TestSkillsGenerateCommand(t *testing.T) {
 	t.Run("generates skill files to default directory", func(t *testing.T) {
@@ -44,9 +55,11 @@ func TestSkillsGenerateCommand(t *testing.T) {
 			},
 		})
 
-		if err != nil {
-			t.Fatalf("Command failed: %v", err)
-		}
+		require.NoError(t, err)
+		envelope := decodeSkillsGenerateEnvelope(t, buf.Bytes())
+		assert.Equal(t, outputDir, envelope.Data.OutputDir)
+		assert.Len(t, envelope.Data.GeneratedFiles, 6)
+		assert.NotEmpty(t, envelope.Metadata["timestamp"])
 
 		// Verify output directory was created
 		if _, err := os.Stat(outputDir); os.IsNotExist(err) {
@@ -80,9 +93,9 @@ func TestSkillsGenerateCommand(t *testing.T) {
 			},
 		})
 
-		if err != nil {
-			t.Fatalf("Command failed: %v", err)
-		}
+		require.NoError(t, err)
+		envelope := decodeSkillsGenerateEnvelope(t, buf.Bytes())
+		assert.Equal(t, outputDir, envelope.Data.OutputDir)
 
 		// Check stock.md content
 		stockFile := filepath.Join(outputDir, "stock.md")
@@ -144,9 +157,9 @@ func TestSkillsGenerateCommand(t *testing.T) {
 			},
 		})
 
-		if err != nil {
-			t.Fatalf("Command failed: %v", err)
-		}
+		require.NoError(t, err)
+		envelope := decodeSkillsGenerateEnvelope(t, buf.Bytes())
+		assert.Equal(t, customDir, envelope.Data.OutputDir)
 
 		// Verify custom directory was created
 		if _, err := os.Stat(customDir); os.IsNotExist(err) {
@@ -177,12 +190,12 @@ func TestSkillsGenerateCommand(t *testing.T) {
 			},
 		})
 
-		if err != nil {
-			t.Fatalf("Command failed: %v", err)
-		}
+		commandGroups := []string{"stock", "fundamental", "ownership", "rs-history", "chart", "catalog"}
+		require.NoError(t, err)
+		envelope := decodeSkillsGenerateEnvelope(t, buf.Bytes())
+		assert.Len(t, envelope.Data.GeneratedFiles, len(commandGroups))
 
 		// Verify all command groups have skill files
-		commandGroups := []string{"stock", "fundamental", "ownership", "rs-history", "chart", "catalog"}
 		for _, group := range commandGroups {
 			filepath := filepath.Join(outputDir, group+".md")
 			if _, err := os.Stat(filepath); os.IsNotExist(err) {
@@ -218,19 +231,18 @@ func TestSkillsGenerateCommand(t *testing.T) {
 			},
 		})
 
-		if err != nil {
-			t.Fatalf("Command failed: %v", err)
-		}
-
-		output := buf.String()
-
-		// Verify success message
-		if !bytes.Contains([]byte(output), []byte("Successfully generated")) {
-			t.Error("Success message not found in output")
-		}
-
-		if !bytes.Contains([]byte(output), []byte("skill files")) {
-			t.Error("Skill files count not mentioned in output")
-		}
+		require.NoError(t, err)
+		envelope := decodeSkillsGenerateEnvelope(t, buf.Bytes())
+		assert.Equal(t, outputDir, envelope.Data.OutputDir)
+		assert.Len(t, envelope.Data.GeneratedFiles, 6)
+		assert.NotEmpty(t, envelope.Metadata["timestamp"])
 	})
+}
+
+func decodeSkillsGenerateEnvelope(t *testing.T, data []byte) skillsGenerateEnvelope {
+	t.Helper()
+
+	var envelope skillsGenerateEnvelope
+	require.NoError(t, json.Unmarshal(data, &envelope))
+	return envelope
 }

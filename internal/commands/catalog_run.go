@@ -94,7 +94,6 @@ func CatalogRunCommand(c *client.Client, w io.Writer) *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			kind, err := validateCatalogRunKind(cmd.String("kind"))
 			if err != nil {
-				_ = output.WriteError(w, err)
 				return err
 			}
 
@@ -109,7 +108,6 @@ func CatalogRunCommand(c *client.Client, w io.Writer) *cli.Command {
 
 			entries, total, err := runCatalogEntries(ctx, c, kind, cmd, filters, limit, offset, fields)
 			if err != nil {
-				_ = output.WriteError(w, err)
 				return err
 			}
 

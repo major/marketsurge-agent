@@ -135,10 +135,7 @@ func TestCatalogListInvalidKind(t *testing.T) {
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
 	assert.Contains(t, err.Error(), "kind must be one of")
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Equal(t, "VALIDATION_ERROR", result["error"].(map[string]any)["code"])
+	assert.Empty(t, buf.String())
 }
 
 type catalogListEnvelope struct {

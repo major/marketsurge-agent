@@ -48,11 +48,7 @@ func TestStockGetSymbolNotFound(t *testing.T) {
 
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	errObj, _ := result["error"].(map[string]any)
-	assert.Equal(t, "SYMBOL_NOT_FOUND", errObj["code"])
+	assert.Empty(t, buf.String())
 }
 
 func TestStockGetMissingSymbol(t *testing.T) {
@@ -69,9 +65,5 @@ func TestStockGetMissingSymbol(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	errObj, _ := result["error"].(map[string]any)
-	assert.Equal(t, "VALIDATION_ERROR", errObj["code"])
+	assert.Empty(t, buf.String())
 }

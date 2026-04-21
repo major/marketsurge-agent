@@ -4,6 +4,7 @@ package output
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
 	mserr "github.com/major/marketsurge-agent/internal/errors"
@@ -56,7 +57,7 @@ func WriteError(w io.Writer, err error) error {
 
 	var httpErr *mserr.HTTPError
 	if errors.As(err, &httpErr) {
-		details = "status: " + string(rune(httpErr.StatusCode))
+		details = fmt.Sprintf("status: %d", httpErr.StatusCode)
 	}
 
 	errorEnvelope := ErrorEnvelope{

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
@@ -92,11 +93,9 @@ func TestStockAnalyzeMissingSymbol(t *testing.T) {
 
 	err := cmd.Run(context.Background(), []string{"analyze"})
 	require.Error(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	errObj, _ := result["error"].(map[string]any)
-	assert.Equal(t, "VALIDATION_ERROR", errObj["code"])
+	var verr *mserrors.ValidationError
+	assert.ErrorAs(t, err, &verr)
+	assert.Empty(t, buf.String())
 }
 
 func TestStockAnalyzeTotalFailure(t *testing.T) {
@@ -110,8 +109,5 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 
 	err := cmd.Run(context.Background(), []string{"analyze", "MISSING"})
 	require.Error(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "error")
+	assert.Empty(t, buf.String())
 }

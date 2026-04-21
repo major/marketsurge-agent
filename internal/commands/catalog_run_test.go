@@ -86,11 +86,7 @@ func TestCatalogRunMissingKind(t *testing.T) {
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
 	assert.Contains(t, err.Error(), "kind is required")
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Equal(t, "VALIDATION_ERROR", nestedMap(t, result, "error")["code"])
-	assert.Contains(t, nestedMap(t, result, "error")["message"], "kind is required")
+	assert.Empty(t, buf.String())
 }
 
 func TestCatalogRunScreenKindValidation(t *testing.T) {
@@ -107,11 +103,7 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
 	assert.Contains(t, err.Error(), "screens cannot be run directly")
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Equal(t, "VALIDATION_ERROR", nestedMap(t, result, "error")["code"])
-	assert.Contains(t, nestedMap(t, result, "error")["message"], "screens cannot be run directly")
+	assert.Empty(t, buf.String())
 }
 
 func TestCatalogRunMissingIDForKind(t *testing.T) {
@@ -140,6 +132,7 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 			var verr *mserrors.ValidationError
 			assert.ErrorAs(t, err, &verr)
 			assert.Contains(t, err.Error(), tt.message)
+			assert.Empty(t, buf.String())
 		})
 	}
 }

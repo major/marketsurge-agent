@@ -185,7 +185,7 @@ func TestErrorChainPreservation(t *testing.T) {
 	}
 
 	// Verify Unwrap works
-	if err.Unwrap() != underlying {
+	if !errors.Is(err.Unwrap(), underlying) {
 		t.Error("Unwrap() did not return the underlying error")
 	}
 }

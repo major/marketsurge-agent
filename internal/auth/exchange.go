@@ -28,7 +28,7 @@ type clientResponse struct {
 // investors.com client endpoint. It sends a GET request with the provided
 // cookies and extracts the JWT from the JSON response.
 func ExchangeJWT(ctx context.Context, cookies []*http.Cookie) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, exchangeURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, exchangeURL, http.NoBody)
 	if err != nil {
 		return "", errors.NewAuthenticationError(
 			fmt.Sprintf("failed to build JWT exchange request: %s", err),

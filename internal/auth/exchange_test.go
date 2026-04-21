@@ -24,9 +24,9 @@ func validJWTResponse() clientResponse {
 }
 
 func TestExchangeJWT_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(validJWTResponse())
+		require.NoError(t, json.NewEncoder(w).Encode(validJWTResponse()))
 	}))
 	defer server.Close()
 
@@ -46,9 +46,9 @@ func TestExchangeJWT_Success(t *testing.T) {
 
 func TestExchangeJWT_HTTPError(t *testing.T) {
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("unauthorized"))
+		_, _ = w.Write([]byte("unauthorized"))
 	}))
 	defer server.Close()
 
@@ -69,7 +69,7 @@ func TestExchangeJWT_HTTPError(t *testing.T) {
 func TestExchangeJWT_NoJWT(t *testing.T) {
 
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := clientResponse{
 			IsLoggedIn: true,
 			JWT:        "",
@@ -77,7 +77,7 @@ func TestExchangeJWT_NoJWT(t *testing.T) {
 			FamilyName: "User",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
 	}))
 	defer server.Close()
 
@@ -98,13 +98,13 @@ func TestExchangeJWT_NoJWT(t *testing.T) {
 func TestExchangeJWT_NotLoggedIn(t *testing.T) {
 
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := clientResponse{
 			IsLoggedIn: false,
 			JWT:        "",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
 	}))
 	defer server.Close()
 
@@ -130,7 +130,7 @@ func TestExchangeJWT_Headers(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaders = r.Header.Clone()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(validJWTResponse())
+		require.NoError(t, json.NewEncoder(w).Encode(validJWTResponse()))
 	}))
 	defer server.Close()
 
@@ -156,7 +156,7 @@ func TestExchangeJWT_Cookies(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedCookies = r.Cookies()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(validJWTResponse())
+		require.NoError(t, json.NewEncoder(w).Encode(validJWTResponse()))
 	}))
 	defer server.Close()
 
@@ -187,9 +187,9 @@ func TestExchangeJWT_Cookies(t *testing.T) {
 func TestExchangeJWT_InvalidJSON(t *testing.T) {
 
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("not valid json"))
+		_, _ = w.Write([]byte("not valid json"))
 	}))
 	defer server.Close()
 
@@ -215,7 +215,7 @@ func TestExchangeJWT_UsesGETMethod(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedMethod = r.Method
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(validJWTResponse())
+		require.NoError(t, json.NewEncoder(w).Encode(validJWTResponse()))
 	}))
 	defer server.Close()
 

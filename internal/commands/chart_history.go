@@ -65,9 +65,9 @@ func ChartHistoryCommand(c *client.Client, w io.Writer) *cli.Command {
 
 // resolveChartDates validates and resolves the date flags into start/end date strings.
 // Either (--start-date AND --end-date) or --lookback must be provided, not both.
-func resolveChartDates(cmd *cli.Command, now time.Time) (string, string, error) {
-	startDate := cmd.String("start-date")
-	endDate := cmd.String("end-date")
+func resolveChartDates(cmd *cli.Command, now time.Time) (startDate, endDate string, err error) {
+	startDate = cmd.String("start-date")
+	endDate = cmd.String("end-date")
 	lookback := cmd.String("lookback")
 
 	hasExplicit := startDate != "" || endDate != ""

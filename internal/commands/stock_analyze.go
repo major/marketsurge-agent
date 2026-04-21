@@ -95,9 +95,8 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 
 // analyzeSymbol fetches stock, fundamental, and ownership data concurrently
 // for a single symbol. Returns the combined result and any errors encountered.
-func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (AnalysisResult, []string) {
-	result := AnalysisResult{Symbol: symbol}
-	var errs []string
+func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (result AnalysisResult, errs []string) {
+	result = AnalysisResult{Symbol: symbol}
 	var mu sync.Mutex
 
 	var wg sync.WaitGroup

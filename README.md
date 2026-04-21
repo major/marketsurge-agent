@@ -114,7 +114,7 @@ Requires Go 1.25+.
 ```bash
 make build     # Build binary
 make test      # Run tests with race detector
-make lint      # go vet
+make lint      # Run golangci-lint (install: https://golangci-lint.run/welcome/install/)
 make clean     # Remove binary and build artifacts
 ```
 

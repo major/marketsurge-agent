@@ -115,11 +115,13 @@ Follow `fundamental_get.go` (33 lines) as the canonical simple command template.
 ```bash
 make build     # Build binary
 make test      # go test -v -race -coverprofile
-make lint      # go vet
+make lint      # golangci-lint run
 make clean     # Remove binary + coverage
 ```
 
-CI pipeline: `go vet` -> `go test -v -race` -> `go build`
+Linting uses [golangci-lint](https://golangci-lint.run/) v2 with config in `.golangci.yml`. The standard linter set is enabled plus `bodyclose`, `errorlint`, `gocritic`, `misspell`, `nolintlint`, `revive`, `unconvert`, and `unparam`.
+
+CI pipeline: `golangci-lint` (separate job) + `go test -v -race` -> `go build`
 
 Release: push `v*` tag -> goreleaser v2 -> multi-platform binaries (linux/darwin, amd64/arm64, CGO disabled) -> GitHub Releases
 

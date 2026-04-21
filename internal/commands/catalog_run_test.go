@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"math"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 )
 
 func TestCatalogRunReportDispatch(t *testing.T) {
@@ -78,9 +76,7 @@ func TestCatalogRunMissingKind(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := CatalogRunCommand(testClient(t, server), &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"run"})
+	err := runTestCommand(t, cmd, "run")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -95,9 +91,7 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := CatalogRunCommand(testClient(t, server), &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"run", "--kind", "screen"})
+	err := runTestCommand(t, cmd, "run", "--kind", "screen")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -124,9 +118,7 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			cmd := CatalogRunCommand(testClient(t, server), &buf)
-			cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-			err := cmd.Run(context.Background(), tt.args)
+			err := runTestCommand(t, cmd, tt.args...)
 			require.Error(t, err)
 
 			var verr *mserrors.ValidationError
@@ -192,10 +184,8 @@ func runCatalogRunCommand(t *testing.T, c *client.Client, args ...string) catalo
 
 	var buf bytes.Buffer
 	cmd := CatalogRunCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
 	argv := append([]string{"run"}, args...)
-	require.NoError(t, cmd.Run(context.Background(), argv))
+	require.NoError(t, runTestCommand(t, cmd, argv...))
 
 	var envelope catalogRunEnvelope
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &envelope))

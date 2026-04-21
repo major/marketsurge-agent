@@ -1,12 +1,42 @@
 package commands
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/major/marketsurge-agent/internal/client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v3"
 )
+
+// runTestCommand configures the command to suppress os.Exit and runs it with the given args.
+func runTestCommand(t *testing.T, cmd *cli.Command, args ...string) error {
+	t.Helper()
+	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	return cmd.Run(context.Background(), args)
+}
+
+// parseJSONEnvelope unmarshals buf into a map and asserts it contains data and metadata keys.
+func parseJSONEnvelope(t *testing.T, buf *bytes.Buffer) map[string]any {
+	t.Helper()
+	var result map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
+	assert.Contains(t, result, "data")
+	assert.Contains(t, result, "metadata")
+	return result
+}
+
+// assertSymbolMeta asserts that the envelope metadata contains the expected symbol.
+func assertSymbolMeta(t *testing.T, envelope map[string]any, symbol string) {
+	t.Helper()
+	meta, _ := envelope["metadata"].(map[string]any)
+	assert.Equal(t, symbol, meta["symbol"])
+}
 
 // testClient creates a *client.Client backed by the given httptest server.
 func testClient(t *testing.T, server *httptest.Server) *client.Client {

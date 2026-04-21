@@ -253,6 +253,21 @@ func boolPtr(value any) *bool {
 	}
 }
 
+// buildSlice iterates untyped JSON array items, type-asserts each to
+// map[string]any, and maps them to a typed slice using the provided function.
+// Items that are not maps are silently skipped.
+func buildSlice[T any](items []any, mapper func(map[string]any) T) []T {
+	result := make([]T, 0, len(items))
+	for _, entry := range items {
+		item, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		result = append(result, mapper(item))
+	}
+	return result
+}
+
 func stringify(value any) string {
 	switch typed := value.(type) {
 	case string:

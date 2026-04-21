@@ -2,14 +2,11 @@ package commands
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
@@ -21,17 +18,11 @@ func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	require.NoError(t, runTestCommand(t, cmd,
 		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL",
-	})
-	require.NoError(t, err)
+	))
 
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
-	assert.Contains(t, result, "metadata")
+	parseJSONEnvelope(t, &buf)
 }
 
 func TestChartHistorySuccessWithLookback(t *testing.T) {
@@ -41,16 +32,11 @@ func TestChartHistorySuccessWithLookback(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	require.NoError(t, runTestCommand(t, cmd,
 		"history", "--lookback", "3M", "AAPL",
-	})
-	require.NoError(t, err)
+	))
 
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
+	parseJSONEnvelope(t, &buf)
 }
 
 func TestChartHistorySymbolNotFound(t *testing.T) {
@@ -60,11 +46,9 @@ func TestChartHistorySymbolNotFound(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	err := runTestCommand(t, cmd,
 		"history", "--lookback", "1M", "MISSING",
-	})
+	)
 	require.Error(t, err)
 
 	var snf *mserrors.SymbolNotFoundError
@@ -78,11 +62,9 @@ func TestChartHistoryMissingSymbol(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	err := runTestCommand(t, cmd,
 		"history", "--lookback", "1M",
-	})
+	)
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -96,11 +78,9 @@ func TestChartHistoryMutualExclusion(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	err := runTestCommand(t, cmd,
 		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL",
-	})
+	)
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -115,9 +95,7 @@ func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"history", "AAPL"})
+	err := runTestCommand(t, cmd, "history", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -132,11 +110,9 @@ func TestChartHistoryPartialExplicitDates(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	err := runTestCommand(t, cmd,
 		"history", "--start-date", "2024-01-01", "AAPL",
-	})
+	)
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -151,11 +127,9 @@ func TestChartHistoryInvalidLookback(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := ChartHistoryCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{
+	err := runTestCommand(t, cmd,
 		"history", "--lookback", "2W", "AAPL",
-	})
+	)
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError

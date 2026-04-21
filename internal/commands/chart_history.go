@@ -34,11 +34,10 @@ func ChartHistoryCommand(c *client.Client, w io.Writer) *cli.Command {
 			&cli.StringFlag{Name: "benchmark", Usage: "Benchmark symbol for relative strength (e.g. 0S&P5)"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			if cmd.Args().Len() == 0 {
-				verr := mserrors.NewValidationError("symbol argument required", nil)
-				return verr
+			symbol, err := requireSymbol(cmd)
+			if err != nil {
+				return err
 			}
-			symbol := cmd.Args().First()
 
 			startDate, endDate, err := resolveChartDates(cmd, time.Now().UTC())
 			if err != nil {

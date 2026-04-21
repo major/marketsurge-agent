@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
@@ -22,7 +21,7 @@ func TestNewClientDefaults(t *testing.T) {
 
 func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 	var captured Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		require.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "Bearer jwt-token", r.Header.Get("Authorization"))
@@ -31,12 +30,7 @@ func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	raw, err := client.Execute(context.Background(), Request{OperationName: "TestOp", Variables: map[string]any{"value": "x"}, Query: "query TestOp { ok }"})
 	require.NoError(t, err)
@@ -46,15 +40,10 @@ func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 }
 
 func TestExecuteReturnsGraphQLErrorOnHTTP200(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"errors":[{"message":"bad request"}]}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.Execute(context.Background(), Request{})
 	var apiErr *mserrors.APIError
@@ -64,14 +53,9 @@ func TestExecuteReturnsGraphQLErrorOnHTTP200(t *testing.T) {
 }
 
 func TestExecuteReturnsTokenExpiredErrorOn401(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "nope", http.StatusUnauthorized)
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.Execute(context.Background(), Request{})
 	var authErr *mserrors.TokenExpiredError
@@ -80,14 +64,9 @@ func TestExecuteReturnsTokenExpiredErrorOn401(t *testing.T) {
 }
 
 func TestExecuteReturnsAuthenticationErrorOn403(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.Execute(context.Background(), Request{})
 	var authErr *mserrors.AuthenticationError
@@ -96,14 +75,9 @@ func TestExecuteReturnsAuthenticationErrorOn403(t *testing.T) {
 }
 
 func TestExecuteReturnsHTTPErrorOn500(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.Execute(context.Background(), Request{})
 	var httpErr *mserrors.HTTPError

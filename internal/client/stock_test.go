@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,17 +12,12 @@ import (
 
 func TestGetStockSuccess(t *testing.T) {
 	var captured Request
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	stock, err := client.GetStock(context.Background(), "AAPL")
 	require.NoError(t, err)
@@ -38,15 +32,10 @@ func TestGetStockSuccess(t *testing.T) {
 }
 
 func TestGetStockReturnsSymbolNotFoundForEmptyMarketData(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":{"marketData":[]}}`))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	_, err := client.GetStock(context.Background(), "MISSING")
 	require.Error(t, err)
@@ -54,15 +43,10 @@ func TestGetStockReturnsSymbolNotFoundForEmptyMarketData(t *testing.T) {
 }
 
 func TestGetFundamentalsSuccess(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.GetFundamentals(context.Background(), "AAPL")
 	require.NoError(t, err)
@@ -73,15 +57,10 @@ func TestGetFundamentalsSuccess(t *testing.T) {
 }
 
 func TestGetOwnershipSuccess(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.GetOwnership(context.Background(), "AAPL")
 	require.NoError(t, err)
@@ -91,15 +70,10 @@ func TestGetOwnershipSuccess(t *testing.T) {
 }
 
 func TestGetRSRatingHistorySuccess(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))
-	}))
-	defer server.Close()
-
-	client := NewClient("jwt-token")
-	client.Endpoint = server.URL
-	client.HTTPClient = server.Client()
+	})
 
 	data, err := client.GetRSRatingHistory(context.Background(), "AAPL")
 	require.NoError(t, err)

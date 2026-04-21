@@ -2,13 +2,10 @@ package commands
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
@@ -20,18 +17,10 @@ func TestOwnershipGetSuccess(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := OwnershipGetCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL"))
 
-	err := cmd.Run(context.Background(), []string{"get", "AAPL"})
-	require.NoError(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
-	assert.Contains(t, result, "metadata")
-
-	meta, _ := result["metadata"].(map[string]any)
-	assert.Equal(t, "AAPL", meta["symbol"])
+	result := parseJSONEnvelope(t, &buf)
+	assertSymbolMeta(t, result, "AAPL")
 }
 
 func TestOwnershipGetSymbolNotFound(t *testing.T) {
@@ -41,9 +30,7 @@ func TestOwnershipGetSymbolNotFound(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := OwnershipGetCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"get", "MISSING"})
+	err := runTestCommand(t, cmd, "get", "MISSING")
 	require.Error(t, err)
 
 	var snf *mserrors.SymbolNotFoundError
@@ -58,9 +45,7 @@ func TestOwnershipGetMissingSymbol(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := OwnershipGetCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"get"})
+	err := runTestCommand(t, cmd, "get")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError

@@ -29,21 +29,18 @@ func (c *Client) GetChartMarkups(ctx context.Context, symbol, frequency, sortDir
 	}
 
 	container := getNestedMap(raw, "data", "user", "chartMarkups")
-	result := &models.ChartMarkupList{CursorID: stringify(container["cursorId"]), Markups: []models.ChartMarkup{}}
-	for _, entry := range getNestedSlice(container, "chartMarkups") {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result.Markups = append(result.Markups, models.ChartMarkup{
-			ID:        stringify(item["id"]),
-			Name:      stringPtr(item["name"]),
-			Data:      stringify(item["data"]),
-			Frequency: stringPtr(item["frequency"]),
-			Site:      stringPtr(item["site"]),
-			CreatedAt: stringPtr(item["createdAt"]),
-			UpdatedAt: stringPtr(item["updatedAt"]),
-		})
-	}
-	return result, nil
+	return &models.ChartMarkupList{
+		CursorID: stringify(container["cursorId"]),
+		Markups: buildSlice(getNestedSlice(container, "chartMarkups"), func(item map[string]any) models.ChartMarkup {
+			return models.ChartMarkup{
+				ID:        stringify(item["id"]),
+				Name:      stringPtr(item["name"]),
+				Data:      stringify(item["data"]),
+				Frequency: stringPtr(item["frequency"]),
+				Site:      stringPtr(item["site"]),
+				CreatedAt: stringPtr(item["createdAt"]),
+				UpdatedAt: stringPtr(item["updatedAt"]),
+			}
+		}),
+	}, nil
 }

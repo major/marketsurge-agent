@@ -7,7 +7,6 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/major/marketsurge-agent/internal/client"
-	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/output"
 )
 
@@ -22,11 +21,10 @@ func ChartMarkupsCommand(c *client.Client, w io.Writer) *cli.Command {
 			&cli.StringFlag{Name: "sort-dir", Value: "ASC", Usage: "Sort direction: ASC or DESC"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			if cmd.Args().Len() == 0 {
-				verr := mserrors.NewValidationError("symbol argument required", nil)
-				return verr
+			symbol, err := requireSymbol(cmd)
+			if err != nil {
+				return err
 			}
-			symbol := cmd.Args().First()
 			frequency := cmd.String("frequency")
 			sortDir := cmd.String("sort-dir")
 

@@ -34,22 +34,14 @@ func (c *Client) GetOwnership(ctx context.Context, symbol string) (*models.Owner
 
 	ownership := getNestedMap(item, "ownership")
 	quarterly := getNestedSlice(ownership, "fundOwnershipSummary")
-	result := &models.OwnershipData{
-		Symbol:         symbol,
-		FundsFloatPct:  formattedValue(ownership["fundsFloatPercentHeld"]),
-		QuarterlyFunds: make([]models.QuarterlyFundOwnership, 0, len(quarterly)),
-	}
-
-	for _, entry := range quarterly {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		result.QuarterlyFunds = append(result.QuarterlyFunds, models.QuarterlyFundOwnership{
-			Date:  stringPtr(item["date"]),
-			Count: formattedValue(item["numberOfFundsHeld"]),
-		})
-	}
-
-	return result, nil
+	return &models.OwnershipData{
+		Symbol:        symbol,
+		FundsFloatPct: formattedValue(ownership["fundsFloatPercentHeld"]),
+		QuarterlyFunds: buildSlice(quarterly, func(item map[string]any) models.QuarterlyFundOwnership {
+			return models.QuarterlyFundOwnership{
+				Date:  stringPtr(item["date"]),
+				Count: formattedValue(item["numberOfFundsHeld"]),
+			}
+		}),
+	}, nil
 }

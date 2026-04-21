@@ -2,14 +2,11 @@ package commands
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"testing"
 
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 )
 
 func TestStockAnalyzeSuccess(t *testing.T) {
@@ -19,16 +16,9 @@ func TestStockAnalyzeSuccess(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := StockAnalyzeCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL"))
 
-	err := cmd.Run(context.Background(), []string{"analyze", "AAPL"})
-	require.NoError(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
-	assert.Contains(t, result, "metadata")
-
+	result := parseJSONEnvelope(t, &buf)
 	data, _ := result["data"].(map[string]any)
 	assert.Equal(t, "AAPL", data["symbol"])
 	assert.Contains(t, data, "stock")
@@ -46,14 +36,9 @@ func TestStockAnalyzePartialFailure(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := StockAnalyzeCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL"))
 
-	err := cmd.Run(context.Background(), []string{"analyze", "AAPL"})
-	require.NoError(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
+	parseJSONEnvelope(t, &buf)
 }
 
 func TestStockAnalyzeMultiSymbol(t *testing.T) {
@@ -63,14 +48,9 @@ func TestStockAnalyzeMultiSymbol(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := StockAnalyzeCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL", "MSFT"))
 
-	err := cmd.Run(context.Background(), []string{"analyze", "AAPL", "MSFT"})
-	require.NoError(t, err)
-
-	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-	assert.Contains(t, result, "data")
+	result := parseJSONEnvelope(t, &buf)
 
 	// Multi-symbol returns an array.
 	data, ok := result["data"].([]any)
@@ -89,9 +69,7 @@ func TestStockAnalyzeMissingSymbol(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := StockAnalyzeCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"analyze"})
+	err := runTestCommand(t, cmd, "analyze")
 	require.Error(t, err)
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
@@ -105,9 +83,7 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := StockAnalyzeCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"analyze", "MISSING"})
+	err := runTestCommand(t, cmd, "analyze", "MISSING")
 	require.Error(t, err)
 	assert.Empty(t, buf.String())
 }

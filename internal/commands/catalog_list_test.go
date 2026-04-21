@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +13,6 @@ import (
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 )
 
 func TestCatalogListAllSourcesSucceed(t *testing.T) {
@@ -127,9 +125,7 @@ func TestCatalogListInvalidKind(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := CatalogListCommand(testClient(t, server), &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
-	err := cmd.Run(context.Background(), []string{"list", "--kind", "invalid"})
+	err := runTestCommand(t, cmd, "list", "--kind", "invalid")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -151,10 +147,8 @@ func runCatalogListCommand(t *testing.T, c *client.Client, args ...string) catal
 
 	var buf bytes.Buffer
 	cmd := CatalogListCommand(c, &buf)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-
 	argv := append([]string{"list"}, args...)
-	require.NoError(t, cmd.Run(context.Background(), argv))
+	require.NoError(t, runTestCommand(t, cmd, argv...))
 
 	var envelope catalogListEnvelope
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &envelope))

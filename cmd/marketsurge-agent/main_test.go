@@ -38,9 +38,14 @@ func TestHelpContainsAllCommands(t *testing.T) {
 // TestUnknownCommandReturnsError verifies that an unrecognized subcommand
 // produces a JSON error envelope via the CommandNotFound handler.
 func TestUnknownCommandReturnsError(t *testing.T) {
+	// Provide a dummy JWT so the Before hook succeeds (it runs before
+	// command routing, even for unknown commands).
+	t.Setenv("MARKETSURGE_JWT", "test-token")
+
 	var buf bytes.Buffer
 	app := buildApp(&buf)
 	app.Writer = io.Discard
+	app.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
 	_ = app.Run(context.Background(), []string{"marketsurge-agent", "nonexistent"})
 

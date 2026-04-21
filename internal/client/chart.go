@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
@@ -44,92 +46,89 @@ func (c *Client) GetChartHistory(ctx context.Context, symbol, startDate, endDate
 		return nil, err
 	}
 
-	pricing := getNestedMap(item, "pricing")
+	pricing := item.Get("pricing")
 	result := &models.ChartData{
 		Symbol:             symbol,
-		TimeSeries:         buildTimeSeries(getNestedMap(pricing, "timeSeries")),
-		Quote:              buildQuote(getNestedMap(pricing, "quote")),
-		PremarketQuote:     buildQuote(getNestedMap(pricing, "premarketQuote")),
-		PostmarketQuote:    buildQuote(getNestedMap(pricing, "postmarketQuote")),
-		CurrentMarketState: stringPtr(pricing["currentMarketState"]),
+		TimeSeries:         buildTimeSeries(pricing.Get("timeSeries")),
+		Quote:              buildQuote(pricing.Get("quote")),
+		PremarketQuote:     buildQuote(pricing.Get("premarketQuote")),
+		PostmarketQuote:    buildQuote(pricing.Get("postmarketQuote")),
+		CurrentMarketState: gStr(pricing.Get("currentMarketState")),
 	}
 
-	exchangeData := raw["data"]
-	if dataMap, ok := exchangeData.(map[string]any); ok {
-		if rawExchange, ok := dataMap["exchangeData"]; ok {
-			switch exchange := rawExchange.(type) {
-			case []any:
-				result.Exchange = buildExchange(firstMap(exchange))
-			case map[string]any:
-				result.Exchange = buildExchange(exchange)
+	exchangeData := gjson.GetBytes(raw, "data.exchangeData")
+	if exchangeData.Exists() {
+		if exchangeData.IsArray() {
+			if first := exchangeData.Get("0"); first.Exists() {
+				result.Exchange = buildExchange(first)
 			}
+		} else if exchangeData.IsObject() {
+			result.Exchange = buildExchange(exchangeData)
 		}
 	}
 
-	marketData := getNestedSlice(raw, "data", "marketData")
-	if len(marketData) > 1 {
-		if benchmarkItem, ok := marketData[1].(map[string]any); ok {
-			result.BenchmarkTimeSeries = buildTimeSeries(getNestedMap(benchmarkItem, "pricing", "timeSeries"))
-		}
+	benchmarkItem := gjson.GetBytes(raw, "data.marketData.1")
+	if benchmarkItem.Exists() {
+		result.BenchmarkTimeSeries = buildTimeSeries(benchmarkItem.Get("pricing.timeSeries"))
 	}
 
 	return result, nil
 }
 
-func buildQuote(item map[string]any) *models.Quote {
-	if len(item) == 0 {
+func buildQuote(item gjson.Result) *models.Quote {
+	if !item.Exists() {
 		return nil
 	}
 	return &models.Quote{
-		TradeDateTime:          stringPtr(item["tradeDateTime"]),
-		Timeliness:             stringPtr(item["timeliness"]),
-		QuoteType:              stringPtr(item["quoteType"]),
-		Last:                   floatPtr(item["last"]),
-		Volume:                 floatPtr(item["volume"]),
-		PercentChange:          floatPtr(item["percentChange"]),
-		NetChange:              floatPtr(item["netChange"]),
-		LastFormatted:          formattedValue(item["last"]),
-		VolumeFormatted:        formattedValue(item["volume"]),
-		PercentChangeFormatted: formattedValue(item["percentChange"]),
-		NetChangeFormatted:     formattedValue(item["netChange"]),
+		TradeDateTime:          gStr(item.Get("tradeDateTime")),
+		Timeliness:             gStr(item.Get("timeliness")),
+		QuoteType:              gStr(item.Get("quoteType")),
+		Last:                   gFloat(item.Get("last")),
+		Volume:                 gFloat(item.Get("volume")),
+		PercentChange:          gFloat(item.Get("percentChange")),
+		NetChange:              gFloat(item.Get("netChange")),
+		LastFormatted:          gStr(item.Get("last.formattedValue")),
+		VolumeFormatted:        gStr(item.Get("volume.formattedValue")),
+		PercentChangeFormatted: gStr(item.Get("percentChange.formattedValue")),
+		NetChangeFormatted:     gStr(item.Get("netChange.formattedValue")),
 	}
 }
 
-func buildTimeSeries(item map[string]any) *models.TimeSeries {
-	if len(item) == 0 {
+func buildTimeSeries(item gjson.Result) *models.TimeSeries {
+	if !item.Exists() {
 		return nil
 	}
 	return &models.TimeSeries{
-		Period: stringify(item["period"]),
-		DataPoints: buildSlice(getNestedSlice(item, "dataPoints"), func(point map[string]any) models.DataPoint {
+		Period: stringify(item.Get("period")),
+		DataPoints: buildSlice(item.Get("dataPoints").Array(), func(point gjson.Result) models.DataPoint {
 			return models.DataPoint{
-				StartDateTime: stringPtr(point["startDateTime"]),
-				EndDateTime:   stringPtr(point["endDateTime"]),
-				Open:          floatPtr(point["open"]),
-				High:          floatPtr(point["high"]),
-				Low:           floatPtr(point["low"]),
-				Close:         floatPtr(point["last"]),
-				Volume:        floatPtr(point["volume"]),
+				StartDateTime: gStr(point.Get("startDateTime")),
+				EndDateTime:   gStr(point.Get("endDateTime")),
+				Open:          gFloat(point.Get("open")),
+				High:          gFloat(point.Get("high")),
+				Low:           gFloat(point.Get("low")),
+				Close:         gFloat(point.Get("last")),
+				Volume:        gFloat(point.Get("volume")),
 			}
 		}),
 	}
 }
 
-func buildExchange(item map[string]any) *models.ExchangeInfo {
-	if len(item) == 0 {
+func buildExchange(item gjson.Result) *models.ExchangeInfo {
+	if !item.Exists() {
 		return nil
 	}
 	return &models.ExchangeInfo{
-		City:        stringPtr(item["city"]),
-		CountryCode: stringPtr(item["countryCode"]),
-		ExchangeISO: stringPtr(item["exchangeISO"]),
-		Holidays: buildSlice(getNestedSlice(item, "holidays"), func(holiday map[string]any) models.ExchangeHoliday {
+		City:        gStr(item.Get("city")),
+		CountryCode: gStr(item.Get("countryCode")),
+		ExchangeISO: gStr(item.Get("exchangeISO")),
+		Holidays: buildSlice(item.Get("holidays").Array(), func(holiday gjson.Result) models.ExchangeHoliday {
 			return models.ExchangeHoliday{
-				Name:          stringify(holiday["name"]),
-				HolidayType:   stringPtr(holiday["holidayType"]),
-				Description:   stringPtr(holiday["description"]),
-				StartDateTime: stringify(holiday["startDateTime"]),
-				EndDateTime:   stringify(holiday["endDateTime"]),
+				Name:          stringify(holiday.Get("name")),
+				HolidayType:   gStr(holiday.Get("holidayType")),
+				Description:   gStr(holiday.Get("description")),
+				StartDateTime: stringify(holiday.Get("startDateTime")),
+				EndDateTime:   stringify(holiday.Get("endDateTime")),
 			}
 		}),
 	}

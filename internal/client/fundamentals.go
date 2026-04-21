@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
@@ -36,49 +38,42 @@ func (c *Client) GetFundamentals(ctx context.Context, symbol string) (*models.Fu
 		return nil, err
 	}
 
-	financials := getNestedMap(item, "financials")
-	consensus := getNestedMap(financials, "consensusFinancials")
-	estimates := getNestedMap(financials, "estimates")
-	symbology := getNestedMap(item, "symbology")
-	companyName := stringPtr(firstMap(getNestedSlice(symbology, "company"))["companyName"])
+	consensus := item.Get("financials.consensusFinancials")
+	companyName := gStr(item.Get("symbology.company.0.companyName"))
 
 	return &models.FundamentalData{
 		Symbol:           symbol,
 		CompanyName:      companyName,
-		ReportedEarnings: buildReportedPeriods(getNestedSlice(consensus, "eps", "reportedEarnings")),
-		ReportedSales:    buildReportedPeriods(getNestedSlice(consensus, "sales", "reportedSales")),
-		EPSEstimates:     buildEstimatePeriods(getNestedSlice(estimates, "epsEstimates")),
-		SalesEstimates:   buildEstimatePeriods(getNestedSlice(estimates, "salesEstimates")),
+		ReportedEarnings: buildReportedPeriods(consensus.Get("eps.reportedEarnings").Array()),
+		ReportedSales:    buildReportedPeriods(consensus.Get("sales.reportedSales").Array()),
+		EPSEstimates:     buildEstimatePeriods(item.Get("financials.estimates.epsEstimates").Array()),
+		SalesEstimates:   buildEstimatePeriods(item.Get("financials.estimates.salesEstimates").Array()),
 	}, nil
 }
 
-func buildReportedPeriods(items []any) []models.ReportedPeriod {
-	return buildSlice(items, func(item map[string]any) models.ReportedPeriod {
-		valueMap, _ := item["value"].(map[string]any)
-		pctMap, _ := item["percentChangeYOY"].(map[string]any)
+func buildReportedPeriods(items []gjson.Result) []models.ReportedPeriod {
+	return buildSlice(items, func(item gjson.Result) models.ReportedPeriod {
 		return models.ReportedPeriod{
-			Value:              floatPtr(item["value"]),
-			FormattedValue:     stringPtr(valueMap["formattedValue"]),
-			PctChangeYoY:       floatPtr(item["percentChangeYOY"]),
-			FormattedPctChange: stringPtr(pctMap["formattedValue"]),
-			PeriodOffset:       stringify(item["periodOffset"]),
-			PeriodEndDate:      stringPtr(item["periodEndDate"]),
+			Value:              gFloat(item.Get("value")),
+			FormattedValue:     gStr(item.Get("value.formattedValue")),
+			PctChangeYoY:       gFloat(item.Get("percentChangeYOY")),
+			FormattedPctChange: gStr(item.Get("percentChangeYOY.formattedValue")),
+			PeriodOffset:       stringify(item.Get("periodOffset")),
+			PeriodEndDate:      gStr(item.Get("periodEndDate")),
 		}
 	})
 }
 
-func buildEstimatePeriods(items []any) []models.EstimatePeriod {
-	return buildSlice(items, func(item map[string]any) models.EstimatePeriod {
-		valueMap, _ := item["value"].(map[string]any)
-		pctMap, _ := item["percentChangeYOY"].(map[string]any)
+func buildEstimatePeriods(items []gjson.Result) []models.EstimatePeriod {
+	return buildSlice(items, func(item gjson.Result) models.EstimatePeriod {
 		return models.EstimatePeriod{
-			Value:              floatPtr(item["value"]),
-			FormattedValue:     stringPtr(valueMap["formattedValue"]),
-			PctChangeYoY:       floatPtr(item["percentChangeYOY"]),
-			FormattedPctChange: stringPtr(pctMap["formattedValue"]),
-			PeriodOffset:       stringify(item["periodOffset"]),
-			Period:             stringPtr(item["period"]),
-			RevisionDirection:  stringPtr(item["revisionDirection"]),
+			Value:              gFloat(item.Get("value")),
+			FormattedValue:     gStr(item.Get("value.formattedValue")),
+			PctChangeYoY:       gFloat(item.Get("percentChangeYOY")),
+			FormattedPctChange: gStr(item.Get("percentChangeYOY.formattedValue")),
+			PeriodOffset:       stringify(item.Get("periodOffset")),
+			Period:             gStr(item.Get("period")),
+			RevisionDirection:  gStr(item.Get("revisionDirection")),
 		}
 	})
 }

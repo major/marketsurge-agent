@@ -2,8 +2,9 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
+	"github.com/tidwall/gjson"
 
 	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
@@ -102,18 +103,15 @@ func (c *Client) RunWatchlist(ctx context.Context, watchlistID int64) (*models.A
 		return nil, err
 	}
 
-	watchlist := getNestedMap(flaggedRaw, "data", "watchlist")
-	if len(watchlist) == 0 {
+	watchlist := gjson.GetBytes(flaggedRaw, "data.watchlist")
+	if !watchlist.Exists() || watchlist.Type == gjson.Null {
 		return nil, mserrors.NewAPIError(fmt.Sprintf("watchlist not found: %d", watchlistID), nil)
 	}
 
-	symbols := make([]string, 0, len(getNestedSlice(watchlist, "items")))
-	for _, entry := range getNestedSlice(watchlist, "items") {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		if key := stringPtr(item["dowJonesKey"]); key != nil {
+	items := watchlist.Get("items").Array()
+	symbols := make([]string, 0, len(items))
+	for _, entry := range items {
+		if key := gStr(entry.Get("dowJonesKey")); key != nil {
 			symbols = append(symbols, *key)
 		}
 	}
@@ -177,14 +175,14 @@ func (c *Client) RunCoachScreen(ctx context.Context, screenID string) (*models.S
 		return nil, err
 	}
 
-	container := getNestedMap(raw, "data", "user", "runScreen")
-	if len(container) == 0 {
+	container := gjson.GetBytes(raw, "data.user.runScreen")
+	if !container.Exists() || container.Type == gjson.Null {
 		return nil, mserrors.NewAPIError("no coach screen data returned", nil)
 	}
 
 	return &models.ScreenResult{
-		NumInstruments: intPtr(container["numberOfMatchingInstruments"]),
-		Rows:           parseRows(getNestedSlice(container, "responseValues")),
+		NumInstruments: gInt(container.Get("numberOfMatchingInstruments")),
+		Rows:           parseRows(container.Get("responseValues").Array()),
 	}, nil
 }
 
@@ -197,18 +195,15 @@ func (c *Client) listWatchlists(ctx context.Context) ([]models.CatalogEntry, err
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]models.CatalogEntry, 0, len(getNestedSlice(raw, "data", "watchlists")))
-	for _, entry := range getNestedSlice(raw, "data", "watchlists") {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		name := stringify(item["name"])
+	items := gjson.GetBytes(raw, "data.watchlists").Array()
+	entries := make([]models.CatalogEntry, 0, len(items))
+	for _, item := range items {
+		name := stringify(item.Get("name"))
 		entries = append(entries, models.CatalogEntry{
 			Name:        name,
 			Kind:        models.CatalogKindWatchlist,
-			Description: stringPtr(item["description"]),
-			WatchlistID: int64Ptr(item["id"]),
+			Description: gStr(item.Get("description")),
+			WatchlistID: gInt64(item.Get("id")),
 		})
 	}
 	return entries, nil
@@ -224,16 +219,12 @@ func (c *Client) listScreens(ctx context.Context) ([]models.CatalogEntry, error)
 		return nil, err
 	}
 	entries := []models.CatalogEntry{}
-	for _, entry := range getNestedSlice(raw, "data", "user", "screens") {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		name := stringPtr(item["name"])
+	for _, item := range gjson.GetBytes(raw, "data.user.screens").Array() {
+		name := gStr(item.Get("name"))
 		if name == nil {
 			continue
 		}
-		entries = append(entries, models.CatalogEntry{Name: *name, Kind: models.CatalogKindScreen, Description: stringPtr(item["description"])})
+		entries = append(entries, models.CatalogEntry{Name: *name, Kind: models.CatalogKindScreen, Description: gStr(item.Get("description"))})
 	}
 	return entries, nil
 }
@@ -248,35 +239,31 @@ func (c *Client) listCoachEntries(ctx context.Context) ([]models.CatalogEntry, e
 		return nil, err
 	}
 	entries := []models.CatalogEntry{}
-	entries = append(entries, coachTreeEntries(getNestedSlice(raw, "data", "user", "screens"), true)...)
+	entries = append(entries, coachTreeEntries(gjson.GetBytes(raw, "data.user.screens").Array(), true)...)
 	return entries, nil
 }
 
-func coachTreeEntries(nodes []any, screen bool) []models.CatalogEntry {
+func coachTreeEntries(nodes []gjson.Result, screen bool) []models.CatalogEntry {
 	entries := []models.CatalogEntry{}
-	for _, entry := range nodes {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		if children := getNestedSlice(item, "children"); len(children) > 0 {
+	for _, item := range nodes {
+		if children := item.Get("children").Array(); len(children) > 0 {
 			entries = append(entries, coachTreeEntries(children, screen)...)
 			continue
 		}
-		name := stringify(item["name"])
+		name := stringify(item.Get("name"))
 		if name == "" {
 			continue
 		}
 		ref := getReferenceID(item)
 		if screen {
-			screenID := stringPtr(ref["screenId"])
+			screenID := gStr(ref.Get("screenId"))
 			if screenID == nil {
 				continue
 			}
 			entries = append(entries, models.CatalogEntry{Name: name, Kind: models.CatalogKindCoachScreen, CoachScreenID: screenID})
 			continue
 		}
-		watchlistID := int64Ptr(ref["watchlistId"])
+		watchlistID := gInt64(ref.Get("watchlistId"))
 		if watchlistID == nil {
 			continue
 		}
@@ -285,108 +272,73 @@ func coachTreeEntries(nodes []any, screen bool) []models.CatalogEntry {
 	return entries
 }
 
-func getReferenceID(node map[string]any) map[string]any {
-	reference, ok := node["referenceId"].(string)
-	if !ok || reference == "" {
-		return nil
+func getReferenceID(node gjson.Result) gjson.Result {
+	ref := node.Get("referenceId").String()
+	if ref == "" {
+		return gjson.Result{}
 	}
-	parsed := map[string]any{}
-	_ = json.Unmarshal([]byte(reference), &parsed)
-	return parsed
+	return gjson.Parse(ref)
 }
 
-func parseAdhocScreenResult(raw map[string]any) (*models.AdhocScreenResult, error) {
-	container := getNestedMap(raw, "data", "marketDataAdhocScreen")
-	if len(container) == 0 {
+func parseAdhocScreenResult(raw []byte) (*models.AdhocScreenResult, error) {
+	container := gjson.GetBytes(raw, "data.marketDataAdhocScreen")
+	if !container.Exists() || container.Type == gjson.Null {
 		return nil, mserrors.NewAPIError("no adhoc screen data returned", nil)
 	}
-	return &models.AdhocScreenResult{Entries: parseWatchlistEntries(getNestedSlice(container, "responseValues")), ErrorValues: stringSlice(getNestedSlice(container, "errorValues"))}, nil
+	return &models.AdhocScreenResult{
+		Entries:     parseWatchlistEntries(container.Get("responseValues").Array()),
+		ErrorValues: stringSlice(container.Get("errorValues").Array()),
+	}, nil
 }
 
-func parseWatchlistEntries(rows []any) []models.WatchlistEntry {
+func parseWatchlistEntries(rows []gjson.Result) []models.WatchlistEntry {
 	result := make([]models.WatchlistEntry, 0, len(rows))
 	for _, row := range rows {
-		columns, ok := row.([]any)
-		if !ok {
-			continue
-		}
-		mapped := map[string]any{}
-		for _, column := range columns {
-			item, ok := column.(map[string]any)
-			if !ok {
-				continue
-			}
-			name := stringify(getNestedMap(item, "mdItem")["name"])
-			mapped[name] = item["value"]
+		columns := row.Array()
+		mapped := map[string]gjson.Result{}
+		for _, col := range columns {
+			name := col.Get("mdItem.name").String()
+			mapped[name] = col.Get("value")
 		}
 		result = append(result, models.WatchlistEntry{
-			Symbol:              stringPtr(mapped["Symbol"]),
-			CompanyName:         stringPtr(mapped["CompanyName"]),
-			ListRank:            intPtr(mapped["ListRank"]),
-			Price:               floatPtr(mapped["Price"]),
-			PriceNetChange:      floatPtr(firstNonNil(mapped["PriceNetChange"], mapped["PriceNetChg"])),
-			PricePctChange:      floatPtr(mapped["PricePctChg"]),
-			PricePctOff52WHighs: floatPtr(mapped["PricePctOff52WHigh"]),
-			Volume:              intPtr(mapped["Volume"]),
-			VolumeChange:        intPtr(mapped["VolumeChange"]),
-			VolumePctChange:     floatPtr(mapped["VolumePctChg"]),
-			CompositeRating:     intPtr(mapped["CompositeRating"]),
-			EPSRating:           intPtr(mapped["EPSRating"]),
-			RSRating:            intPtr(mapped["RSRating"]),
-			AccDisRating:        stringPtr(mapped["AccDisRating"]),
-			SMRRating:           stringPtr(mapped["SMRRating"]),
-			IndustryGroupRank:   intPtr(mapped["IndustryGroupRank"]),
-			IndustryName:        stringPtr(mapped["IndustryName"]),
-			MarketCap:           floatPtr(mapped["MarketCapIntraday"]),
-			VolumeDollarAvg50D:  floatPtr(mapped["VolumeDollarAvg50D"]),
-			IPODate:             stringPtr(mapped["IPODate"]),
-			DowJonesKey:         stringPtr(mapped["DowJonesKey"]),
-			ChartingSymbol:      stringPtr(mapped["ChartingSymbol"]),
-			InstrumentType:      stringPtr(mapped["DowJonesInstrumentType"]),
-			InstrumentSubType:   stringPtr(mapped["DowJonesInstrumentSubType"]),
+			Symbol:              gStr(mapped["Symbol"]),
+			CompanyName:         gStr(mapped["CompanyName"]),
+			ListRank:            gInt(mapped["ListRank"]),
+			Price:               gFloat(mapped["Price"]),
+			PriceNetChange:      gFloat(firstExisting(mapped["PriceNetChange"], mapped["PriceNetChg"])),
+			PricePctChange:      gFloat(mapped["PricePctChg"]),
+			PricePctOff52WHighs: gFloat(mapped["PricePctOff52WHigh"]),
+			Volume:              gInt(mapped["Volume"]),
+			VolumeChange:        gInt(mapped["VolumeChange"]),
+			VolumePctChange:     gFloat(mapped["VolumePctChg"]),
+			CompositeRating:     gInt(mapped["CompositeRating"]),
+			EPSRating:           gInt(mapped["EPSRating"]),
+			RSRating:            gInt(mapped["RSRating"]),
+			AccDisRating:        gStr(mapped["AccDisRating"]),
+			SMRRating:           gStr(mapped["SMRRating"]),
+			IndustryGroupRank:   gInt(mapped["IndustryGroupRank"]),
+			IndustryName:        gStr(mapped["IndustryName"]),
+			MarketCap:           gFloat(mapped["MarketCapIntraday"]),
+			VolumeDollarAvg50D:  gFloat(mapped["VolumeDollarAvg50D"]),
+			IPODate:             gStr(mapped["IPODate"]),
+			DowJonesKey:         gStr(mapped["DowJonesKey"]),
+			ChartingSymbol:      gStr(mapped["ChartingSymbol"]),
+			InstrumentType:      gStr(mapped["DowJonesInstrumentType"]),
+			InstrumentSubType:   gStr(mapped["DowJonesInstrumentSubType"]),
 		})
 	}
 	return result
 }
 
-func parseRows(rows []any) []map[string]*string {
+func parseRows(rows []gjson.Result) []map[string]*string {
 	result := make([]map[string]*string, 0, len(rows))
 	for _, row := range rows {
-		columns, ok := row.([]any)
-		if !ok {
-			continue
-		}
+		columns := row.Array()
 		mapped := map[string]*string{}
-		for _, column := range columns {
-			item, ok := column.(map[string]any)
-			if !ok {
-				continue
-			}
-			mapped[stringify(getNestedMap(item, "mdItem")["name"])] = stringPtr(item["value"])
+		for _, col := range columns {
+			mapped[col.Get("mdItem.name").String()] = gStr(col.Get("value"))
 		}
 		result = append(result, mapped)
-	}
-	return result
-}
-
-func firstNonNil(values ...any) any {
-	for _, value := range values {
-		if value != nil {
-			return value
-		}
-	}
-	return nil
-}
-
-func stringSlice(values []any) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if text := stringify(value); text != "" {
-			result = append(result, text)
-		}
 	}
 	return result
 }

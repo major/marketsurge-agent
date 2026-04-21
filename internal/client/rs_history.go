@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
@@ -32,20 +34,18 @@ func (c *Client) GetRSRatingHistory(ctx context.Context, symbol string) (*models
 		return nil, err
 	}
 
-	ratings := getNestedSlice(item, "ratings", "rsRating")
-	intraday := getNestedMap(item, "pricingStatistics", "intradayStatistics")
 	result := &models.RSRatingHistory{
 		Symbol: symbol,
-		Ratings: buildSlice(ratings, func(item map[string]any) models.RSRatingSnapshot {
+		Ratings: buildSlice(item.Get("ratings.rsRating").Array(), func(entry gjson.Result) models.RSRatingSnapshot {
 			return models.RSRatingSnapshot{
-				LetterValue:  stringPtr(item["letterValue"]),
-				Period:       stringPtr(item["period"]),
-				PeriodOffset: stringPtr(item["periodOffset"]),
-				Value:        intPtr(item["value"]),
+				LetterValue:  gStr(entry.Get("letterValue")),
+				Period:       gStr(entry.Get("period")),
+				PeriodOffset: gStr(entry.Get("periodOffset")),
+				Value:        gInt(entry.Get("value")),
 			}
 		}),
 	}
-	result.RSLineNewHigh = boolPtr(intraday["rsLineNewHigh"])
+	result.RSLineNewHigh = gBool(item.Get("pricingStatistics.intradayStatistics.rsLineNewHigh"))
 
 	return result, nil
 }

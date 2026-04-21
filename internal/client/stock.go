@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
@@ -42,174 +44,162 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 		return nil, err
 	}
 
-	ratings := getNestedMap(item, "ratings")
-	pricingStatistics := getNestedMap(item, "pricingStatistics")
-	pricingEOD := getNestedMap(pricingStatistics, "endOfDayStatistics")
-	pricingIntraday := getNestedMap(pricingStatistics, "intradayStatistics")
-	financials := getNestedMap(item, "financials")
-	consensus := getNestedMap(financials, "consensusFinancials")
-	epsConsensus := getNestedMap(consensus, "eps")
-	salesConsensus := getNestedMap(consensus, "sales")
-	industry := getNestedMap(item, "industry")
-	ownership := getNestedMap(item, "ownership")
-	fundamentals := getNestedMap(item, "fundamentals")
-	corporateActions := getNestedMap(item, "corporateActions")
-	symbology := getNestedMap(item, "symbology")
-	company := firstMap(getNestedSlice(symbology, "company"))
-	instrument := firstMap(getNestedSlice(symbology, "instrument"))
-	compRating := firstMap(getNestedSlice(ratings, "compRating"))
-	epsRating := firstMap(getNestedSlice(ratings, "epsRating"))
-	rsRating := firstMap(getNestedSlice(ratings, "rsRating"))
-	smrRating := firstMap(getNestedSlice(ratings, "smrRating"))
-	adRating := firstMap(getNestedSlice(ratings, "adRating"))
-	groupRank := firstMap(getNestedSlice(industry, "groupRanks"))
-	groupRS := firstMap(getNestedSlice(industry, "groupRS"))
-	profitMargin := firstMap(getNestedSlice(financials, "profitMarginValues"))
-	epsGrowth := firstMap(getNestedSlice(epsConsensus, "growthRate"))
-	salesGrowth := firstMap(getNestedSlice(salesConsensus, "growthRate"))
-	atr21d := firstMap(getNestedSlice(pricingEOD, "averageTrueRangePercent"))
+	ratings := item.Get("ratings")
+	pricingEOD := item.Get("pricingStatistics.endOfDayStatistics")
+	pricingIntraday := item.Get("pricingStatistics.intradayStatistics")
+	financials := item.Get("financials")
+	epsConsensus := financials.Get("consensusFinancials.eps")
+	salesConsensus := financials.Get("consensusFinancials.sales")
+	industry := item.Get("industry")
+	ownership := item.Get("ownership")
+	fundmtls := item.Get("fundamentals")
+	corporateActions := item.Get("corporateActions")
+	company := item.Get("symbology.company.0")
+	instrument := item.Get("symbology.instrument.0")
+	profitMargin := financials.Get("profitMarginValues.0")
+	atr := pricingEOD.Get("averageTrueRangePercent.0")
 
 	return &models.StockData{
 		Symbol: symbol,
 		Ratings: &models.Ratings{
-			Composite: intPtr(compRating["value"]),
-			EPS:       intPtr(epsRating["value"]),
-			RS:        intPtr(rsRating["value"]),
-			SMR:       stringPtr(smrRating["letterValue"]),
-			AD:        stringPtr(adRating["letterValue"]),
+			Composite: gInt(ratings.Get("compRating.0.value")),
+			EPS:       gInt(ratings.Get("epsRating.0.value")),
+			RS:        gInt(ratings.Get("rsRating.0.value")),
+			SMR:       gStr(ratings.Get("smrRating.0.letterValue")),
+			AD:        gStr(ratings.Get("adRating.0.letterValue")),
 		},
 		Company: &models.Company{
-			Name:                  stringPtr(company["companyName"]),
-			Industry:              stringPtr(industry["name"]),
-			Sector:                stringPtr(industry["sector"]),
-			IndustryGroupRank:     intPtr(groupRank["value"]),
-			IndustryGroupRS:       intPtr(groupRS["value"]),
-			IndustryGroupRSLetter: stringPtr(groupRS["letterValue"]),
-			Description:           stringPtr(company["businessDescription"]),
-			Website:               stringPtr(company["url"]),
-			Address:               stringPtr(company["address"]),
-			Address2:              stringPtr(company["address2"]),
-			Phone:                 stringPtr(company["phone"]),
-			IPODate:               stringPtr(instrument["ipoDate"]),
-			IPOPrice:              floatPtr(instrument["ipoPrice"]),
-			IPOPriceFormatted:     formattedValue(instrument["ipoPrice"]),
-			City:                  stringPtr(company["city"]),
-			Country:               stringPtr(company["country"]),
-			StateProvince:         stringPtr(company["stateProvince"]),
-			InstrumentSubType:     stringPtr(instrument["subType"]),
+			Name:                  gStr(company.Get("companyName")),
+			Industry:              gStr(industry.Get("name")),
+			Sector:                gStr(industry.Get("sector")),
+			IndustryGroupRank:     gInt(industry.Get("groupRanks.0.value")),
+			IndustryGroupRS:       gInt(industry.Get("groupRS.0.value")),
+			IndustryGroupRSLetter: gStr(industry.Get("groupRS.0.letterValue")),
+			Description:           gStr(company.Get("businessDescription")),
+			Website:               gStr(company.Get("url")),
+			Address:               gStr(company.Get("address")),
+			Address2:              gStr(company.Get("address2")),
+			Phone:                 gStr(company.Get("phone")),
+			IPODate:               gStr(instrument.Get("ipoDate")),
+			IPOPrice:              gFloat(instrument.Get("ipoPrice")),
+			IPOPriceFormatted:     gStr(instrument.Get("ipoPrice.formattedValue")),
+			City:                  gStr(company.Get("city")),
+			Country:               gStr(company.Get("country")),
+			StateProvince:         gStr(company.Get("stateProvince")),
+			InstrumentSubType:     gStr(instrument.Get("subType")),
 		},
 		Pricing: &models.Pricing{
-			MarketCap:                            floatPtr(pricingEOD["marketCapitalization"]),
-			MarketCapFormatted:                   formattedValue(pricingEOD["marketCapitalization"]),
-			AvgDollarVolume50D:                   floatPtr(pricingEOD["avgDollarVolume50Day"]),
-			AvgDollarVolume50DFormatted:          formattedValue(pricingEOD["avgDollarVolume50Day"]),
-			UpDownVolumeRatio:                    floatPtr(pricingEOD["upDownVolumeRatio"]),
-			UpDownVolumeRatioFormatted:           formattedValue(pricingEOD["upDownVolumeRatio"]),
-			ATRPercent21D:                        floatPtr(atr21d),
-			ATRPercent21DFormatted:               formattedValue(atr21d),
-			DividendYield:                        floatPtr(pricingIntraday["yield"]),
-			DividendYieldFormatted:               formattedValue(pricingIntraday["yield"]),
-			PriceToCashFlowRatio:                 floatPtr(pricingIntraday["priceToCashFlowRatio"]),
-			PriceToCashFlowRatioFormatted:        formattedValue(pricingIntraday["priceToCashFlowRatio"]),
-			ForwardPriceToEarningsRatio:          floatPtr(pricingIntraday["forwardPriceToEarningsRatio"]),
-			ForwardPriceToEarningsRatioFormatted: formattedValue(pricingIntraday["forwardPriceToEarningsRatio"]),
-			PriceToSalesRatio:                    floatPtr(pricingIntraday["priceToSalesRatio"]),
-			PriceToSalesRatioFormatted:           formattedValue(pricingIntraday["priceToSalesRatio"]),
-			PriceToEarningsRatio:                 floatPtr(pricingIntraday["priceToEarningsRatio"]),
-			PriceToEarningsRatioFormatted:        formattedValue(pricingIntraday["priceToEarningsRatio"]),
-			PEVsSP500:                            floatPtr(pricingIntraday["priceToEarningsVsSP500"]),
-			PEVsSP500Formatted:                   formattedValue(pricingIntraday["priceToEarningsVsSP500"]),
-			Alpha:                                floatPtr(pricingEOD["alpha"]),
-			AlphaFormatted:                       formattedValue(pricingEOD["alpha"]),
-			Beta:                                 floatPtr(pricingEOD["beta"]),
-			BetaFormatted:                        formattedValue(pricingEOD["beta"]),
-			PricingStartDate:                     stringPtr(pricingEOD["pricingStartDate"]),
-			PricingEndDate:                       stringPtr(pricingEOD["pricingEndDate"]),
+			MarketCap:                            gFloat(pricingEOD.Get("marketCapitalization")),
+			MarketCapFormatted:                   gStr(pricingEOD.Get("marketCapitalization.formattedValue")),
+			AvgDollarVolume50D:                   gFloat(pricingEOD.Get("avgDollarVolume50Day")),
+			AvgDollarVolume50DFormatted:          gStr(pricingEOD.Get("avgDollarVolume50Day.formattedValue")),
+			UpDownVolumeRatio:                    gFloat(pricingEOD.Get("upDownVolumeRatio")),
+			UpDownVolumeRatioFormatted:           gStr(pricingEOD.Get("upDownVolumeRatio.formattedValue")),
+			ATRPercent21D:                        gFloat(atr),
+			ATRPercent21DFormatted:               gStr(atr.Get("formattedValue")),
+			DividendYield:                        gFloat(pricingIntraday.Get("yield")),
+			DividendYieldFormatted:               gStr(pricingIntraday.Get("yield.formattedValue")),
+			PriceToCashFlowRatio:                 gFloat(pricingIntraday.Get("priceToCashFlowRatio")),
+			PriceToCashFlowRatioFormatted:        gStr(pricingIntraday.Get("priceToCashFlowRatio.formattedValue")),
+			ForwardPriceToEarningsRatio:          gFloat(pricingIntraday.Get("forwardPriceToEarningsRatio")),
+			ForwardPriceToEarningsRatioFormatted: gStr(pricingIntraday.Get("forwardPriceToEarningsRatio.formattedValue")),
+			PriceToSalesRatio:                    gFloat(pricingIntraday.Get("priceToSalesRatio")),
+			PriceToSalesRatioFormatted:           gStr(pricingIntraday.Get("priceToSalesRatio.formattedValue")),
+			PriceToEarningsRatio:                 gFloat(pricingIntraday.Get("priceToEarningsRatio")),
+			PriceToEarningsRatioFormatted:        gStr(pricingIntraday.Get("priceToEarningsRatio.formattedValue")),
+			PEVsSP500:                            gFloat(pricingIntraday.Get("priceToEarningsVsSP500")),
+			PEVsSP500Formatted:                   gStr(pricingIntraday.Get("priceToEarningsVsSP500.formattedValue")),
+			Alpha:                                gFloat(pricingEOD.Get("alpha")),
+			AlphaFormatted:                       gStr(pricingEOD.Get("alpha.formattedValue")),
+			Beta:                                 gFloat(pricingEOD.Get("beta")),
+			BetaFormatted:                        gStr(pricingEOD.Get("beta.formattedValue")),
+			PricingStartDate:                     gStr(pricingEOD.Get("pricingStartDate")),
+			PricingEndDate:                       gStr(pricingEOD.Get("pricingEndDate")),
 		},
 		Financials: &models.Financials{
-			EPSDueDate:                stringPtr(financials["epsDueDate"]),
-			EPSDueDateStatus:          stringPtr(financials["epsDueDateStatus"]),
-			EPSLastReportedDate:       stringPtr(financials["epsLastReportedDate"]),
-			EPSGrowthRate:             floatPtr(epsGrowth),
-			SalesGrowthRate3Y:         floatPtr(salesGrowth),
-			PreTaxMargin:              floatPtr(profitMargin["preTaxMargin"]),
-			AfterTaxMargin:            floatPtr(profitMargin["afterTaxMargin"]),
-			GrossMargin:               floatPtr(profitMargin["grossMargin"]),
-			ReturnOnEquity:            floatPtr(profitMargin["returnOnEquity"]),
-			EarningsStability:         intPtr(epsConsensus["earningsStability"]),
-			CashFlowPerShare:          floatPtr(pricingIntraday["cashFlowPerShareLastYear"]),
-			CashFlowPerShareFormatted: formattedValue(pricingIntraday["cashFlowPerShareLastYear"]),
+			EPSDueDate:                gStr(financials.Get("epsDueDate")),
+			EPSDueDateStatus:          gStr(financials.Get("epsDueDateStatus")),
+			EPSLastReportedDate:       gStr(financials.Get("epsLastReportedDate")),
+			EPSGrowthRate:             gFloat(epsConsensus.Get("growthRate.0")),
+			SalesGrowthRate3Y:         gFloat(salesConsensus.Get("growthRate.0")),
+			PreTaxMargin:              gFloat(profitMargin.Get("preTaxMargin")),
+			AfterTaxMargin:            gFloat(profitMargin.Get("afterTaxMargin")),
+			GrossMargin:               gFloat(profitMargin.Get("grossMargin")),
+			ReturnOnEquity:            gFloat(profitMargin.Get("returnOnEquity")),
+			EarningsStability:         gInt(epsConsensus.Get("earningsStability")),
+			CashFlowPerShare:          gFloat(pricingIntraday.Get("cashFlowPerShareLastYear")),
+			CashFlowPerShareFormatted: gStr(pricingIntraday.Get("cashFlowPerShareLastYear.formattedValue")),
 		},
 		CorporateActions: &models.CorporateActions{
-			NextExDividendDate: stringPtr(corporateActions["dividendNextReportedExDate"]),
+			NextExDividendDate: gStr(corporateActions.Get("dividendNextReportedExDate")),
 		},
 		Industry: &models.Industry{
-			Name:           stringPtr(industry["name"]),
-			Sector:         stringPtr(industry["sector"]),
-			Code:           stringPtr(industry["indCode"]),
-			NumberOfStocks: intPtr(industry["numberOfStocksInGroup"]),
+			Name:           gStr(industry.Get("name")),
+			Sector:         gStr(industry.Get("sector")),
+			Code:           gStr(industry.Get("indCode")),
+			NumberOfStocks: gInt(industry.Get("numberOfStocksInGroup")),
 		},
 		Ownership: &models.BasicOwnership{
-			FundsFloatPct:          floatPtr(ownership["fundsFloatPercentHeld"]),
-			FundsFloatPctFormatted: formattedValue(ownership["fundsFloatPercentHeld"]),
+			FundsFloatPct:          gFloat(ownership.Get("fundsFloatPercentHeld")),
+			FundsFloatPctFormatted: gStr(ownership.Get("fundsFloatPercentHeld.formattedValue")),
 		},
 		Fundamentals: &models.Fundamentals{
-			RAndDPercentLastQtr:          floatPtr(fundamentals["researchAndDevelopmentPercentLastQtr"]),
-			RAndDPercentLastQtrFormatted: formattedValue(fundamentals["researchAndDevelopmentPercentLastQtr"]),
-			DebtPercentFormatted:         formattedValue(fundamentals["debtPercent"]),
-			NewCEODate:                   stringPtr(fundamentals["newCEODate"]),
+			RAndDPercentLastQtr:          gFloat(fundmtls.Get("researchAndDevelopmentPercentLastQtr")),
+			RAndDPercentLastQtrFormatted: gStr(fundmtls.Get("researchAndDevelopmentPercentLastQtr.formattedValue")),
+			DebtPercentFormatted:         gStr(fundmtls.Get("debtPercent.formattedValue")),
+			NewCEODate:                   gStr(fundmtls.Get("newCEODate")),
 		},
 		QuarterlyFinancials: &models.QuarterlyFinancials{
-			ReportedEarnings: buildQuarterlyReported(getNestedSlice(epsConsensus, "reportedEarnings")),
-			ReportedSales:    buildQuarterlyReported(getNestedSlice(salesConsensus, "reportedSales")),
-			EPSEstimates:     buildQuarterlyEstimates(getNestedSlice(financials, "estimates", "epsEstimates")),
-			SalesEstimates:   buildQuarterlyEstimates(getNestedSlice(financials, "estimates", "salesEstimates")),
-			ProfitMargins:    buildQuarterlyProfitMargins(getNestedSlice(financials, "profitMarginValues")),
+			ReportedEarnings: buildQuarterlyReported(epsConsensus.Get("reportedEarnings").Array()),
+			ReportedSales:    buildQuarterlyReported(salesConsensus.Get("reportedSales").Array()),
+			EPSEstimates:     buildQuarterlyEstimates(financials.Get("estimates.epsEstimates").Array()),
+			SalesEstimates:   buildQuarterlyEstimates(financials.Get("estimates.salesEstimates").Array()),
+			ProfitMargins:    buildQuarterlyProfitMargins(financials.Get("profitMarginValues").Array()),
 		},
 		Patterns:   []models.Pattern{},
 		TightAreas: []models.TightArea{},
 	}, nil
 }
 
-func buildQuarterlyReported(items []any) []models.QuarterlyReportedPeriod {
-	return buildSlice(items, func(item map[string]any) models.QuarterlyReportedPeriod {
+func buildQuarterlyReported(items []gjson.Result) []models.QuarterlyReportedPeriod {
+	return buildSlice(items, func(item gjson.Result) models.QuarterlyReportedPeriod {
 		return models.QuarterlyReportedPeriod{
-			Value:           floatPtr(item["value"]),
-			PctChangeYoY:    floatPtr(item["percentChangeYOY"]),
-			PeriodOffset:    stringify(item["periodOffset"]),
-			PeriodEndDate:   stringPtr(item["periodEndDate"]),
-			EffectiveDate:   stringPtr(item["effectiveDate"]),
-			PercentSurprise: floatPtr(item["percentSurprise"]),
-			SurpriseAmount:  floatPtr(item["surpriseAmount"]),
-			QuarterNumber:   intPtr(item["quarterNumber"]),
-			FiscalYear:      intPtr(item["fiscalYear"]),
-			Period:          stringPtr(item["period"]),
+			Value:           gFloat(item.Get("value")),
+			PctChangeYoY:    gFloat(item.Get("percentChangeYOY")),
+			PeriodOffset:    stringify(item.Get("periodOffset")),
+			PeriodEndDate:   gStr(item.Get("periodEndDate")),
+			EffectiveDate:   gStr(item.Get("effectiveDate")),
+			PercentSurprise: gFloat(item.Get("percentSurprise")),
+			SurpriseAmount:  gFloat(item.Get("surpriseAmount")),
+			QuarterNumber:   gInt(item.Get("quarterNumber")),
+			FiscalYear:      gInt(item.Get("fiscalYear")),
+			Period:          gStr(item.Get("period")),
 		}
 	})
 }
 
-func buildQuarterlyEstimates(items []any) []models.QuarterlyEstimate {
-	return buildSlice(items, func(item map[string]any) models.QuarterlyEstimate {
+func buildQuarterlyEstimates(items []gjson.Result) []models.QuarterlyEstimate {
+	return buildSlice(items, func(item gjson.Result) models.QuarterlyEstimate {
 		return models.QuarterlyEstimate{
-			Value:             floatPtr(item["value"]),
-			PctChangeYoY:      floatPtr(item["percentChangeYOY"]),
-			PeriodEndDate:     stringPtr(item["periodEndDate"]),
-			EffectiveDate:     stringPtr(item["effectiveDate"]),
-			RevisionDirection: stringPtr(item["revisionDirection"]),
-			EstimateType:      stringPtr(item["type"]),
+			Value:             gFloat(item.Get("value")),
+			PctChangeYoY:      gFloat(item.Get("percentChangeYOY")),
+			PeriodEndDate:     gStr(item.Get("periodEndDate")),
+			EffectiveDate:     gStr(item.Get("effectiveDate")),
+			RevisionDirection: gStr(item.Get("revisionDirection")),
+			EstimateType:      gStr(item.Get("type")),
 		}
 	})
 }
 
-func buildQuarterlyProfitMargins(items []any) []models.QuarterlyProfitMargin {
-	return buildSlice(items, func(item map[string]any) models.QuarterlyProfitMargin {
+func buildQuarterlyProfitMargins(items []gjson.Result) []models.QuarterlyProfitMargin {
+	return buildSlice(items, func(item gjson.Result) models.QuarterlyProfitMargin {
 		return models.QuarterlyProfitMargin{
-			PeriodOffset:   stringify(item["periodOffset"]),
-			PeriodEndDate:  stringPtr(item["periodEndDate"]),
-			PreTaxMargin:   floatPtr(item["preTaxMargin"]),
-			AfterTaxMargin: floatPtr(item["afterTaxMargin"]),
-			GrossMargin:    floatPtr(item["grossMargin"]),
-			ReturnOnEquity: floatPtr(item["returnOnEquity"]),
+			PeriodOffset:   stringify(item.Get("periodOffset")),
+			PeriodEndDate:  gStr(item.Get("periodEndDate")),
+			PreTaxMargin:   gFloat(item.Get("preTaxMargin")),
+			AfterTaxMargin: gFloat(item.Get("afterTaxMargin")),
+			GrossMargin:    gFloat(item.Get("grossMargin")),
+			ReturnOnEquity: gFloat(item.Get("returnOnEquity")),
 		}
 	})
 }

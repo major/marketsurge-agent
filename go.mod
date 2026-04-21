@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/browserutils/kooky v0.2.9
 	github.com/stretchr/testify v1.11.1
+	github.com/tidwall/gjson v1.18.0
 	github.com/urfave/cli/v3 v3.8.0
 )
 
@@ -14,6 +15,8 @@ require (
 	github.com/gonuts/binary v0.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect

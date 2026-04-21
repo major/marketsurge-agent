@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
 )
@@ -28,18 +30,18 @@ func (c *Client) GetChartMarkups(ctx context.Context, symbol, frequency, sortDir
 		return nil, err
 	}
 
-	container := getNestedMap(raw, "data", "user", "chartMarkups")
+	container := gjson.GetBytes(raw, "data.user.chartMarkups")
 	return &models.ChartMarkupList{
-		CursorID: stringify(container["cursorId"]),
-		Markups: buildSlice(getNestedSlice(container, "chartMarkups"), func(item map[string]any) models.ChartMarkup {
+		CursorID: stringify(container.Get("cursorId")),
+		Markups: buildSlice(container.Get("chartMarkups").Array(), func(item gjson.Result) models.ChartMarkup {
 			return models.ChartMarkup{
-				ID:        stringify(item["id"]),
-				Name:      stringPtr(item["name"]),
-				Data:      stringify(item["data"]),
-				Frequency: stringPtr(item["frequency"]),
-				Site:      stringPtr(item["site"]),
-				CreatedAt: stringPtr(item["createdAt"]),
-				UpdatedAt: stringPtr(item["updatedAt"]),
+				ID:        stringify(item.Get("id")),
+				Name:      gStr(item.Get("name")),
+				Data:      stringify(item.Get("data")),
+				Frequency: gStr(item.Get("frequency")),
+				Site:      gStr(item.Get("site")),
+				CreatedAt: gStr(item.Get("createdAt")),
+				UpdatedAt: gStr(item.Get("updatedAt")),
 			}
 		}),
 	}, nil

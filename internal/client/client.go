@@ -41,8 +41,8 @@ func NewClient(jwt string) *Client {
 	}
 }
 
-// Execute sends a GraphQL request and returns the decoded response body.
-func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, error) {
+// Execute sends a GraphQL request and returns the raw response body.
+func (c *Client) Execute(ctx context.Context, payload Request) ([]byte, error) {
 	encodedPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshal graphql payload: %w", err)
@@ -71,16 +71,11 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 		return nil, mapHTTPError(response.StatusCode, string(body), nil)
 	}
 
-	var raw map[string]any
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, fmt.Errorf("decode graphql response: %w", err)
+	if err := mapGraphQLError(body); err != nil {
+		return body, err
 	}
 
-	if err := mapGraphQLError(raw); err != nil {
-		return raw, err
-	}
-
-	return raw, nil
+	return body, nil
 }
 
 func (c *Client) endpoint() string {

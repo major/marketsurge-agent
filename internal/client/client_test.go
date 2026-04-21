@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/tidwall/gjson"
+
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,7 +38,7 @@ func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "TestOp", captured.OperationName)
 	assert.Equal(t, "x", captured.Variables["value"])
-	assert.Equal(t, true, getNestedMap(raw, "data")["ok"])
+	assert.True(t, gjson.GetBytes(raw, "data.ok").Bool())
 }
 
 func TestExecuteReturnsGraphQLErrorOnHTTP200(t *testing.T) {

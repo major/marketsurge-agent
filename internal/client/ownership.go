@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
@@ -32,15 +34,14 @@ func (c *Client) GetOwnership(ctx context.Context, symbol string) (*models.Owner
 		return nil, err
 	}
 
-	ownership := getNestedMap(item, "ownership")
-	quarterly := getNestedSlice(ownership, "fundOwnershipSummary")
+	ownership := item.Get("ownership")
 	return &models.OwnershipData{
 		Symbol:        symbol,
-		FundsFloatPct: formattedValue(ownership["fundsFloatPercentHeld"]),
-		QuarterlyFunds: buildSlice(quarterly, func(item map[string]any) models.QuarterlyFundOwnership {
+		FundsFloatPct: gStr(ownership.Get("fundsFloatPercentHeld.formattedValue")),
+		QuarterlyFunds: buildSlice(ownership.Get("fundOwnershipSummary").Array(), func(entry gjson.Result) models.QuarterlyFundOwnership {
 			return models.QuarterlyFundOwnership{
-				Date:  stringPtr(item["date"]),
-				Count: formattedValue(item["numberOfFundsHeld"]),
+				Date:  gStr(entry.Get("date")),
+				Count: gStr(entry.Get("numberOfFundsHeld.formattedValue")),
 			}
 		}),
 	}, nil

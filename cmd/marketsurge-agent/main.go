@@ -1,3 +1,8 @@
+// marketsurge-agent is a CLI tool that lets AI agents query the MarketSurge
+// stock research API.
+//
+// This project is unofficial and is not affiliated with, approved by, or
+// endorsed by MarketSurge or Investor's Business Daily.
 package main
 
 import (

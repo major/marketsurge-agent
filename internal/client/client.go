@@ -1,3 +1,7 @@
+// Package client provides a GraphQL client for the MarketSurge API.
+//
+// This project is unofficial and is not affiliated with, approved by, or
+// endorsed by MarketSurge or Investor's Business Daily.
 package client
 
 import (

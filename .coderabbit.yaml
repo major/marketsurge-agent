@@ -1,0 +1,126 @@
+# CodeRabbit Configuration for marketsurge-agent
+# Docs: https://docs.coderabbit.ai/configuration/
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+tone_instructions: >
+  You are a brilliant but world-weary senior developer who has seen too much.
+  Deliver feedback with dry wit and gentle sarcasm, but always be helpful.
+  Use programming puns when the opportunity arises.
+
+reviews:
+  profile: chill
+  collapse_walkthrough: false
+  poem: false
+  request_changes_workflow: true
+  high_level_summary: false
+  high_level_summary_placeholder: "@coderabbitai summary"
+  abort_on_close: true
+  review_status: true
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+
+  pre_merge_checks:
+    title:
+      mode: "off"
+    docstrings:
+      mode: "off"
+    description:
+      mode: warning
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_pause_after_reviewed_commits: 0
+    base_branches:
+      - main
+    ignore_title_keywords:
+      - "WIP"
+      - "[WIP]"
+      - "DO NOT MERGE"
+
+  path_filters:
+    - "!**/vendor/**"
+    - "!**/dist/**"
+    - "!**/coverage.out"
+    - "!skills/**"
+
+  path_instructions:
+    - path: "internal/**/*.go"
+      instructions: |
+        Focus on correctness and project conventions:
+        - Error wrapping must use fmt.Errorf("context: %w", err) with %w verb
+        - Use errors.As() for typed error matching, constructor functions to create errors
+        - No init() functions; all setup belongs in main() and the Before hook
+        - Command factories must follow FooCommand(c *client.Client, w io.Writer) *cli.Command pattern
+        - All output must go through output.WriteSuccess/WriteError/WritePartial JSON envelopes
+        - Concurrency must use sync.WaitGroup + sync.Mutex (see stock_analyze.go)
+        - GraphQL queries loaded via queries.Load("name"), not hardcoded strings
+        - JWT and Cookie HTTP headers must be added per-request in client.Execute(), not in base headers
+        - Don't nitpick style (golangci-lint handles formatting and lint)
+
+    - path: "internal/auth/**/*.go"
+      instructions: |
+        Auth chain security review:
+        - Four-tier JWT precedence: CLI flag, env var, explicit cookie DB, Firefox auto-discovery
+        - Token exchange happens at investors.com, used for GraphQL at dowjones.io
+        - Verify no credentials are logged or exposed in error messages
+        - Cookie DB access must handle file permission errors gracefully
+
+    - path: "internal/client/**/*.go"
+      instructions: |
+        HTTP/GraphQL client review:
+        - JWT and Cookie headers must be set per-request, not in default/base headers
+        - GraphQL queries must be loaded from embedded files via queries.Load()
+        - HTTP errors must be wrapped in typed errors (HTTPError, APIError, etc.)
+        - Verify proper context propagation for cancellation
+
+    - path: "internal/errors/**/*.go"
+      instructions: |
+        Error hierarchy review:
+        - All errors must embed MarketSurgeError base type
+        - Use constructor functions, not raw struct literals
+        - Each error type has a specific exit code (see AGENTS.md)
+        - Import alias convention: mserrors in commands, mserr in output
+
+    - path: "queries/**/*.graphql"
+      instructions: |
+        GraphQL query review:
+        - Verify query variables match the Go code that calls them
+        - Check for unused fields that add unnecessary payload
+        - Queries are embedded at build time via go:embed
+
+    - path: "**/*_test.go"
+      instructions: |
+        Focus on test quality:
+        - Use testify/assert and testify/require, not bare if-checks
+        - Mock HTTP with httptest.NewServer and request capture (no external mock libraries)
+        - Shared helpers in helpers_test.go: testClient(), jsonServer(), fixture builders
+        - Table-driven subtests with t.Run()
+        - Typed error checks with assert.ErrorAs()
+        - CLI tests suppress exit via ExitErrHandler, capture output to bytes.Buffer
+        - Don't nitpick coverage percentages
+
+    - path: ".github/workflows/**"
+      instructions: "Validate workflow syntax and security (no secrets in logs, pin action SHAs)"
+
+    - path: "Makefile"
+      instructions: |
+        Makefile validation:
+        - .PHONY declarations for all non-file targets
+        - Avoid flags that are already defaults
+
+    - path: ".goreleaser.yml"
+      instructions: "Verify goreleaser v2 config, CGO disabled, correct platform matrix"
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    scope: global
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/AGENTS.md"

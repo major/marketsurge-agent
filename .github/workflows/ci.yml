@@ -27,3 +27,9 @@ jobs:
           go-version-file: go.mod
       - run: go test -v -race -coverprofile=coverage.out ./...
       - run: go build ./cmd/marketsurge-agent/
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run govulncheck
+        uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4

@@ -6,7 +6,7 @@ package auth
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/major/marketsurge-agent/internal/cookies"
@@ -75,28 +75,28 @@ func resolveFromFirefoxProfiles(ctx context.Context) (string, error) {
 
 	var lastErr error
 	for _, dbPath := range dbPaths {
-		log.Printf("trying Firefox profile: %s", dbPath)
+		slog.Debug("trying Firefox profile", "path", dbPath)
 
 		cookieJar, err := cookies.ExtractCookies(ctx, dbPath)
 		if err != nil {
-			log.Printf("  cookie extraction failed: %v", err)
+			slog.Debug("cookie extraction failed", "path", dbPath, "error", err)
 			lastErr = err
 			continue
 		}
 
 		if len(cookieJar) == 0 {
-			log.Printf("  no investors.com cookies found, skipping")
+			slog.Debug("no investors.com cookies found, skipping", "path", dbPath)
 			continue
 		}
 
 		jwt, err := ExchangeJWT(ctx, cookieJar)
 		if err != nil {
-			log.Printf("  JWT exchange failed: %v", err)
+			slog.Debug("JWT exchange failed", "path", dbPath, "error", err)
 			lastErr = err
 			continue
 		}
 
-		log.Printf("  authentication successful")
+		slog.Debug("authentication successful", "path", dbPath)
 		return jwt, nil
 	}
 

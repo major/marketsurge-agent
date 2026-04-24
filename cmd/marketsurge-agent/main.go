@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/urfave/cli/v3"
@@ -61,10 +61,11 @@ func buildApp(w io.Writer) *cli.Command {
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			if cmd.Bool("verbose") {
-				log.SetOutput(os.Stderr)
-				log.SetFlags(log.LstdFlags | log.Lshortfile)
+				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+					Level: slog.LevelDebug,
+				})))
 			} else {
-				log.SetOutput(io.Discard)
+				slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 			}
 
 			// Skills commands don't require authentication.

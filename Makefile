@@ -4,12 +4,12 @@ build:
 	go build -o marketsurge-agent ./cmd/marketsurge-agent/
 
 test:
-	go test -v ./...
+	go test -v -race -coverprofile=coverage.out ./...
 
 lint:
 	golangci-lint run ./...
 
 clean:
 	go clean
-	rm -f marketsurge-agent
+	rm -f marketsurge-agent coverage.out
 	rm -rf dist/

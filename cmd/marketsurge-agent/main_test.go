@@ -17,6 +17,7 @@ import (
 // TestHelpContainsAllCommands verifies that --help exits 0 and lists every
 // top-level command group.
 func TestHelpContainsAllCommands(t *testing.T) {
+	t.Parallel()
 	var jsonBuf bytes.Buffer
 	app := buildApp(&jsonBuf)
 

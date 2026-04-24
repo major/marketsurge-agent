@@ -5,6 +5,7 @@ import (
 )
 
 func TestGraphQLHeaders(t *testing.T) {
+	t.Parallel()
 	headers := GraphQLHeaders()
 
 	tests := []struct {
@@ -41,15 +42,17 @@ func TestGraphQLHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := headers.Get(tt.key)
+	t.Parallel()
+	got := headers.Get(tt.key)
 			if got != tt.expected {
 				t.Errorf("header %q = %q, want %q", tt.key, got, tt.expected)
 			}
-		})
+})
 	}
 }
 
 func TestJWTExchangeHeaders(t *testing.T) {
+	t.Parallel()
 	headers := JWTExchangeHeaders()
 
 	tests := []struct {
@@ -76,15 +79,17 @@ func TestJWTExchangeHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := headers.Get(tt.key)
+	t.Parallel()
+	got := headers.Get(tt.key)
 			if got != tt.expected {
 				t.Errorf("header %q = %q, want %q", tt.key, got, tt.expected)
 			}
-		})
+})
 	}
 }
 
 func TestPredefinedReports(t *testing.T) {
+	t.Parallel()
 	if len(PredefinedReports) != 57 {
 		t.Errorf("PredefinedReports length = %d, want 57", len(PredefinedReports))
 	}
@@ -100,6 +105,7 @@ func TestPredefinedReports(t *testing.T) {
 }
 
 func TestWatchlistColumns(t *testing.T) {
+	t.Parallel()
 	if len(WatchlistColumns) != 23 {
 		t.Errorf("WatchlistColumns length = %d, want 23", len(WatchlistColumns))
 	}

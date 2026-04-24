@@ -11,6 +11,7 @@ import (
 )
 
 func TestChartMarkupsSuccess(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(chartMarkupsFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -24,6 +25,7 @@ func TestChartMarkupsSuccess(t *testing.T) {
 }
 
 func TestChartMarkupsWithFlags(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(chartMarkupsFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -38,6 +40,7 @@ func TestChartMarkupsWithFlags(t *testing.T) {
 }
 
 func TestChartMarkupsMissingSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)

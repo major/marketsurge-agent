@@ -11,6 +11,7 @@ import (
 )
 
 func TestFundamentalGetSuccess(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(stockResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -24,6 +25,7 @@ func TestFundamentalGetSuccess(t *testing.T) {
 }
 
 func TestFundamentalGetSymbolNotFound(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -39,6 +41,7 @@ func TestFundamentalGetSymbolNotFound(t *testing.T) {
 }
 
 func TestFundamentalGetMissingSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)

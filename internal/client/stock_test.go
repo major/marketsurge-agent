@@ -11,6 +11,7 @@ import (
 )
 
 func TestGetStockSuccess(t *testing.T) {
+	t.Parallel()
 	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -32,6 +33,7 @@ func TestGetStockSuccess(t *testing.T) {
 }
 
 func TestGetStockReturnsSymbolNotFoundForEmptyMarketData(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":{"marketData":[]}}`))
@@ -43,6 +45,7 @@ func TestGetStockReturnsSymbolNotFoundForEmptyMarketData(t *testing.T) {
 }
 
 func TestGetFundamentalsSuccess(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))
@@ -57,6 +60,7 @@ func TestGetFundamentalsSuccess(t *testing.T) {
 }
 
 func TestGetOwnershipSuccess(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))
@@ -70,6 +74,7 @@ func TestGetOwnershipSuccess(t *testing.T) {
 }
 
 func TestGetRSRatingHistorySuccess(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(stockResponseJSON()))

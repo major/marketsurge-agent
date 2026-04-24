@@ -5,6 +5,7 @@ import (
 )
 
 func TestLoadAllQueries(t *testing.T) {
+	t.Parallel()
 	queries := []string{
 		"other_market_data.graphql",
 		"fundamentals.graphql",
@@ -23,18 +24,20 @@ func TestLoadAllQueries(t *testing.T) {
 
 	for _, query := range queries {
 		t.Run(query, func(t *testing.T) {
-			content, err := Load(query)
+	t.Parallel()
+	content, err := Load(query)
 			if err != nil {
 				t.Fatalf("failed to load %s: %v", query, err)
 			}
 			if content == "" {
 				t.Fatalf("query %s is empty", query)
 			}
-		})
+})
 	}
 }
 
 func TestLoadUnknownQuery(t *testing.T) {
+	t.Parallel()
 	_, err := Load("nonexistent.graphql")
 	if err == nil {
 		t.Fatal("expected error for nonexistent query, got nil")

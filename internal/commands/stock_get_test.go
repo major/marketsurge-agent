@@ -11,6 +11,7 @@ import (
 )
 
 func TestStockGetSuccess(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(stockResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -24,6 +25,7 @@ func TestStockGetSuccess(t *testing.T) {
 }
 
 func TestStockGetSymbolNotFound(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -39,6 +41,7 @@ func TestStockGetSymbolNotFound(t *testing.T) {
 }
 
 func TestStockGetMissingSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)

@@ -16,6 +16,7 @@ import (
 )
 
 func TestCatalogListAllSourcesSucceed(t *testing.T) {
+	t.Parallel()
 	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
 		switch op {
 		case "GetAllWatchlistNames":
@@ -42,6 +43,7 @@ func TestCatalogListAllSourcesSucceed(t *testing.T) {
 }
 
 func TestCatalogListPartialFailure(t *testing.T) {
+	t.Parallel()
 	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
 		switch op {
 		case "GetAllWatchlistNames":
@@ -69,6 +71,7 @@ func TestCatalogListPartialFailure(t *testing.T) {
 }
 
 func TestCatalogListKindFilter(t *testing.T) {
+	t.Parallel()
 	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
 		switch op {
 		case "GetAllWatchlistNames":
@@ -93,6 +96,7 @@ func TestCatalogListKindFilter(t *testing.T) {
 }
 
 func TestCatalogListAllAPISourcesFailStillReturnsReports(t *testing.T) {
+	t.Parallel()
 	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
 		switch op {
 		case "GetAllWatchlistNames":
@@ -120,6 +124,7 @@ func TestCatalogListAllAPISourcesFailStillReturnsReports(t *testing.T) {
 }
 
 func TestCatalogListInvalidKind(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 

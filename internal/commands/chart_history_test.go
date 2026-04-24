@@ -12,6 +12,7 @@ import (
 )
 
 func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(chartResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -26,6 +27,7 @@ func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
 }
 
 func TestChartHistorySuccessWithLookback(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(chartResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -40,6 +42,7 @@ func TestChartHistorySuccessWithLookback(t *testing.T) {
 }
 
 func TestChartHistorySymbolNotFound(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -56,6 +59,7 @@ func TestChartHistorySymbolNotFound(t *testing.T) {
 }
 
 func TestChartHistoryMissingSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
@@ -72,6 +76,7 @@ func TestChartHistoryMissingSymbol(t *testing.T) {
 }
 
 func TestChartHistoryMutualExclusion(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
@@ -89,6 +94,7 @@ func TestChartHistoryMutualExclusion(t *testing.T) {
 }
 
 func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
@@ -104,6 +110,7 @@ func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
 }
 
 func TestChartHistoryPartialExplicitDates(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
@@ -121,6 +128,7 @@ func TestChartHistoryPartialExplicitDates(t *testing.T) {
 }
 
 func TestChartHistoryInvalidLookback(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
@@ -155,13 +163,15 @@ func TestResolveLookback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.lookback, func(t *testing.T) {
-			result := resolveLookback(tt.lookback, now)
+	t.Parallel()
+	result := resolveLookback(tt.lookback, now)
 			assert.Equal(t, tt.expected, result)
-		})
+})
 	}
 }
 
 func TestMapPeriod(t *testing.T) {
+	t.Parallel()
 	period, daily := mapPeriod("daily")
 	assert.Equal(t, "P1D", period)
 	assert.True(t, daily)

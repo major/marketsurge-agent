@@ -15,6 +15,7 @@ import (
 )
 
 func TestCatalogRunReportDispatch(t *testing.T) {
+	t.Parallel()
 	server, requests := newCatalogRunServer(t)
 	defer server.Close()
 
@@ -35,6 +36,7 @@ func TestCatalogRunReportDispatch(t *testing.T) {
 }
 
 func TestCatalogRunWatchlistDispatch(t *testing.T) {
+	t.Parallel()
 	server, requests := newCatalogRunServer(t)
 	defer server.Close()
 
@@ -54,6 +56,7 @@ func TestCatalogRunWatchlistDispatch(t *testing.T) {
 }
 
 func TestCatalogRunCoachScreenDispatch(t *testing.T) {
+	t.Parallel()
 	server, requests := newCatalogRunServer(t)
 	defer server.Close()
 
@@ -71,6 +74,7 @@ func TestCatalogRunCoachScreenDispatch(t *testing.T) {
 }
 
 func TestCatalogRunMissingKind(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 
@@ -86,6 +90,7 @@ func TestCatalogRunMissingKind(t *testing.T) {
 }
 
 func TestCatalogRunScreenKindValidation(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 
@@ -101,6 +106,7 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 }
 
 func TestCatalogRunMissingIDForKind(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 
@@ -116,7 +122,8 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
+	t.Parallel()
+	var buf bytes.Buffer
 			cmd := CatalogRunCommand(testClient(t, server), &buf)
 			err := runTestCommand(t, cmd, tt.args...)
 			require.Error(t, err)
@@ -125,11 +132,12 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 			assert.ErrorAs(t, err, &verr)
 			assert.Contains(t, err.Error(), tt.message)
 			assert.Empty(t, buf.String())
-		})
+})
 	}
 }
 
 func TestCatalogRunPagination(t *testing.T) {
+	t.Parallel()
 	server, _ := newCatalogRunServer(t)
 	defer server.Close()
 
@@ -150,6 +158,7 @@ func TestCatalogRunPagination(t *testing.T) {
 }
 
 func TestCatalogRunWatchlistID64Bit(t *testing.T) {
+	t.Parallel()
 	server, requests := newCatalogRunServer(t)
 	defer server.Close()
 

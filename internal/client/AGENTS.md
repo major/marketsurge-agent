@@ -10,6 +10,11 @@ type Client struct {
     Endpoint   string
     HTTPClient *http.Client
 }
+
+// Functional options pattern:
+NewClient(jwt string, opts ...Option)
+WithBaseURL(url string)       // Override GraphQL endpoint
+WithHTTPClient(c *http.Client) // Override HTTP client
 ```
 
 `Execute(query string, variables map[string]interface{})` handles:

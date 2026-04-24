@@ -30,15 +30,37 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// Option configures a Client.
+type Option func(*Client)
+
+// WithBaseURL sets the GraphQL endpoint URL.
+func WithBaseURL(url string) Option {
+	return func(c *Client) {
+		c.Endpoint = url
+	}
+}
+
+// WithHTTPClient sets the HTTP client used for requests.
+func WithHTTPClient(httpClient *http.Client) Option {
+	return func(c *Client) {
+		c.HTTPClient = httpClient
+	}
+}
+
 // NewClient constructs a GraphQL client with the default endpoint and timeout.
-func NewClient(jwt string) *Client {
-	return &Client{
+// Use With* options to override defaults.
+func NewClient(jwt string, opts ...Option) *Client {
+	c := &Client{
 		JWT:      jwt,
 		Endpoint: constants.GraphQLEndpoint,
 		HTTPClient: &http.Client{
 			Timeout: constants.HTTPTimeout,
 		},
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 // Execute sends a GraphQL request and returns the decoded response body.

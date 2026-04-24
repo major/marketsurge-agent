@@ -20,6 +20,16 @@ func TestNewClientDefaults(t *testing.T) {
 	assert.NotEmpty(t, client.Endpoint)
 }
 
+func TestNewClientWithOptions(t *testing.T) {
+	t.Parallel()
+	custom := &http.Client{}
+	c := NewClient("jwt-token", WithBaseURL("https://example.com"), WithHTTPClient(custom))
+
+	assert.Equal(t, "https://example.com", c.Endpoint)
+	assert.Same(t, custom, c.HTTPClient)
+	assert.Equal(t, "jwt-token", c.JWT)
+}
+
 func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 	t.Parallel()
 	var captured Request

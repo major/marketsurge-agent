@@ -18,6 +18,7 @@ const (
 	CookieDomain       = "investors.com"
 	SymbolDialectType  = "CHARTING"
 	HTTPTimeout        = 30 * time.Second
+	MaxResponseSize    = 10 * 1024 * 1024 // 10 MB
 )
 
 // GraphQLHeaders returns the HTTP headers required for GraphQL requests.

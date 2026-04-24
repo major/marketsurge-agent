@@ -62,7 +62,7 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := io.ReadAll(io.LimitReader(response.Body, constants.MaxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("read graphql response: %w", err)
 	}

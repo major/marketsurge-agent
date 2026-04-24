@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 
 	"github.com/major/marketsurge-agent/internal/constants"
@@ -91,6 +92,20 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return nil, mapHTTPError(response.StatusCode, string(body), nil)
+	}
+
+	// Validate Content-Type before attempting JSON decode. Without this,
+	// an HTML error page from a proxy or maintenance window produces a
+	// cryptic json.Unmarshal error instead of a clear diagnostic.
+	if ct := response.Header.Get("Content-Type"); ct != "" {
+		mediaType, _, err := mime.ParseMediaType(ct)
+		if err == nil && mediaType != "application/json" {
+			preview := string(body)
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
+			}
+			return nil, fmt.Errorf("unexpected Content-Type %q (expected application/json): %s", ct, preview)
+		}
 	}
 
 	var raw map[string]any

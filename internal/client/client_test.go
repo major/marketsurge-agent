@@ -102,3 +102,28 @@ func TestExecuteReturnsHTTPErrorOn500(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, httpErr.StatusCode)
 	assert.Contains(t, httpErr.Body, "boom")
 }
+
+func TestExecuteRejectsUnexpectedContentType(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte("<html><body>Service Unavailable</body></html>"))
+	})
+
+	_, err := client.Execute(context.Background(), Request{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected Content-Type")
+	assert.Contains(t, err.Error(), "text/html")
+}
+
+func TestExecuteAcceptsJSONWithCharset(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
+	})
+
+	raw, err := client.Execute(context.Background(), Request{})
+	require.NoError(t, err)
+	assert.Equal(t, true, getNestedMap(raw, "data")["ok"])
+}

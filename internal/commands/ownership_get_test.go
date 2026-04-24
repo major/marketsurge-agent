@@ -11,6 +11,7 @@ import (
 )
 
 func TestOwnershipGetSuccess(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(stockResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -24,6 +25,7 @@ func TestOwnershipGetSuccess(t *testing.T) {
 }
 
 func TestOwnershipGetSymbolNotFound(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -39,6 +41,7 @@ func TestOwnershipGetSymbolNotFound(t *testing.T) {
 }
 
 func TestOwnershipGetMissingSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)

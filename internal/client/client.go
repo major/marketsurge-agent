@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 
 	"github.com/major/marketsurge-agent/internal/constants"
@@ -30,15 +31,37 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// Option configures a Client.
+type Option func(*Client)
+
+// WithBaseURL sets the GraphQL endpoint URL.
+func WithBaseURL(url string) Option {
+	return func(c *Client) {
+		c.Endpoint = url
+	}
+}
+
+// WithHTTPClient sets the HTTP client used for requests.
+func WithHTTPClient(httpClient *http.Client) Option {
+	return func(c *Client) {
+		c.HTTPClient = httpClient
+	}
+}
+
 // NewClient constructs a GraphQL client with the default endpoint and timeout.
-func NewClient(jwt string) *Client {
-	return &Client{
+// Use With* options to override defaults.
+func NewClient(jwt string, opts ...Option) *Client {
+	c := &Client{
 		JWT:      jwt,
 		Endpoint: constants.GraphQLEndpoint,
 		HTTPClient: &http.Client{
 			Timeout: constants.HTTPTimeout,
 		},
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 // Execute sends a GraphQL request and returns the decoded response body.
@@ -62,13 +85,27 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := io.ReadAll(io.LimitReader(response.Body, constants.MaxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("read graphql response: %w", err)
 	}
 
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return nil, mapHTTPError(response.StatusCode, string(body), nil)
+	}
+
+	// Validate Content-Type before attempting JSON decode. Without this,
+	// an HTML error page from a proxy or maintenance window produces a
+	// cryptic json.Unmarshal error instead of a clear diagnostic.
+	if ct := response.Header.Get("Content-Type"); ct != "" {
+		mediaType, _, err := mime.ParseMediaType(ct)
+		if err == nil && mediaType != "application/json" {
+			preview := string(body)
+			if len(preview) > 200 {
+				preview = preview[:200] + "..."
+			}
+			return nil, fmt.Errorf("unexpected Content-Type %q (expected application/json): %s", ct, preview)
+		}
 	}
 
 	var raw map[string]any

@@ -13,6 +13,7 @@ import (
 )
 
 func TestRunReportSuccess(t *testing.T) {
+	t.Parallel()
 	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -28,6 +29,7 @@ func TestRunReportSuccess(t *testing.T) {
 }
 
 func TestRunWatchlistTwoStepFlow(t *testing.T) {
+	t.Parallel()
 	requests := []Request{}
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -53,6 +55,7 @@ func TestRunWatchlistTwoStepFlow(t *testing.T) {
 }
 
 func TestRunWatchlistReturnsEmptyForNoSymbols(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"watchlist":{"id":"123","items":[]}}}`))
 	})
@@ -63,6 +66,7 @@ func TestRunWatchlistReturnsEmptyForNoSymbols(t *testing.T) {
 }
 
 func TestRunWatchlistReturnsNotFoundWhenMissing(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"watchlist":null}}`))
 	})
@@ -73,6 +77,7 @@ func TestRunWatchlistReturnsNotFoundWhenMissing(t *testing.T) {
 }
 
 func TestRunCoachScreenSuccess(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":2,"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"}]]}}}}`))
 	})
@@ -84,6 +89,7 @@ func TestRunCoachScreenSuccess(t *testing.T) {
 }
 
 func TestRunCoachScreenReturnsAPIErrorForMissingPayload(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"user":{}}}`))
 	})
@@ -94,6 +100,7 @@ func TestRunCoachScreenReturnsAPIErrorForMissingPayload(t *testing.T) {
 }
 
 func TestListCatalogAggregatesAllSources(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
@@ -118,6 +125,7 @@ func TestListCatalogAggregatesAllSources(t *testing.T) {
 }
 
 func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
+	t.Parallel()
 	requests := []string{}
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -136,6 +144,7 @@ func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
 }
 
 func TestListCatalogPartialFailure(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
@@ -159,6 +168,7 @@ func TestListCatalogPartialFailure(t *testing.T) {
 }
 
 func TestListCatalogFiltersKind(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		var payload Request
@@ -184,6 +194,7 @@ func TestListCatalogFiltersKind(t *testing.T) {
 }
 
 func TestParseAdhocScreenResultIncludesErrorValues(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"marketDataAdhocScreen":{"responseValues":[],"errorValues":["bad symbol"]}}}`))
 	})
@@ -194,6 +205,7 @@ func TestParseAdhocScreenResultIncludesErrorValues(t *testing.T) {
 }
 
 func TestParseAdhocScreenResultMapsFields(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(adhocResponseJSON()))
 	})

@@ -11,6 +11,7 @@ import (
 )
 
 func TestGetChartHistoryDailyIncludesExchangeAndBenchmark(t *testing.T) {
+	t.Parallel()
 	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -28,6 +29,7 @@ func TestGetChartHistoryDailyIncludesExchangeAndBenchmark(t *testing.T) {
 }
 
 func TestGetChartHistoryWeeklyOmitsExchange(t *testing.T) {
+	t.Parallel()
 	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -44,6 +46,7 @@ func TestGetChartHistoryWeeklyOmitsExchange(t *testing.T) {
 }
 
 func TestGetChartMarkupsSuccess(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"chartMarkups":{"cursorId":"cursor-1","chartMarkups":[{"id":"m1","name":"Base","data":"{}","frequency":"DAILY","site":"marketsurge"}]}}}}`))
 	})
@@ -56,6 +59,7 @@ func TestGetChartMarkupsSuccess(t *testing.T) {
 }
 
 func TestGetChartMarkupsPassesOperationName(t *testing.T) {
+	t.Parallel()
 	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -71,6 +75,7 @@ func TestGetChartMarkupsPassesOperationName(t *testing.T) {
 }
 
 func TestGetChartHistoryReturnsSymbolNotFound(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":{"marketData":[]}}`))
 	})

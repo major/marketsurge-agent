@@ -58,7 +58,7 @@ func ExchangeJWT(ctx context.Context, cookies []*http.Cookie) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, constants.MaxResponseSize))
 	if err != nil {
 		return "", errors.NewAuthenticationError(
 			fmt.Sprintf("failed to read JWT exchange response: %s", err),

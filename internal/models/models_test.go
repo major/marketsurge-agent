@@ -76,6 +76,7 @@ func TestNilPointerFieldsOmitted(t *testing.T) {
 }
 
 func TestCatalogKindConstants(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		kind     CatalogKind
 		expected string
@@ -88,12 +89,14 @@ func TestCatalogKindConstants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(string(tt.kind), func(t *testing.T) {
-			assert.Equal(t, tt.expected, string(tt.kind))
-		})
+	t.Parallel()
+	assert.Equal(t, tt.expected, string(tt.kind))
+})
 	}
 }
 
 func TestCatalogEntryMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	reportID := 124
 	entry := CatalogEntry{
 		Name:     "Bases Forming",
@@ -114,6 +117,7 @@ func TestCatalogEntryMarshalUnmarshal(t *testing.T) {
 }
 
 func TestCatalogKindInJSON(t *testing.T) {
+	t.Parallel()
 	jsonStr := `{"name":"Test","kind":"watchlist"}`
 	var entry CatalogEntry
 	err := json.Unmarshal([]byte(jsonStr), &entry)
@@ -123,6 +127,7 @@ func TestCatalogKindInJSON(t *testing.T) {
 }
 
 func TestFundamentalDataMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	fundamental := FundamentalData{
 		Symbol:           "NVDA",
 		ReportedEarnings: []ReportedPeriod{},
@@ -142,6 +147,7 @@ func TestFundamentalDataMarshalUnmarshal(t *testing.T) {
 }
 
 func TestChartDataMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	chart := ChartData{
 		Symbol:     "MSFT",
 		TimeSeries: nil,
@@ -159,6 +165,7 @@ func TestChartDataMarshalUnmarshal(t *testing.T) {
 }
 
 func TestRSRatingHistoryMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	rsTrue := true
 	rsHistory := RSRatingHistory{
 		Symbol:        "GOOGL",
@@ -178,6 +185,7 @@ func TestRSRatingHistoryMarshalUnmarshal(t *testing.T) {
 }
 
 func TestOwnershipDataMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	ownership := OwnershipData{
 		Symbol:         "META",
 		FundsFloatPct:  nil,
@@ -195,6 +203,7 @@ func TestOwnershipDataMarshalUnmarshal(t *testing.T) {
 }
 
 func TestCatalogMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	catalog := Catalog{
 		Entries: []CatalogEntry{
 			{
@@ -217,6 +226,7 @@ func TestCatalogMarshalUnmarshal(t *testing.T) {
 }
 
 func TestQuarterlyFinancialsMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	quarterly := QuarterlyFinancials{
 		ReportedEarnings: []QuarterlyReportedPeriod{},
 		ReportedSales:    []QuarterlyReportedPeriod{},
@@ -236,6 +246,7 @@ func TestQuarterlyFinancialsMarshalUnmarshal(t *testing.T) {
 }
 
 func TestChartMarkupMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	markup := ChartMarkup{
 		ID:   "markup-123",
 		Name: nil,
@@ -254,6 +265,7 @@ func TestChartMarkupMarshalUnmarshal(t *testing.T) {
 }
 
 func TestPricingWithComplexFields(t *testing.T) {
+	t.Parallel()
 	pricing := Pricing{
 		BlueDotDailyDates: []string{"2024-01-01", "2024-01-02"},
 		BlueDotWeeklyDates: []string{},
@@ -273,6 +285,7 @@ func TestPricingWithComplexFields(t *testing.T) {
 }
 
 func TestCatalogResultMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	total := 42
 	result := CatalogResult{
 		Kind:             CatalogKindReport,
@@ -294,6 +307,7 @@ func TestCatalogResultMarshalUnmarshal(t *testing.T) {
 }
 
 func TestTimeSeriesMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	timeSeries := TimeSeries{
 		Period:     "DAILY",
 		DataPoints: []DataPoint{},
@@ -310,6 +324,7 @@ func TestTimeSeriesMarshalUnmarshal(t *testing.T) {
 }
 
 func TestQuoteMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	last := 150.50
 	volume := 1000000.0
 	quote := Quote{

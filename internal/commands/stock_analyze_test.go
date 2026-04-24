@@ -10,6 +10,7 @@ import (
 )
 
 func TestStockAnalyzeSuccess(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(stockResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -42,6 +43,7 @@ func TestStockAnalyzePartialFailure(t *testing.T) {
 }
 
 func TestStockAnalyzeMultiSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(stockResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
@@ -63,6 +65,7 @@ func TestStockAnalyzeMultiSymbol(t *testing.T) {
 }
 
 func TestStockAnalyzeMissingSymbol(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
@@ -77,6 +80,7 @@ func TestStockAnalyzeMissingSymbol(t *testing.T) {
 }
 
 func TestStockAnalyzeTotalFailure(t *testing.T) {
+	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())
 	defer server.Close()
 	c := testClient(t, server)

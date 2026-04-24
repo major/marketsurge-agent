@@ -12,6 +12,7 @@ import (
 )
 
 func TestWriteSuccess(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	data := map[string]any{"symbol": "AAPL", "price": "150.00"}
 	metadata := map[string]any{"timestamp": "2026-04-21T10:00:00Z"}
@@ -29,6 +30,7 @@ func TestWriteSuccess(t *testing.T) {
 }
 
 func TestWriteSuccessWithNilMetadata(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	data := map[string]any{"test": "value"}
 
@@ -44,6 +46,7 @@ func TestWriteSuccessWithNilMetadata(t *testing.T) {
 }
 
 func TestWriteErrorSymbolNotFound(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewSymbolNotFoundError("symbol not found", errors.New("api returned empty"), "INVALID")
 
@@ -60,6 +63,7 @@ func TestWriteErrorSymbolNotFound(t *testing.T) {
 }
 
 func TestWriteErrorAuthenticationError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewAuthenticationError("auth failed", errors.New("invalid token"))
 
@@ -75,6 +79,7 @@ func TestWriteErrorAuthenticationError(t *testing.T) {
 }
 
 func TestWriteErrorCookieExtractionError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewCookieExtractionError("cookie extraction failed", errors.New("db error"), "firefox")
 
@@ -89,6 +94,7 @@ func TestWriteErrorCookieExtractionError(t *testing.T) {
 }
 
 func TestWriteErrorTokenExpiredError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewTokenExpiredError("token expired", errors.New("401 response"), 401)
 
@@ -103,6 +109,7 @@ func TestWriteErrorTokenExpiredError(t *testing.T) {
 }
 
 func TestWriteErrorAPIError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewAPIError("api error", errors.New("graphql error"))
 
@@ -117,6 +124,7 @@ func TestWriteErrorAPIError(t *testing.T) {
 }
 
 func TestWriteErrorHTTPError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewHTTPError("http error", errors.New("500 response"), 500, "Internal Server Error")
 
@@ -131,6 +139,7 @@ func TestWriteErrorHTTPError(t *testing.T) {
 }
 
 func TestWriteErrorValidationError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := mserr.NewValidationError("validation failed", errors.New("invalid input"))
 
@@ -145,6 +154,7 @@ func TestWriteErrorValidationError(t *testing.T) {
 }
 
 func TestWriteErrorGenericError(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	err := errors.New("unknown error")
 
@@ -159,6 +169,7 @@ func TestWriteErrorGenericError(t *testing.T) {
 }
 
 func TestWritePartial(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	data := map[string]any{"partial": "data"}
 	errs := []string{"error 1", "error 2"}
@@ -177,6 +188,7 @@ func TestWritePartial(t *testing.T) {
 }
 
 func TestWritePartialWithEmptyErrors(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	data := map[string]any{"test": "data"}
 	metadata := map[string]any{"timestamp": "2026-04-21T10:00:00Z"}
@@ -194,6 +206,7 @@ func TestWritePartialWithEmptyErrors(t *testing.T) {
 }
 
 func TestJSONEscapeHTMLDisabled(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	data := map[string]string{"url": "https://example.com?foo=bar&baz=qux"}
 	metadata := map[string]any{}
@@ -207,6 +220,7 @@ func TestJSONEscapeHTMLDisabled(t *testing.T) {
 }
 
 func TestSymbolMeta(t *testing.T) {
+	t.Parallel()
 	meta := SymbolMeta("AAPL")
 
 	assert.Equal(t, "AAPL", meta["symbol"])
@@ -219,6 +233,7 @@ func TestSymbolMeta(t *testing.T) {
 }
 
 func TestCatalogMeta(t *testing.T) {
+	t.Parallel()
 	meta := CatalogMeta("reports", 47, 10, 0)
 
 	assert.Equal(t, "reports", meta["kind"])

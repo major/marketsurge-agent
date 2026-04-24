@@ -12,6 +12,7 @@ import (
 )
 
 func TestNewClientDefaults(t *testing.T) {
+	t.Parallel()
 	client := NewClient("jwt-token")
 
 	require.NotNil(t, client.HTTPClient)
@@ -19,7 +20,18 @@ func TestNewClientDefaults(t *testing.T) {
 	assert.NotEmpty(t, client.Endpoint)
 }
 
+func TestNewClientWithOptions(t *testing.T) {
+	t.Parallel()
+	custom := &http.Client{}
+	c := NewClient("jwt-token", WithBaseURL("https://example.com"), WithHTTPClient(custom))
+
+	assert.Equal(t, "https://example.com", c.Endpoint)
+	assert.Same(t, custom, c.HTTPClient)
+	assert.Equal(t, "jwt-token", c.JWT)
+}
+
 func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
+	t.Parallel()
 	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -40,6 +52,7 @@ func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 }
 
 func TestExecuteReturnsGraphQLErrorOnHTTP200(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"errors":[{"message":"bad request"}]}`))
@@ -53,6 +66,7 @@ func TestExecuteReturnsGraphQLErrorOnHTTP200(t *testing.T) {
 }
 
 func TestExecuteReturnsTokenExpiredErrorOn401(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "nope", http.StatusUnauthorized)
 	})
@@ -64,6 +78,7 @@ func TestExecuteReturnsTokenExpiredErrorOn401(t *testing.T) {
 }
 
 func TestExecuteReturnsAuthenticationErrorOn403(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 	})
@@ -75,6 +90,7 @@ func TestExecuteReturnsAuthenticationErrorOn403(t *testing.T) {
 }
 
 func TestExecuteReturnsHTTPErrorOn500(t *testing.T) {
+	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	})
@@ -85,4 +101,29 @@ func TestExecuteReturnsHTTPErrorOn500(t *testing.T) {
 	assert.ErrorAs(t, err, &httpErr)
 	assert.Equal(t, http.StatusInternalServerError, httpErr.StatusCode)
 	assert.Contains(t, httpErr.Body, "boom")
+}
+
+func TestExecuteRejectsUnexpectedContentType(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte("<html><body>Service Unavailable</body></html>"))
+	})
+
+	_, err := client.Execute(context.Background(), Request{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected Content-Type")
+	assert.Contains(t, err.Error(), "text/html")
+}
+
+func TestExecuteAcceptsJSONWithCharset(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
+	})
+
+	raw, err := client.Execute(context.Background(), Request{})
+	require.NoError(t, err)
+	assert.Equal(t, true, getNestedMap(raw, "data")["ok"])
 }

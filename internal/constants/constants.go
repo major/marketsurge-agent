@@ -9,7 +9,7 @@ import (
 const (
 	GraphQLEndpoint    = "https://shared-data.dowjones.io/gateway/graphql"
 	JWTExchangeURL     = "https://www.investors.com/client"
-	DylanToken         = "x4ckyhshg90pdq6bwf6n1voijs7r3fdk"
+	DylanToken         = "x4ckyhshg90pdq6bwf6n1voijs7r3fdk" //nolint:gosec // public API exchange token, not a secret
 	UserAgent          = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
 	OriginURL          = "https://marketsurge.investors.com"
 	RefererURL         = "https://marketsurge.investors.com/"

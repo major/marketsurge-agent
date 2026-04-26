@@ -15,7 +15,7 @@ Fetch stock data including ratings, pricing, financials, patterns, and company i
 Use this for targeted stock data without fundamentals or ownership.
 For comprehensive analysis, use analyze_stock instead.
 
-Stock data now includes valuation ratios, risk metrics, short interest data, and blue dot event flags.
+Stock data now includes valuation ratios, risk metrics, short interest data, base pattern summaries, and blue dot/ant signal flags.
 
 **Parameters:**
 - symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
@@ -47,7 +47,7 @@ Analyze a stock with comprehensive data from MarketSurge.
 Fetches stock ratings, fundamentals, and ownership data concurrently.
 Partial failures in fundamentals or ownership are returned in the errors list rather than failing the entire request.
 
-Stock data now includes valuation ratios, risk metrics, short interest data, and blue dot event flags.
+Stock data now includes valuation ratios, risk metrics, short interest data, base pattern summaries, and blue dot/ant signal flags.
 
 **Parameters:**
 - symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA. Each symbol is fetched concurrently.
@@ -73,6 +73,8 @@ marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
 ` + "```" + `
 
 With ` + "`" + `--flat` + "`" + `, nested stock fields are emitted as single-level keys, for example ` + "`" + `stock.pricing.market_cap` + "`" + ` becomes ` + "`" + `pricing_market_cap` + "`" + `.
+
+Technical analysis fields include ` + "`" + `stock.base_pattern` + "`" + ` for pattern type, base stage, pivot price, base length, depth, and volume at pivot, plus ` + "`" + `stock.signals` + "`" + ` for blue dot and ant signal flags.
 
 ## Workflow Guidance
 

@@ -145,6 +145,14 @@ func TestSkillsGenerateCommand(t *testing.T) {
 			}
 		}
 
+		// Verify technical signal guidance is generated from the template.
+		expectedTechnicalFields := []string{"stock.base_pattern", "stock.signals", "blue dot", "ant signal"}
+		for _, field := range expectedTechnicalFields {
+			if !bytes.Contains(content, []byte(field)) {
+				t.Errorf("Expected technical signal guidance %q not found in stock.md", field)
+			}
+		}
+
 		// Verify expected output shape
 		if !bytes.Contains(content, []byte("\"symbol\": \"AAPL\"")) {
 			t.Error("Expected output shape not found in stock.md")

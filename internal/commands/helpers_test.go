@@ -70,6 +70,9 @@ func stockResponseFixture() string {
 						"avgDollarVolume50Day": {"value": 5000000, "formattedValue": "$5M"},
 						"upDownVolumeRatio": {"value": 1.2, "formattedValue": "1.2"},
 						"averageTrueRangePercent": [{"value": 2.3, "formattedValue": "2.3%"}],
+						"antEvents": [{"value": "2024-12-18"}],
+						"blueDotDailyEvents": [{"value": "2024-12-20", "formattedValue": "Dec 20, 2024"}],
+						"blueDotWeeklyEvents": [{"value": "2024-12-16", "formattedValue": "Dec 16, 2024"}],
 						"alpha": {"value": 1.1, "formattedValue": "1.1"},
 						"beta": {"value": 0.9, "formattedValue": "0.9"},
 						"pricingStartDate": {"value": "2024-01-01"},
@@ -83,8 +86,37 @@ func stockResponseFixture() string {
 						"priceToEarningsRatio": {"value": 32, "formattedValue": "32"},
 						"priceToEarningsVsSP500": {"value": 1.5, "formattedValue": "1.5"},
 						"cashFlowPerShareLastYear": {"value": 7, "formattedValue": "7"},
+						"isDailyBlueDotEvent": true,
+						"isWeeklyBlueDotEvent": false,
 						"rsLineNewHigh": true
 					}
+				},
+				"patternInfo": {
+					"patterns": [{
+						"id": "pattern-1",
+						"patternType": "Cup With Handle",
+						"periodicity": "DAILY",
+						"baseStage": "STAGE_2",
+						"baseNumber": 2,
+						"baseStatus": "ACTIVE",
+						"baseLength": 7,
+						"baseDepth": {"value": 18.5, "formattedValue": "18.5%"},
+						"baseStartDate": {"value": "2024-10-01"},
+						"baseEndDate": {"value": "2024-12-15"},
+						"baseBottomDate": {"value": "2024-11-04"},
+						"leftSideHighDate": {"value": "2024-10-15"},
+						"pivotPrice": {"value": 199.99, "formattedValue": "$199.99"},
+						"pivotDate": {"value": "2024-12-16"},
+						"pivotPriceDate": {"value": "2024-12-16"},
+						"avgVolumeRatePctOnPivot": {"value": 42.3, "formattedValue": "42.3%"},
+						"pricePctChangeOnPivot": {"value": 3.1, "formattedValue": "3.1%"}
+					}],
+					"tightAreas": [{
+						"patternID": 123,
+						"startDate": {"value": "2024-12-01"},
+						"endDate": {"value": "2024-12-05"},
+						"length": 5
+					}]
 				},
 				"financials": {
 					"epsDueDate": {"value": "2025-01-30"},

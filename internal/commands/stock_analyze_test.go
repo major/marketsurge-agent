@@ -31,6 +31,48 @@ func TestStockAnalyzeSuccess(t *testing.T) {
 	assert.Contains(t, data, "ownership")
 }
 
+func TestStockAnalyzeTechnicalSignals(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	var buf bytes.Buffer
+	cmd := StockAnalyzeCommand(c, &buf)
+	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL"))
+
+	result := parseJSONEnvelope(t, &buf)
+	data, _ := result["data"].(map[string]any)
+	stock, _ := data["stock"].(map[string]any)
+
+	signals, ok := stock["signals"].(map[string]any)
+	require.True(t, ok, "stock should include technical signals")
+	assert.Equal(t, true, signals["blue_dot"])
+	assert.Equal(t, "2024-12-20", signals["blue_dot_date"])
+	assert.Equal(t, true, signals["ant_signal"])
+
+	basePattern, ok := stock["base_pattern"].(map[string]any)
+	require.True(t, ok, "stock should include base pattern summary")
+	assert.Equal(t, "Cup With Handle", basePattern["pattern_type"])
+	assert.Equal(t, "STAGE_2", basePattern["base_stage"])
+	assert.Equal(t, 199.99, basePattern["pivot_price"])
+	assert.Equal(t, float64(7), basePattern["base_length_weeks"])
+	assert.Equal(t, 18.5, basePattern["base_depth_percent"])
+	assert.Equal(t, 42.3, basePattern["volume_at_pivot_pct"])
+
+	pricing, _ := stock["pricing"].(map[string]any)
+	assert.Equal(t, []any{"2024-12-20"}, pricing["blue_dot_daily_dates"])
+	assert.Equal(t, []any{"2024-12-16"}, pricing["blue_dot_weekly_dates"])
+	assert.Equal(t, []any{"2024-12-18"}, pricing["ant_dates"])
+
+	patterns, ok := stock["patterns"].([]any)
+	require.True(t, ok, "stock should include parsed patterns")
+	assert.Len(t, patterns, 1)
+	tightAreas, ok := stock["tight_areas"].([]any)
+	require.True(t, ok, "stock should include parsed tight areas")
+	assert.Len(t, tightAreas, 1)
+}
+
 func TestStockAnalyzeMultiSymbol(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(stockResponseFixture())
@@ -139,6 +181,8 @@ func TestStockAnalyzeFlatOutput(t *testing.T) {
 	assert.NotContains(t, data, "stock")
 	assert.Contains(t, data, "ratings_composite")
 	assert.Contains(t, data, "pricing_market_cap")
+	assert.Contains(t, data, "base_pattern_pivot_price")
+	assert.Contains(t, data, "signals_blue_dot")
 	assert.Contains(t, data, "fundamentals_reported_earnings")
 }
 

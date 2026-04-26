@@ -119,6 +119,8 @@ marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
 - `--compact` removes duplicate formatted string fields such as `market_cap_formatted`, while keeping raw numeric values.
 - `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
+`stock analyze` also includes MarketSurge technical context for chart-driven screening: `stock.base_pattern` summarizes the current base with pattern type, base stage, pivot price, base length, depth, and volume at pivot; `stock.signals` reports blue dot and ant signal flags when the API provides them.
+
 The `skills generate` command writes Markdown skill files to `skills/` that describe each command's inputs, outputs, and usage. These files are designed for consumption by AI agent frameworks that support tool/skill discovery.
 
 ```bash

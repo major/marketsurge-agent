@@ -157,6 +157,118 @@ func TestCatalogRunPagination(t *testing.T) {
 	assert.Equal(t, "MSFT", envelope.Data.Entries[0]["symbol"])
 }
 
+func TestClampCatalogOffset(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		offset   int
+		length   int
+		expected int
+	}{
+		{name: "zero offset", offset: 0, length: 10, expected: 0},
+		{name: "positive offset within bounds", offset: 5, length: 10, expected: 5},
+		{name: "negative offset clamps to zero", offset: -1, length: 10, expected: 0},
+		{name: "large negative offset clamps to zero", offset: -100, length: 10, expected: 0},
+		{name: "offset equals length", offset: 10, length: 10, expected: 10},
+		{name: "offset exceeds length", offset: 15, length: 10, expected: 10},
+		{name: "large offset clamps to length", offset: 1000, length: 10, expected: 10},
+		{name: "zero length", offset: 0, length: 0, expected: 0},
+		{name: "negative offset with zero length", offset: -5, length: 0, expected: 0},
+		{name: "positive offset with zero length", offset: 5, length: 0, expected: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := clampCatalogOffset(tt.offset, tt.length)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestPaginateSlice(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		items    []string
+		limit    int
+		offset   int
+		expected []string
+	}{
+		{
+			name:     "no pagination",
+			items:    []string{"a", "b", "c"},
+			limit:    0,
+			offset:   0,
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "limit within bounds",
+			items:    []string{"a", "b", "c", "d"},
+			limit:    2,
+			offset:   0,
+			expected: []string{"a", "b"},
+		},
+		{
+			name:     "offset and limit",
+			items:    []string{"a", "b", "c", "d"},
+			limit:    2,
+			offset:   1,
+			expected: []string{"b", "c"},
+		},
+		{
+			name:     "negative offset clamps to zero",
+			items:    []string{"a", "b", "c"},
+			limit:    2,
+			offset:   -5,
+			expected: []string{"a", "b"},
+		},
+		{
+			name:     "offset beyond length",
+			items:    []string{"a", "b", "c"},
+			limit:    2,
+			offset:   10,
+			expected: []string{},
+		},
+		{
+			name:     "negative limit returns full slice from offset",
+			items:    []string{"a", "b", "c"},
+			limit:    -1,
+			offset:   0,
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "empty slice",
+			items:    []string{},
+			limit:    10,
+			offset:   0,
+			expected: []string{},
+		},
+		{
+			name:     "offset at end of slice",
+			items:    []string{"a", "b", "c"},
+			limit:    10,
+			offset:   3,
+			expected: []string{},
+		},
+		{
+			name:     "limit exceeds remaining items",
+			items:    []string{"a", "b", "c"},
+			limit:    10,
+			offset:   1,
+			expected: []string{"b", "c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := paginateSlice(tt.items, tt.limit, tt.offset)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
 func TestCatalogRunWatchlistID64Bit(t *testing.T) {
 	t.Parallel()
 	server, requests := newCatalogRunServer(t)

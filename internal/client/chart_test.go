@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -19,7 +18,7 @@ func TestGetChartHistoryDailyIncludesExchangeAndBenchmark(t *testing.T) {
 		_, _ = w.Write([]byte(chartResponseJSON(true)))
 	})
 
-	data, err := client.GetChartHistory(context.Background(), "AAPL", "2024-01-01", "2024-02-01", "P1D", true, "NYSE", "0S&P5")
+	data, err := client.GetChartHistory(t.Context(), "AAPL", "2024-01-01", "2024-02-01", "P1D", true, "NYSE", "0S&P5")
 	require.NoError(t, err)
 	assert.Equal(t, "NYSE", captured.Variables["exchangeName"])
 	assert.Len(t, captured.Variables["symbols"], 2)
@@ -37,7 +36,7 @@ func TestGetChartHistoryWeeklyOmitsExchange(t *testing.T) {
 		_, _ = w.Write([]byte(chartResponseJSON(false)))
 	})
 
-	data, err := client.GetChartHistory(context.Background(), "AAPL", "2024-01-01", "2024-02-01", "P1W", false, "", "")
+	data, err := client.GetChartHistory(t.Context(), "AAPL", "2024-01-01", "2024-02-01", "P1W", false, "", "")
 	require.NoError(t, err)
 	assert.Nil(t, captured.Variables["exchangeName"])
 	assert.Nil(t, data.BenchmarkTimeSeries)
@@ -51,7 +50,7 @@ func TestGetChartMarkupsSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"chartMarkups":{"cursorId":"cursor-1","chartMarkups":[{"id":"m1","name":"Base","data":"{}","frequency":"DAILY","site":"marketsurge"}]}}}}`))
 	})
 
-	data, err := client.GetChartMarkups(context.Background(), "DJ:1", "DAILY", "ASC")
+	data, err := client.GetChartMarkups(t.Context(), "DJ:1", "DAILY", "ASC")
 	require.NoError(t, err)
 	assert.Equal(t, "cursor-1", data.CursorID)
 	assert.Len(t, data.Markups, 1)
@@ -67,7 +66,7 @@ func TestGetChartMarkupsPassesOperationName(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"chartMarkups":{"cursorId":"","chartMarkups":[]}}}}`))
 	})
 
-	_, err := client.GetChartMarkups(context.Background(), "DJ:1", "WEEKLY", "DESC")
+	_, err := client.GetChartMarkups(t.Context(), "DJ:1", "WEEKLY", "DESC")
 	require.NoError(t, err)
 	assert.Equal(t, "FetchChartMarkups", captured.OperationName)
 	assert.Equal(t, "WEEKLY", captured.Variables["frequency"])
@@ -80,7 +79,7 @@ func TestGetChartHistoryReturnsSymbolNotFound(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"marketData":[]}}`))
 	})
 
-	_, err := client.GetChartHistory(context.Background(), "MISS", "2024-01-01", "2024-02-01", "P1D", true, "NYSE", "")
+	_, err := client.GetChartHistory(t.Context(), "MISS", "2024-01-01", "2024-02-01", "P1D", true, "NYSE", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "symbol not found")
 }

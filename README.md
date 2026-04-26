@@ -109,7 +109,7 @@ marketsurge-agent skills generate
 
 ## Development
 
-Requires Go 1.25+.
+Requires Go 1.26+.
 
 ```bash
 make build     # Build binary

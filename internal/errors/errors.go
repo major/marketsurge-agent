@@ -32,7 +32,7 @@ func (e *MarketSurgeError) Unwrap() error {
 }
 
 // As implements custom error type matching for MarketSurgeError.
-func (e *MarketSurgeError) As(target interface{}) bool {
+func (e *MarketSurgeError) As(target any) bool {
 	if _, ok := target.(**MarketSurgeError); ok {
 		return true
 	}
@@ -51,7 +51,7 @@ type AuthenticationError struct {
 }
 
 // As implements custom error type matching for AuthenticationError.
-func (e *AuthenticationError) As(target interface{}) bool {
+func (e *AuthenticationError) As(target any) bool {
 	if _, ok := target.(**AuthenticationError); ok {
 		return true
 	}
@@ -75,7 +75,7 @@ type CookieExtractionError struct {
 }
 
 // As implements custom error type matching for CookieExtractionError.
-func (e *CookieExtractionError) As(target interface{}) bool {
+func (e *CookieExtractionError) As(target any) bool {
 	if _, ok := target.(**CookieExtractionError); ok {
 		return true
 	}
@@ -102,7 +102,7 @@ type TokenExpiredError struct {
 }
 
 // As implements custom error type matching for TokenExpiredError.
-func (e *TokenExpiredError) As(target interface{}) bool {
+func (e *TokenExpiredError) As(target any) bool {
 	if _, ok := target.(**TokenExpiredError); ok {
 		return true
 	}
@@ -127,7 +127,7 @@ type APIError struct {
 }
 
 // As implements custom error type matching for APIError.
-func (e *APIError) As(target interface{}) bool {
+func (e *APIError) As(target any) bool {
 	if _, ok := target.(**APIError); ok {
 		return true
 	}
@@ -151,7 +151,7 @@ type SymbolNotFoundError struct {
 }
 
 // As implements custom error type matching for SymbolNotFoundError.
-func (e *SymbolNotFoundError) As(target interface{}) bool {
+func (e *SymbolNotFoundError) As(target any) bool {
 	if _, ok := target.(**SymbolNotFoundError); ok {
 		return true
 	}
@@ -178,7 +178,7 @@ type HTTPError struct {
 }
 
 // As implements custom error type matching for HTTPError.
-func (e *HTTPError) As(target interface{}) bool {
+func (e *HTTPError) As(target any) bool {
 	if _, ok := target.(**HTTPError); ok {
 		return true
 	}
@@ -200,7 +200,7 @@ type ValidationError struct {
 }
 
 // As implements custom error type matching for ValidationError.
-func (e *ValidationError) As(target interface{}) bool {
+func (e *ValidationError) As(target any) bool {
 	if _, ok := target.(**ValidationError); ok {
 		return true
 	}

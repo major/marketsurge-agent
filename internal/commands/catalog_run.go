@@ -256,13 +256,7 @@ func paginateSlice[T any](items []T, limit, offset int) []T {
 
 // clampCatalogOffset bounds the offset to the available entry count.
 func clampCatalogOffset(offset, length int) int {
-	if offset < 0 {
-		return 0
-	}
-	if offset > length {
-		return length
-	}
-	return offset
+	return max(0, min(offset, length))
 }
 
 // projectWatchlistEntries narrows output entries to the requested fields when present.

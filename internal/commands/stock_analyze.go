@@ -45,17 +45,15 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 			// Process each symbol concurrently.
 			var wg sync.WaitGroup
 			for i, symbol := range symbols {
-				wg.Add(1)
-				go func(idx int, sym string) {
-					defer wg.Done()
-					result, errs := analyzeSymbol(ctx, c, sym)
-					results[idx] = result
+				wg.Go(func() {
+					result, errs := analyzeSymbol(ctx, c, symbol)
+					results[i] = result
 					if len(errs) > 0 {
 						mu.Lock()
 						allErrors = append(allErrors, errs...)
 						mu.Unlock()
 					}
-				}(i, symbol)
+				})
 			}
 			wg.Wait()
 
@@ -100,10 +98,8 @@ func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (result
 	var mu sync.Mutex
 
 	var wg sync.WaitGroup
-	wg.Add(3)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		stock, err := c.GetStock(ctx, symbol)
 		if err != nil {
 			mu.Lock()
@@ -112,10 +108,9 @@ func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (result
 			return
 		}
 		result.Stock = stock
-	}()
+	})
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		fund, err := c.GetFundamentals(ctx, symbol)
 		if err != nil {
 			mu.Lock()
@@ -124,10 +119,9 @@ func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (result
 			return
 		}
 		result.Fundamentals = fund
-	}()
+	})
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		own, err := c.GetOwnership(ctx, symbol)
 		if err != nil {
 			mu.Lock()
@@ -136,7 +130,7 @@ func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (result
 			return
 		}
 		result.Ownership = own
-	}()
+	})
 
 	wg.Wait()
 	return result, errs

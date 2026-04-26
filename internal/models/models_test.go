@@ -36,7 +36,7 @@ func TestStockDataMarshalUnmarshal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify JSON contains expected fields
-	var jsonMap map[string]interface{}
+	var jsonMap map[string]any
 	err = json.Unmarshal(data, &jsonMap)
 	require.NoError(t, err)
 
@@ -65,7 +65,7 @@ func TestNilPointerFieldsOmitted(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify nil fields are omitted
-	var jsonMap map[string]interface{}
+	var jsonMap map[string]any
 	err = json.Unmarshal(data, &jsonMap)
 	require.NoError(t, err)
 
@@ -89,9 +89,9 @@ func TestCatalogKindConstants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(string(tt.kind), func(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, tt.expected, string(tt.kind))
-})
+			t.Parallel()
+			assert.Equal(t, tt.expected, string(tt.kind))
+		})
 	}
 }
 
@@ -267,9 +267,9 @@ func TestChartMarkupMarshalUnmarshal(t *testing.T) {
 func TestPricingWithComplexFields(t *testing.T) {
 	t.Parallel()
 	pricing := Pricing{
-		BlueDotDailyDates: []string{"2024-01-01", "2024-01-02"},
-		BlueDotWeeklyDates: []string{},
-		AntDates:          []string{},
+		BlueDotDailyDates:         []string{"2024-01-01", "2024-01-02"},
+		BlueDotWeeklyDates:        []string{},
+		AntDates:                  []string{},
 		HistoricalPriceStatistics: []HistoricalPriceStatistic{},
 		VolumeMovingAverages:      []VolumeMovingAverage{},
 	}

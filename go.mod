@@ -1,6 +1,6 @@
 module github.com/major/marketsurge-agent
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/browserutils/kooky v0.2.9

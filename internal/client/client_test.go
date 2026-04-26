@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -44,7 +43,7 @@ func TestExecuteSetsHeadersAndAuthorization(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
 	})
 
-	raw, err := client.Execute(context.Background(), Request{OperationName: "TestOp", Variables: map[string]any{"value": "x"}, Query: "query TestOp { ok }"})
+	raw, err := client.Execute(t.Context(), Request{OperationName: "TestOp", Variables: map[string]any{"value": "x"}, Query: "query TestOp { ok }"})
 	require.NoError(t, err)
 	assert.Equal(t, "TestOp", captured.OperationName)
 	assert.Equal(t, "x", captured.Variables["value"])
@@ -58,7 +57,7 @@ func TestExecuteReturnsGraphQLErrorOnHTTP200(t *testing.T) {
 		_, _ = w.Write([]byte(`{"errors":[{"message":"bad request"}]}`))
 	})
 
-	_, err := client.Execute(context.Background(), Request{})
+	_, err := client.Execute(t.Context(), Request{})
 	var apiErr *mserrors.APIError
 	require.Error(t, err)
 	assert.ErrorAs(t, err, &apiErr)
@@ -71,7 +70,7 @@ func TestExecuteReturnsTokenExpiredErrorOn401(t *testing.T) {
 		http.Error(w, "nope", http.StatusUnauthorized)
 	})
 
-	_, err := client.Execute(context.Background(), Request{})
+	_, err := client.Execute(t.Context(), Request{})
 	var authErr *mserrors.TokenExpiredError
 	require.Error(t, err)
 	assert.ErrorAs(t, err, &authErr)
@@ -83,7 +82,7 @@ func TestExecuteReturnsAuthenticationErrorOn403(t *testing.T) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 	})
 
-	_, err := client.Execute(context.Background(), Request{})
+	_, err := client.Execute(t.Context(), Request{})
 	var authErr *mserrors.AuthenticationError
 	require.Error(t, err)
 	assert.ErrorAs(t, err, &authErr)
@@ -95,7 +94,7 @@ func TestExecuteReturnsHTTPErrorOn500(t *testing.T) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	})
 
-	_, err := client.Execute(context.Background(), Request{})
+	_, err := client.Execute(t.Context(), Request{})
 	var httpErr *mserrors.HTTPError
 	require.Error(t, err)
 	assert.ErrorAs(t, err, &httpErr)
@@ -110,7 +109,7 @@ func TestExecuteRejectsUnexpectedContentType(t *testing.T) {
 		_, _ = w.Write([]byte("<html><body>Service Unavailable</body></html>"))
 	})
 
-	_, err := client.Execute(context.Background(), Request{})
+	_, err := client.Execute(t.Context(), Request{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected Content-Type")
 	assert.Contains(t, err.Error(), "text/html")
@@ -123,7 +122,7 @@ func TestExecuteAcceptsJSONWithCharset(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"ok":true}}`))
 	})
 
-	raw, err := client.Execute(context.Background(), Request{})
+	raw, err := client.Execute(t.Context(), Request{})
 	require.NoError(t, err)
 	assert.Equal(t, true, getNestedMap(raw, "data")["ok"])
 }

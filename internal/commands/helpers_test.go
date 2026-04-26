@@ -18,7 +18,7 @@ import (
 func runTestCommand(t *testing.T, cmd *cli.Command, args ...string) error {
 	t.Helper()
 	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-	return cmd.Run(context.Background(), args)
+	return cmd.Run(t.Context(), args)
 }
 
 // parseJSONEnvelope unmarshals buf into a map and asserts it contains data and metadata keys.

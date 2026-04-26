@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -32,7 +31,7 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		cmd := SkillsGenerateCommand(&buf)
 
 		// Create a CLI context with the output-dir flag
-		ctx := context.Background()
+		ctx := t.Context()
 		cliCmd := &cli.Command{
 			Name: "test",
 			Flags: []cli.Flag{
@@ -86,7 +85,7 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		var buf bytes.Buffer
 		cmd := SkillsGenerateCommand(&buf)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		err := cmd.Action(ctx, &cli.Command{
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -151,7 +150,7 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		var buf bytes.Buffer
 		cmd := SkillsGenerateCommand(&buf)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		err := cmd.Action(ctx, &cli.Command{
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -185,7 +184,7 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		var buf bytes.Buffer
 		cmd := SkillsGenerateCommand(&buf)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		err := cmd.Action(ctx, &cli.Command{
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -227,7 +226,7 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		var buf bytes.Buffer
 		cmd := SkillsGenerateCommand(&buf)
 
-		ctx := context.Background()
+		ctx := t.Context()
 		err := cmd.Action(ctx, &cli.Command{
 			Flags: []cli.Flag{
 				&cli.StringFlag{

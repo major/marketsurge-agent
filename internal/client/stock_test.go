@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -20,7 +19,7 @@ func TestGetStockSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(stockResponseJSON()))
 	})
 
-	stock, err := client.GetStock(context.Background(), "AAPL")
+	stock, err := client.GetStock(t.Context(), "AAPL")
 	require.NoError(t, err)
 	require.NotNil(t, stock)
 	assert.Equal(t, "OtherMarketData", captured.OperationName)
@@ -39,7 +38,7 @@ func TestGetStockReturnsSymbolNotFoundForEmptyMarketData(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"marketData":[]}}`))
 	})
 
-	_, err := client.GetStock(context.Background(), "MISSING")
+	_, err := client.GetStock(t.Context(), "MISSING")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "symbol not found")
 }
@@ -51,7 +50,7 @@ func TestGetFundamentalsSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(stockResponseJSON()))
 	})
 
-	data, err := client.GetFundamentals(context.Background(), "AAPL")
+	data, err := client.GetFundamentals(t.Context(), "AAPL")
 	require.NoError(t, err)
 	assert.Equal(t, "AAPL", data.Symbol)
 	assert.Equal(t, "Apple Inc.", *data.CompanyName)
@@ -66,7 +65,7 @@ func TestGetOwnershipSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(stockResponseJSON()))
 	})
 
-	data, err := client.GetOwnership(context.Background(), "AAPL")
+	data, err := client.GetOwnership(t.Context(), "AAPL")
 	require.NoError(t, err)
 	assert.Equal(t, "65%", *data.FundsFloatPct)
 	assert.Len(t, data.QuarterlyFunds, 1)
@@ -80,7 +79,7 @@ func TestGetRSRatingHistorySuccess(t *testing.T) {
 		_, _ = w.Write([]byte(stockResponseJSON()))
 	})
 
-	data, err := client.GetRSRatingHistory(context.Background(), "AAPL")
+	data, err := client.GetRSRatingHistory(t.Context(), "AAPL")
 	require.NoError(t, err)
 	assert.Equal(t, "AAPL", data.Symbol)
 	assert.True(t, *data.RSLineNewHigh)

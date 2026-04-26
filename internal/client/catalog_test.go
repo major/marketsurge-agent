@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -21,7 +20,7 @@ func TestRunReportSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(adhocResponseJSON()))
 	})
 
-	data, err := client.RunReport(context.Background(), 124)
+	data, err := client.RunReport(t.Context(), 124)
 	require.NoError(t, err)
 	assert.Equal(t, "MarketDataAdhocScreen", captured.OperationName)
 	assert.Len(t, data.Entries, 1)
@@ -43,7 +42,7 @@ func TestRunWatchlistTwoStepFlow(t *testing.T) {
 		_, _ = w.Write([]byte(adhocResponseJSON()))
 	})
 
-	data, err := client.RunWatchlist(context.Background(), 922337203685477580)
+	data, err := client.RunWatchlist(t.Context(), 922337203685477580)
 	require.NoError(t, err)
 	require.Len(t, requests, 2)
 	assert.Equal(t, "FlaggedSymbols", requests[0].OperationName)
@@ -60,7 +59,7 @@ func TestRunWatchlistReturnsEmptyForNoSymbols(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"watchlist":{"id":"123","items":[]}}}`))
 	})
 
-	data, err := client.RunWatchlist(context.Background(), 123)
+	data, err := client.RunWatchlist(t.Context(), 123)
 	require.NoError(t, err)
 	assert.Empty(t, data.Entries)
 }
@@ -71,7 +70,7 @@ func TestRunWatchlistReturnsNotFoundWhenMissing(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"watchlist":null}}`))
 	})
 
-	_, err := client.RunWatchlist(context.Background(), 123)
+	_, err := client.RunWatchlist(t.Context(), 123)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "watchlist not found")
 }
@@ -82,7 +81,7 @@ func TestRunCoachScreenSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":2,"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"}]]}}}}`))
 	})
 
-	data, err := client.RunCoachScreen(context.Background(), "screen-1")
+	data, err := client.RunCoachScreen(t.Context(), "screen-1")
 	require.NoError(t, err)
 	assert.Equal(t, 2, *data.NumInstruments)
 	assert.Equal(t, "AAPL", *data.Rows[0]["Symbol"])
@@ -94,7 +93,7 @@ func TestRunCoachScreenReturnsAPIErrorForMissingPayload(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"user":{}}}`))
 	})
 
-	_, err := client.RunCoachScreen(context.Background(), "screen-1")
+	_, err := client.RunCoachScreen(t.Context(), "screen-1")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no coach screen data returned")
 }
@@ -117,7 +116,7 @@ func TestListCatalogAggregatesAllSources(t *testing.T) {
 		}
 	})
 
-	catalog, err := client.ListCatalog(context.Background(), nil)
+	catalog, err := client.ListCatalog(t.Context(), nil)
 	require.NoError(t, err)
 	assert.Empty(t, catalog.Errors)
 	assert.GreaterOrEqual(t, len(catalog.Entries), 4)
@@ -136,7 +135,7 @@ func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
 	})
 	kind := models.CatalogKindReport
 
-	catalog, err := client.ListCatalog(context.Background(), &kind)
+	catalog, err := client.ListCatalog(t.Context(), &kind)
 	require.NoError(t, err)
 	assert.Empty(t, requests)
 	assert.Len(t, catalog.Errors, 0)
@@ -160,7 +159,7 @@ func TestListCatalogPartialFailure(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"user":{"screens":[],"watchlists":[]}}}`))
 	})
 
-	catalog, err := client.ListCatalog(context.Background(), nil)
+	catalog, err := client.ListCatalog(t.Context(), nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, catalog.Errors)
 	assert.Contains(t, catalog.Errors[0], "screens failed")
@@ -184,7 +183,7 @@ func TestListCatalogFiltersKind(t *testing.T) {
 	})
 	kind := models.CatalogKindReport
 
-	catalog, err := client.ListCatalog(context.Background(), &kind)
+	catalog, err := client.ListCatalog(t.Context(), &kind)
 	require.NoError(t, err)
 	require.NotEmpty(t, catalog.Entries)
 	for _, entry := range catalog.Entries {
@@ -199,7 +198,7 @@ func TestParseAdhocScreenResultIncludesErrorValues(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"marketDataAdhocScreen":{"responseValues":[],"errorValues":["bad symbol"]}}}`))
 	})
 
-	data, err := client.RunReport(context.Background(), 124)
+	data, err := client.RunReport(t.Context(), 124)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"bad symbol"}, data.ErrorValues)
 }
@@ -210,7 +209,7 @@ func TestParseAdhocScreenResultMapsFields(t *testing.T) {
 		_, _ = w.Write([]byte(adhocResponseJSON()))
 	})
 
-	data, err := client.RunReport(context.Background(), 124)
+	data, err := client.RunReport(t.Context(), 124)
 	require.NoError(t, err)
 	require.Len(t, data.Entries, 1)
 	assert.Equal(t, 99, *data.Entries[0].CompositeRating)

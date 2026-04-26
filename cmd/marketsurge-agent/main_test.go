@@ -24,7 +24,7 @@ func TestHelpContainsAllCommands(t *testing.T) {
 	var helpBuf bytes.Buffer
 	app.Writer = &helpBuf
 
-	err := app.Run(context.Background(), []string{"marketsurge-agent", "--help"})
+	err := app.Run(t.Context(), []string{"marketsurge-agent", "--help"})
 	require.NoError(t, err)
 
 	helpText := helpBuf.String()
@@ -48,7 +48,7 @@ func TestUnknownCommandReturnsError(t *testing.T) {
 	app.Writer = io.Discard
 	app.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-	_ = app.Run(context.Background(), []string{"marketsurge-agent", "nonexistent"})
+	_ = app.Run(t.Context(), []string{"marketsurge-agent", "nonexistent"})
 
 	var envelope output.ErrorEnvelope
 	err := json.NewDecoder(&buf).Decode(&envelope)
@@ -72,7 +72,7 @@ func TestErrorOutputIsValidJSON(t *testing.T) {
 
 	// Running a real command without auth triggers an AuthenticationError
 	// from the Before handler.
-	err := app.Run(context.Background(), []string{"marketsurge-agent", "stock", "get", "AAPL"})
+	err := app.Run(t.Context(), []string{"marketsurge-agent", "stock", "get", "AAPL"})
 	require.Error(t, err)
 
 	// Simulate main()'s error handler writing JSON to stdout.

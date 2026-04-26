@@ -121,7 +121,7 @@ func TestListCatalogAggregatesAllSources(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, catalog.Errors)
 	assert.GreaterOrEqual(t, len(catalog.Entries), 4)
-	assert.Contains(t, catalog.Entries, models.CatalogEntry{Name: "Saved Screen", Kind: models.CatalogKindScreen, Description: strptr("screen desc")})
+	assert.Contains(t, catalog.Entries, models.CatalogEntry{Name: "Saved Screen", Kind: models.CatalogKindScreen, Description: new("screen desc")})
 }
 
 func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
@@ -222,10 +222,6 @@ func TestParseAdhocScreenResultMapsFields(t *testing.T) {
 
 func adhocResponseJSON() string {
 	return `{"data":{"marketDataAdhocScreen":{"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"},{"mdItem":{"name":"CompanyName"},"value":"Apple Inc."},{"mdItem":{"name":"ListRank"},"value":"1"},{"mdItem":{"name":"Price"},"value":"101.5"},{"mdItem":{"name":"PriceNetChg"},"value":"1.0"},{"mdItem":{"name":"PricePctChg"},"value":"0.9"},{"mdItem":{"name":"PricePctOff52WHigh"},"value":"5.0"},{"mdItem":{"name":"VolumeAvg50Day"},"value":"1000"},{"mdItem":{"name":"VolumePctChgVs50DAvgVolume"},"value":"10.0"},{"mdItem":{"name":"CompositeRating"},"value":"99"},{"mdItem":{"name":"EPSRating"},"value":"95"},{"mdItem":{"name":"RSRating"},"value":"94"},{"mdItem":{"name":"AccDisRating"},"value":"A"},{"mdItem":{"name":"SMRRating"},"value":"A"},{"mdItem":{"name":"IndustryGroupRank"},"value":"3"},{"mdItem":{"name":"IndustryName"},"value":"Technology"},{"mdItem":{"name":"MarketCapIntraday"},"value":"1000"},{"mdItem":{"name":"VolumeDollarAvg50D"},"value":"500"},{"mdItem":{"name":"IPODate"},"value":"1980-12-12"},{"mdItem":{"name":"DowJonesKey"},"value":"DJ:1"},{"mdItem":{"name":"ChartingSymbol"},"value":"AAPL"},{"mdItem":{"name":"DowJonesInstrumentType"},"value":"EQUITY"},{"mdItem":{"name":"DowJonesInstrumentSubType"},"value":"COMMON"}]],"errorValues":[]}}}`
-}
-
-func strptr(value string) *string {
-	return &value
 }
 
 func modelsToReportEntries() []models.CatalogEntry {

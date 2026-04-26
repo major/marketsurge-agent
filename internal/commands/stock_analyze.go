@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,14 +32,19 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 	return &cli.Command{
 		Name:      "analyze",
 		Usage:     "Analyze one or more stock symbols",
-		ArgsUsage: "<symbol> [symbol...]",
+		ArgsUsage: "[symbol...]",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols to analyze"},
+			&cli.BoolFlag{Name: "compact", Usage: "Remove formatted string fields from analysis data"},
+			&cli.BoolFlag{Name: "flat", Usage: "Flatten each analysis result for token-efficient agent parsing"},
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			if cmd.Args().Len() == 0 {
-				verr := mserrors.NewValidationError("at least one symbol argument required", nil)
+			symbols := analyzeSymbols(cmd)
+			if len(symbols) == 0 {
+				verr := mserrors.NewValidationError("at least one symbol required", nil)
 				return verr
 			}
 
-			symbols := cmd.Args().Slice()
 			results := make([]AnalysisResult, len(symbols))
 			var allErrors []string
 			var mu sync.Mutex
@@ -74,21 +81,39 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 				return err
 			}
 
+			data, err := transformAnalysisOutput(results, cmd.Bool("compact"), cmd.Bool("flat"))
+			if err != nil {
+				return fmt.Errorf("transform analysis output: %w", err)
+			}
+
 			// Single symbol: unwrap from array.
 			if len(symbols) == 1 {
 				if len(allErrors) > 0 {
-					return output.WritePartial(w, results[0], allErrors, meta)
+					return output.WritePartial(w, data, allErrors, meta)
 				}
-				return output.WriteSuccess(w, results[0], meta)
+				return output.WriteSuccess(w, data, meta)
 			}
 
 			// Multi-symbol: output as array.
 			if len(allErrors) > 0 {
-				return output.WritePartial(w, results, allErrors, meta)
+				return output.WritePartial(w, data, allErrors, meta)
 			}
-			return output.WriteSuccess(w, results, meta)
+			return output.WriteSuccess(w, data, meta)
 		},
 	}
+}
+
+// analyzeSymbols combines positional symbols with the --tickers comma-separated
+// input used for larger batch analysis requests.
+func analyzeSymbols(cmd *cli.Command) []string {
+	symbols := append([]string{}, cmd.Args().Slice()...)
+	for symbol := range strings.SplitSeq(cmd.String("tickers"), ",") {
+		trimmed := strings.TrimSpace(symbol)
+		if trimmed != "" {
+			symbols = append(symbols, trimmed)
+		}
+	}
+	return symbols
 }
 
 // analyzeSymbol fetches stock, fundamental, and ownership data concurrently
@@ -147,4 +172,112 @@ func analyzeMetadata(symbols []string) map[string]any {
 		meta["symbols"] = symbols
 	}
 	return meta
+}
+
+// transformAnalysisOutput applies optional token-efficiency transforms while
+// preserving the existing single-symbol object vs. multi-symbol array contract.
+func transformAnalysisOutput(results []AnalysisResult, compact, flat bool) (any, error) {
+	transformed := make([]any, 0, len(results))
+	for _, result := range results {
+		data, err := analysisResultMap(result)
+		if err != nil {
+			return nil, err
+		}
+		if compact {
+			data = removeFormattedFields(data).(map[string]any)
+		}
+		if flat {
+			data = flattenAnalysisMap(data)
+		}
+		transformed = append(transformed, data)
+	}
+
+	if len(transformed) == 1 {
+		return transformed[0], nil
+	}
+	return transformed, nil
+}
+
+func analysisResultMap(result AnalysisResult) (map[string]any, error) {
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("marshal analysis result: %w", err)
+	}
+
+	var resultMap map[string]any
+	if err := json.Unmarshal(data, &resultMap); err != nil {
+		return nil, fmt.Errorf("unmarshal analysis result: %w", err)
+	}
+	return resultMap, nil
+}
+
+func removeFormattedFields(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		cleaned := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			if isFormattedField(key) {
+				continue
+			}
+			cleaned[key] = removeFormattedFields(nested)
+		}
+		return cleaned
+	case []any:
+		cleaned := make([]any, 0, len(typed))
+		for _, nested := range typed {
+			cleaned = append(cleaned, removeFormattedFields(nested))
+		}
+		return cleaned
+	default:
+		return value
+	}
+}
+
+func isFormattedField(key string) bool {
+	return strings.HasSuffix(key, "_formatted") || strings.HasPrefix(key, "formatted_")
+}
+
+func flattenAnalysisMap(data map[string]any) map[string]any {
+	flat := map[string]any{}
+	if symbol, ok := data["symbol"]; ok {
+		flat["symbol"] = symbol
+	}
+
+	for key, value := range data {
+		switch key {
+		case "symbol":
+			continue
+		case "stock":
+			flattenValue(flat, "", value)
+		default:
+			flattenValue(flat, key, value)
+		}
+	}
+	return flat
+}
+
+func flattenValue(flat map[string]any, prefix string, value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			flattenValue(flat, joinFlatKey(prefix, key), nested)
+		}
+	case []any:
+		if len(typed) > 0 {
+			flat[prefix] = typed
+		}
+	case nil:
+		return
+	default:
+		if prefix != "" {
+			flat[prefix] = typed
+		}
+	}
+}
+
+func joinFlatKey(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "_" + key
 }

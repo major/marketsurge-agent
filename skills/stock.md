@@ -17,12 +17,12 @@ Stock data now includes valuation ratios, risk metrics, short interest data, and
 - symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
 
 **Example:**
-`bash
+```bash
 marketsurge-agent stock get AAPL
-`
+```
 
 **Expected Output Shape:**
-`json
+```json
 {
   "symbol": "AAPL",
   "ratings": {
@@ -35,7 +35,7 @@ marketsurge-agent stock get AAPL
     "eps": 5.28
   }
 }
-`
+```
 
 ### analyze_stock
 Analyze a stock with comprehensive data from MarketSurge.
@@ -47,14 +47,18 @@ Stock data now includes valuation ratios, risk metrics, short interest data, and
 
 **Parameters:**
 - symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA. Each symbol is fetched concurrently.
+- tickers (optional): Comma-separated stock ticker symbols, e.g. AAPL,NVDA,TSLA. Useful for larger agent batch comparisons.
+- compact (optional): Remove duplicate formatted string fields such as market_cap_formatted while keeping raw numeric values.
+- flat (optional): Flatten each analysis result inside the standard JSON envelope for lower-token parsing.
 
 **Example:**
-`bash
+```bash
 marketsurge-agent stock analyze AAPL NVDA
-`
+marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
+```
 
 **Expected Output Shape:**
-`json
+```json
 {
   "symbol": "AAPL",
   "stock": { ... },
@@ -62,7 +66,9 @@ marketsurge-agent stock analyze AAPL NVDA
   "ownership": { ... },
   "errors": []
 }
-`
+```
+
+With `--flat`, nested stock fields are emitted as single-level keys, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
 ## Workflow Guidance
 

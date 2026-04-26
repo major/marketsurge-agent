@@ -38,6 +38,12 @@ marketsurge-agent stock get AAPL
 # Analyze multiple symbols concurrently
 marketsurge-agent stock analyze AAPL MSFT NVDA GOOG
 
+# Analyze a comma-separated batch and remove formatted duplicate fields
+marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
+
+# Flatten each analysis result for lower-token agent parsing
+marketsurge-agent stock analyze AAPL --flat
+
 # Fundamental data
 marketsurge-agent fundamental get TSLA
 
@@ -89,7 +95,7 @@ Errors follow the same pattern:
 | Command | Description |
 |---|---|
 | `stock get <symbol>` | Stock data (ratings, pricing, financials) |
-| `stock analyze <symbols...>` | Concurrent multi-symbol analysis |
+| `stock analyze [symbols...]` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, and comma-separated batch modes |
 | `fundamental get <symbol>` | Fundamental analysis data |
 | `ownership get <symbol>` | Institutional ownership |
 | `rs-history get <symbol>` | Relative strength rating history |
@@ -100,6 +106,18 @@ Errors follow the same pattern:
 | `skills generate` | Generate agent skill documentation |
 
 ## Agent integration
+
+### Token-efficient stock analysis
+
+`stock analyze` supports output modes designed for AI agents and batch comparison workflows:
+
+```bash
+marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
+```
+
+- `--tickers AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--tickers`.
+- `--compact` removes duplicate formatted string fields such as `market_cap_formatted`, while keeping raw numeric values.
+- `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
 The `skills generate` command writes Markdown skill files to `skills/` that describe each command's inputs, outputs, and usage. These files are designed for consumption by AI agent frameworks that support tool/skill discovery.
 

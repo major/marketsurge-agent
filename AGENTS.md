@@ -112,6 +112,8 @@ Follow `fundamental_get.go` (33 lines) as the canonical simple command template.
 
 ## Build
 
+Requires Go 1.26+.
+
 ```bash
 make build     # Build binary
 make test      # go test -v -race -coverprofile
@@ -119,7 +121,7 @@ make lint      # golangci-lint run
 make clean     # Remove binary + coverage
 ```
 
-Linting uses [golangci-lint](https://golangci-lint.run/) v2 with config in `.golangci.yml`. The standard linter set is enabled plus `bodyclose`, `errorlint`, `gocritic`, `misspell`, `nolintlint`, `revive`, `unconvert`, and `unparam`.
+Linting uses [golangci-lint](https://golangci-lint.run/) v2 with config in `.golangci.yml`. The standard linter set is enabled plus `bodyclose`, `errorlint`, `gocritic`, `misspell`, `modernize`, `nolintlint`, `revive`, `unconvert`, and `unparam`.
 
 CI pipeline: `golangci-lint` (separate job) + `go test -v -race` -> `go build`
 

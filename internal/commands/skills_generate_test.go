@@ -23,8 +23,8 @@ type skillsGenerateEnvelope struct {
 func TestSkillsGenerateCommand(t *testing.T) {
 	t.Parallel()
 	t.Run("generates skill files to default directory", func(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := t.TempDir()
 		outputDir := filepath.Join(tmpDir, "skills")
 
 		var buf bytes.Buffer
@@ -75,11 +75,11 @@ func TestSkillsGenerateCommand(t *testing.T) {
 				t.Errorf("Skill file was not created: %s", fpath)
 			}
 		}
-})
+	})
 
 	t.Run("generates files with expected content", func(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := t.TempDir()
 		outputDir := filepath.Join(tmpDir, "skills")
 
 		var buf bytes.Buffer
@@ -133,6 +133,17 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		if !bytes.Contains(content, []byte("marketsurge-agent stock get AAPL")) {
 			t.Error("Example invocation not found in stock.md")
 		}
+		if !bytes.Contains(content, []byte("marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat")) {
+			t.Error("Token-efficient analyze example not found in stock.md")
+		}
+
+		// Verify token-efficient analyze parameters are generated from the template.
+		expectedParameters := []string{"tickers (optional)", "compact (optional)", "flat (optional)"}
+		for _, parameter := range expectedParameters {
+			if !bytes.Contains(content, []byte(parameter)) {
+				t.Errorf("Expected analyze parameter %q not found in stock.md", parameter)
+			}
+		}
 
 		// Verify expected output shape
 		if !bytes.Contains(content, []byte("\"symbol\": \"AAPL\"")) {
@@ -140,11 +151,11 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		}
 
 		t.Logf("stock.md content length: %d bytes", len(contentStr))
-})
+	})
 
 	t.Run("uses custom output directory", func(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := t.TempDir()
 		customDir := filepath.Join(tmpDir, "custom", "skills")
 
 		var buf bytes.Buffer
@@ -174,11 +185,11 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		if _, err := os.Stat(stockFile); os.IsNotExist(err) {
 			t.Errorf("Skill file was not created in custom directory: %s", stockFile)
 		}
-})
+	})
 
 	t.Run("generates all command groups", func(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := t.TempDir()
 		outputDir := filepath.Join(tmpDir, "skills")
 
 		var buf bytes.Buffer
@@ -216,11 +227,11 @@ func TestSkillsGenerateCommand(t *testing.T) {
 				t.Errorf("Skill file for group '%s' is empty", group)
 			}
 		}
-})
+	})
 
 	t.Run("outputs success message", func(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := t.TempDir()
 		outputDir := filepath.Join(tmpDir, "skills")
 
 		var buf bytes.Buffer
@@ -241,7 +252,7 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		assert.Equal(t, outputDir, envelope.Data.OutputDir)
 		assert.Len(t, envelope.Data.GeneratedFiles, 6)
 		assert.NotEmpty(t, envelope.Metadata["timestamp"])
-})
+	})
 }
 
 func decodeSkillsGenerateEnvelope(t *testing.T, data []byte) skillsGenerateEnvelope {

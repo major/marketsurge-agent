@@ -42,7 +42,7 @@ func WriteSuccess(w io.Writer, data any, metadata map[string]any) error {
 }
 
 // WriteError writes an error response to the writer.
-// It maps the error type to an appropriate error code string using errors.As().
+// It maps the error type to an appropriate error code string using errors.AsType().
 // The response is formatted as a JSON envelope with error details.
 func WriteError(w io.Writer, err error) error {
 	code := errorCode(err)
@@ -50,13 +50,11 @@ func WriteError(w io.Writer, err error) error {
 
 	// Extract details from specific error types
 	var details string
-	var symbolNotFound *mserr.SymbolNotFoundError
-	if errors.As(err, &symbolNotFound) {
+	if symbolNotFound, ok := errors.AsType[*mserr.SymbolNotFoundError](err); ok {
 		details = "symbol: " + symbolNotFound.Symbol
 	}
 
-	var httpErr *mserr.HTTPError
-	if errors.As(err, &httpErr) {
+	if httpErr, ok := errors.AsType[*mserr.HTTPError](err); ok {
 		details = fmt.Sprintf("status: %d", httpErr.StatusCode)
 	}
 

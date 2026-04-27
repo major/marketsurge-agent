@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 
 	mserr "github.com/major/marketsurge-agent/internal/errors"
 )
@@ -72,18 +73,37 @@ func WriteError(w io.Writer, err error) error {
 
 const maxHTTPErrorBodyDetailLength = 500
 
+var sensitiveHTTPBodyPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`),
+	regexp.MustCompile(`(?i)Bearer\s+\S+`),
+	regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_-]*=[^\s;,]+`),
+}
+
 func httpErrorDetails(err *mserr.HTTPError) string {
 	details := fmt.Sprintf("status: %d", err.StatusCode)
 	if err.Body == "" {
 		return details
 	}
 
-	body := err.Body
-	if len(body) > maxHTTPErrorBodyDetailLength {
-		body = body[:maxHTTPErrorBodyDetailLength] + "..."
-	}
+	body := truncateHTTPErrorBody(redactHTTPErrorBody(err.Body))
 
 	return fmt.Sprintf("%s; body: %s", details, body)
+}
+
+func redactHTTPErrorBody(body string) string {
+	for _, pattern := range sensitiveHTTPBodyPatterns {
+		body = pattern.ReplaceAllString(body, "[REDACTED]")
+	}
+	return body
+}
+
+func truncateHTTPErrorBody(body string) string {
+	runes := []rune(body)
+	if len(runes) <= maxHTTPErrorBodyDetailLength {
+		return body
+	}
+
+	return string(runes[:maxHTTPErrorBodyDetailLength]) + "..."
 }
 
 // WritePartial writes a response with both data and errors (partial success).

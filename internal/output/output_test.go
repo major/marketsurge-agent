@@ -155,6 +155,44 @@ func TestWriteErrorHTTPErrorTruncatesLongBody(t *testing.T) {
 
 	assert.Len(t, errorEnvelope.Error.Details, len("status: 400; body: ")+maxHTTPErrorBodyDetailLength+len("..."))
 	assert.Contains(t, errorEnvelope.Error.Details, "status: 400")
+	assert.Contains(t, errorEnvelope.Error.Details, "aaaa")
+	assert.Contains(t, errorEnvelope.Error.Details, "...")
+}
+
+func TestWriteErrorHTTPErrorRedactsSensitiveBodyValues(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	body := "Authorization: Bearer secret-token jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature cookie sessionid=abc123"
+	err := mserr.NewHTTPError("http error", nil, 400, body)
+
+	writeErr := WriteError(buf, err)
+	require.NoError(t, writeErr)
+
+	var errorEnvelope ErrorEnvelope
+	unmarshalErr := json.Unmarshal(buf.Bytes(), &errorEnvelope)
+	require.NoError(t, unmarshalErr)
+
+	assert.Contains(t, errorEnvelope.Error.Details, "[REDACTED]")
+	assert.NotContains(t, errorEnvelope.Error.Details, "secret-token")
+	assert.NotContains(t, errorEnvelope.Error.Details, "eyJhbGciOiJIUzI1NiJ9")
+	assert.NotContains(t, errorEnvelope.Error.Details, "sessionid=abc123")
+}
+
+func TestWriteErrorHTTPErrorTruncatesUTF8BodyAtRuneBoundary(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	body := string(bytes.Repeat([]byte("é"), maxHTTPErrorBodyDetailLength+1))
+	err := mserr.NewHTTPError("http error", nil, 400, body)
+
+	writeErr := WriteError(buf, err)
+	require.NoError(t, writeErr)
+
+	var errorEnvelope ErrorEnvelope
+	unmarshalErr := json.Unmarshal(buf.Bytes(), &errorEnvelope)
+	require.NoError(t, unmarshalErr)
+
+	assert.Contains(t, errorEnvelope.Error.Details, "éééé")
+	assert.NotContains(t, errorEnvelope.Error.Details, "�")
 	assert.Contains(t, errorEnvelope.Error.Details, "...")
 }
 

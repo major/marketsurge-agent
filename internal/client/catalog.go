@@ -64,7 +64,7 @@ func (c *Client) RunReport(ctx context.Context, reportID int) (*models.AdhocScre
 		OperationName: "MarketDataAdhocScreen",
 		Variables: map[string]any{
 			"correlationTag":  "marketsurge",
-			"responseColumns": constants.WatchlistColumns,
+			"responseColumns": adhocResponseColumns(),
 			"adhocQuery":      nil,
 			"includeSource": map[string]any{
 				"screenId": map[string]any{"id": reportID, "dialect": "MS_LIST_ID"},
@@ -130,7 +130,7 @@ func (c *Client) RunWatchlist(ctx context.Context, watchlistID int64) (*models.A
 		OperationName: "MarketDataAdhocScreen",
 		Variables: map[string]any{
 			"correlationTag":  "marketsurge",
-			"responseColumns": constants.WatchlistColumns,
+			"responseColumns": adhocResponseColumns(),
 			"adhocQuery":      nil,
 			"includeSource": map[string]any{
 				"instruments": map[string]any{"symbols": symbols, "dialect": "DJ_KEY"},
@@ -186,6 +186,14 @@ func (c *Client) RunCoachScreen(ctx context.Context, screenID string) (*models.S
 		NumInstruments: intPtr(container["numberOfMatchingInstruments"]),
 		Rows:           parseRows(getNestedSlice(container, "responseValues")),
 	}, nil
+}
+
+func adhocResponseColumns() []map[string]string {
+	columns := make([]map[string]string, 0, len(constants.WatchlistColumns))
+	for _, column := range constants.WatchlistColumns {
+		columns = append(columns, map[string]string{"name": column})
+	}
+	return columns
 }
 
 func (c *Client) listWatchlists(ctx context.Context) ([]models.CatalogEntry, error) {

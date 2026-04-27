@@ -23,6 +23,7 @@ func TestRunReportSuccess(t *testing.T) {
 	data, err := client.RunReport(t.Context(), 124)
 	require.NoError(t, err)
 	assert.Equal(t, "MarketDataAdhocScreen", captured.OperationName)
+	assertAdhocResponseColumns(t, captured)
 	assert.Len(t, data.Entries, 1)
 	assert.Equal(t, "AAPL", *data.Entries[0].Symbol)
 }
@@ -47,6 +48,7 @@ func TestRunWatchlistTwoStepFlow(t *testing.T) {
 	require.Len(t, requests, 2)
 	assert.Equal(t, "FlaggedSymbols", requests[0].OperationName)
 	assert.Equal(t, "MarketDataAdhocScreen", requests[1].OperationName)
+	assertAdhocResponseColumns(t, requests[1])
 	includeSource := requests[1].Variables["includeSource"].(map[string]any)
 	instruments := includeSource["instruments"].(map[string]any)
 	assert.Equal(t, "DJ_KEY", instruments["dialect"])
@@ -77,12 +79,17 @@ func TestRunWatchlistReturnsNotFoundWhenMissing(t *testing.T) {
 
 func TestRunCoachScreenSuccess(t *testing.T) {
 	t.Parallel()
+	var captured Request
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
 		_, _ = w.Write([]byte(`{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":2,"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"}]]}}}}`))
 	})
 
 	data, err := client.RunCoachScreen(t.Context(), "screen-1")
 	require.NoError(t, err)
+	input := captured.Variables["input"].(map[string]any)
+	assertStringResponseColumns(t, input["responseColumns"])
 	assert.Equal(t, 2, *data.NumInstruments)
 	assert.Equal(t, "AAPL", *data.Rows[0]["Symbol"])
 }
@@ -120,7 +127,8 @@ func TestListCatalogAggregatesAllSources(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, catalog.Errors)
 	assert.GreaterOrEqual(t, len(catalog.Entries), 4)
-	assert.Contains(t, catalog.Entries, models.CatalogEntry{Name: "Saved Screen", Kind: models.CatalogKindScreen, Description: new("screen desc")})
+	description := "screen desc"
+	assert.Contains(t, catalog.Entries, models.CatalogEntry{Name: "Saved Screen", Kind: models.CatalogKindScreen, Description: &description})
 }
 
 func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
@@ -221,6 +229,30 @@ func TestParseAdhocScreenResultMapsFields(t *testing.T) {
 
 func adhocResponseJSON() string {
 	return `{"data":{"marketDataAdhocScreen":{"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"},{"mdItem":{"name":"CompanyName"},"value":"Apple Inc."},{"mdItem":{"name":"ListRank"},"value":"1"},{"mdItem":{"name":"Price"},"value":"101.5"},{"mdItem":{"name":"PriceNetChg"},"value":"1.0"},{"mdItem":{"name":"PricePctChg"},"value":"0.9"},{"mdItem":{"name":"PricePctOff52WHigh"},"value":"5.0"},{"mdItem":{"name":"VolumeAvg50Day"},"value":"1000"},{"mdItem":{"name":"VolumePctChgVs50DAvgVolume"},"value":"10.0"},{"mdItem":{"name":"CompositeRating"},"value":"99"},{"mdItem":{"name":"EPSRating"},"value":"95"},{"mdItem":{"name":"RSRating"},"value":"94"},{"mdItem":{"name":"AccDisRating"},"value":"A"},{"mdItem":{"name":"SMRRating"},"value":"A"},{"mdItem":{"name":"IndustryGroupRank"},"value":"3"},{"mdItem":{"name":"IndustryName"},"value":"Technology"},{"mdItem":{"name":"MarketCapIntraday"},"value":"1000"},{"mdItem":{"name":"VolumeDollarAvg50D"},"value":"500"},{"mdItem":{"name":"IPODate"},"value":"1980-12-12"},{"mdItem":{"name":"DowJonesKey"},"value":"DJ:1"},{"mdItem":{"name":"ChartingSymbol"},"value":"AAPL"},{"mdItem":{"name":"DowJonesInstrumentType"},"value":"EQUITY"},{"mdItem":{"name":"DowJonesInstrumentSubType"},"value":"COMMON"}]],"errorValues":[]}}}`
+}
+
+func assertAdhocResponseColumns(t *testing.T, request Request) {
+	t.Helper()
+
+	columns, ok := request.Variables["responseColumns"].([]any)
+	require.True(t, ok)
+	require.Len(t, columns, len(constants.WatchlistColumns))
+	for i, column := range columns {
+		entry, ok := column.(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, map[string]any{"name": constants.WatchlistColumns[i]}, entry)
+	}
+}
+
+func assertStringResponseColumns(t *testing.T, value any) {
+	t.Helper()
+
+	columns, ok := value.([]any)
+	require.True(t, ok)
+	require.Len(t, columns, len(constants.WatchlistColumns))
+	for i, column := range columns {
+		assert.Equal(t, constants.WatchlistColumns[i], column)
+	}
 }
 
 func modelsToReportEntries() []models.CatalogEntry {

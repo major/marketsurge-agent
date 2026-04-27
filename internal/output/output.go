@@ -55,7 +55,7 @@ func WriteError(w io.Writer, err error) error {
 	}
 
 	if httpErr, ok := errors.AsType[*mserr.HTTPError](err); ok {
-		details = fmt.Sprintf("status: %d", httpErr.StatusCode)
+		details = httpErrorDetails(httpErr)
 	}
 
 	errorEnvelope := ErrorEnvelope{
@@ -68,6 +68,22 @@ func WriteError(w io.Writer, err error) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	return encoder.Encode(errorEnvelope)
+}
+
+const maxHTTPErrorBodyDetailLength = 500
+
+func httpErrorDetails(err *mserr.HTTPError) string {
+	details := fmt.Sprintf("status: %d", err.StatusCode)
+	if err.Body == "" {
+		return details
+	}
+
+	body := err.Body
+	if len(body) > maxHTTPErrorBodyDetailLength {
+		body = body[:maxHTTPErrorBodyDetailLength] + "..."
+	}
+
+	return fmt.Sprintf("%s; body: %s", details, body)
 }
 
 // WritePartial writes a response with both data and errors (partial success).
@@ -86,10 +102,12 @@ func WritePartial(w io.Writer, data any, errs []string, metadata map[string]any)
 // errorCode maps an error to its corresponding error code string.
 // Each error type implements ErrorCode() to declare its own classification code.
 func errorCode(err error) string {
-	type errorCoder interface{ ErrorCode() string }
+	type errorCoder interface {
+		error
+		ErrorCode() string
+	}
 
-	var coder errorCoder
-	if errors.As(err, &coder) {
+	if coder, ok := errors.AsType[errorCoder](err); ok {
 		return coder.ErrorCode()
 	}
 

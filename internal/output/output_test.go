@@ -126,7 +126,7 @@ func TestWriteErrorAPIError(t *testing.T) {
 func TestWriteErrorHTTPError(t *testing.T) {
 	t.Parallel()
 	buf := &bytes.Buffer{}
-	err := mserr.NewHTTPError("http error", errors.New("500 response"), 500, "Internal Server Error")
+	err := mserr.NewHTTPError("http error", errors.New("500 response"), 500, "invalid input value")
 
 	writeErr := WriteError(buf, err)
 	require.NoError(t, writeErr)
@@ -136,6 +136,26 @@ func TestWriteErrorHTTPError(t *testing.T) {
 	require.NoError(t, unmarshalErr)
 
 	assert.Equal(t, "HTTP_ERROR", errorEnvelope.Error.Code)
+	assert.Contains(t, errorEnvelope.Error.Details, "status: 500")
+	assert.Contains(t, errorEnvelope.Error.Details, "body: invalid input value")
+}
+
+func TestWriteErrorHTTPErrorTruncatesLongBody(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	body := string(bytes.Repeat([]byte("a"), maxHTTPErrorBodyDetailLength+1))
+	err := mserr.NewHTTPError("http error", nil, 400, body)
+
+	writeErr := WriteError(buf, err)
+	require.NoError(t, writeErr)
+
+	var errorEnvelope ErrorEnvelope
+	unmarshalErr := json.Unmarshal(buf.Bytes(), &errorEnvelope)
+	require.NoError(t, unmarshalErr)
+
+	assert.Len(t, errorEnvelope.Error.Details, len("status: 400; body: ")+maxHTTPErrorBodyDetailLength+len("..."))
+	assert.Contains(t, errorEnvelope.Error.Details, "status: 400")
+	assert.Contains(t, errorEnvelope.Error.Details, "...")
 }
 
 func TestWriteErrorValidationError(t *testing.T) {

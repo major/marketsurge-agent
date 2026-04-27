@@ -102,6 +102,20 @@ func TestExecuteReturnsHTTPErrorOn500(t *testing.T) {
 	assert.Contains(t, httpErr.Body, "boom")
 }
 
+func TestExecuteReturnsHTTPErrorBodyOn400(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "invalid input value", http.StatusBadRequest)
+	})
+
+	_, err := client.Execute(t.Context(), Request{})
+	var httpErr *mserrors.HTTPError
+	require.Error(t, err)
+	assert.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusBadRequest, httpErr.StatusCode)
+	assert.Contains(t, httpErr.Body, "invalid input value")
+}
+
 func TestExecuteRejectsUnexpectedContentType(t *testing.T) {
 	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {

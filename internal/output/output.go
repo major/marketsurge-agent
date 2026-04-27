@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 
 	mserr "github.com/major/marketsurge-agent/internal/errors"
 )
@@ -55,7 +56,7 @@ func WriteError(w io.Writer, err error) error {
 	}
 
 	if httpErr, ok := errors.AsType[*mserr.HTTPError](err); ok {
-		details = fmt.Sprintf("status: %d", httpErr.StatusCode)
+		details = httpErrorDetails(httpErr)
 	}
 
 	errorEnvelope := ErrorEnvelope{
@@ -68,6 +69,41 @@ func WriteError(w io.Writer, err error) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	return encoder.Encode(errorEnvelope)
+}
+
+const maxHTTPErrorBodyDetailLength = 500
+
+var sensitiveHTTPBodyPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`),
+	regexp.MustCompile(`(?i)Bearer\s+\S+`),
+	regexp.MustCompile(`\b[A-Za-z_][A-Za-z0-9_-]*=[^\s;,]+`),
+}
+
+func httpErrorDetails(err *mserr.HTTPError) string {
+	details := fmt.Sprintf("status: %d", err.StatusCode)
+	if err.Body == "" {
+		return details
+	}
+
+	body := truncateHTTPErrorBody(redactHTTPErrorBody(err.Body))
+
+	return fmt.Sprintf("%s; body: %s", details, body)
+}
+
+func redactHTTPErrorBody(body string) string {
+	for _, pattern := range sensitiveHTTPBodyPatterns {
+		body = pattern.ReplaceAllString(body, "[REDACTED]")
+	}
+	return body
+}
+
+func truncateHTTPErrorBody(body string) string {
+	runes := []rune(body)
+	if len(runes) <= maxHTTPErrorBodyDetailLength {
+		return body
+	}
+
+	return string(runes[:maxHTTPErrorBodyDetailLength]) + "..."
 }
 
 // WritePartial writes a response with both data and errors (partial success).
@@ -86,10 +122,12 @@ func WritePartial(w io.Writer, data any, errs []string, metadata map[string]any)
 // errorCode maps an error to its corresponding error code string.
 // Each error type implements ErrorCode() to declare its own classification code.
 func errorCode(err error) string {
-	type errorCoder interface{ ErrorCode() string }
+	type errorCoder interface {
+		error
+		ErrorCode() string
+	}
 
-	var coder errorCoder
-	if errors.As(err, &coder) {
+	if coder, ok := errors.AsType[errorCoder](err); ok {
 		return coder.ErrorCode()
 	}
 

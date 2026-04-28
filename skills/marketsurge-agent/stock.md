@@ -1,85 +1,31 @@
-# Stock Analysis Skill
+# Stock Skill
 
-## Overview
-Retrieve and analyze stock data from MarketSurge, including ratings, pricing, financials, patterns, and company information.
+Use stock commands for current MarketSurge ratings, price context, base patterns, and signal flags.
 
-## Tools
+## Commands
 
-### get_stock
-Fetch stock data including ratings, pricing, financials, patterns, and company info from MarketSurge.
+| Need | Command | Token guidance |
+|---|---|---|
+| One-symbol quote, ratings, base, signals | `marketsurge-agent stock get AAPL` | Smallest stock-only call |
+| Complete research packet | `marketsurge-agent stock analyze AAPL` | Includes stock, fundamentals, ownership |
+| Compare many candidates | `marketsurge-agent stock analyze --summary AAPL NVDA TSLA` | Best low-token ranking mode |
+| Batch from a generated list | `marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact` | Avoid shell loops |
+| Parser wants one-level keys | `marketsurge-agent stock analyze AAPL --flat` | Use only when nesting is inconvenient |
 
-Use this for targeted stock data without fundamentals or ownership.
-For comprehensive analysis, use analyze_stock instead.
+## `stock get <symbol>`
 
-Stock data now includes valuation ratios, risk metrics, short interest data, base pattern summaries, and blue dot/ant signal flags.
+Use for targeted current stock data when fundamentals and ownership are not needed.
 
-**Parameters:**
-- symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
+Output focus: ratings, price, valuation ratios, risk metrics, short interest, `base_pattern`, and `signals` such as blue dot and ant signal.
 
-**Example:**
-```bash
-marketsurge-agent stock get AAPL
-```
+## `stock analyze [symbols...]`
 
-**Expected Output Shape:**
-```json
-{
-  "symbol": "AAPL",
-  "ratings": {
-    "composite_rating": 85,
-    "rs_rating": 78
-  },
-  "price": 150.25,
-  "financials": {
-    "pe_ratio": 28.5,
-    "eps": 5.28
-  }
-}
-```
+Fetches stock, fundamentals, and ownership concurrently. Accepts positional symbols and `--tickers` comma-separated symbols together. Multi-symbol work is concurrent and can return partial results when only some symbols or subresources fail.
 
-### analyze_stock
-Analyze a stock with comprehensive data from MarketSurge.
+Flags:
 
-Fetches stock ratings, fundamentals, and ownership data concurrently.
-Partial failures in fundamentals or ownership are returned in the errors list rather than failing the entire request.
+- `--summary`: emits compact screening keys: `symbol`, `composite`, `eps`, `rs`, `ad`, `smr`, `blue_dot`, `ant_signal`, `base_type`, `base_stage`, `pivot`, `base_depth_percent`, `industry_group_rs`, `up_down_volume`, `atr_percent`, `avg_dollar_volume`, `funds_float_percent`.
+- `--compact`: removes duplicate formatted string fields while keeping raw values.
+- `--flat`: flattens nested analysis fields inside the JSON envelope.
 
-Stock data now includes valuation ratios, risk metrics, short interest data, base pattern summaries, and blue dot/ant signal flags.
-
-**Parameters:**
-- symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA. Each symbol is fetched concurrently.
-- tickers (optional): Comma-separated stock ticker symbols, e.g. AAPL,NVDA,TSLA. Useful for larger agent batch comparisons.
-- compact (optional): Remove duplicate formatted string fields such as market_cap_formatted while keeping raw numeric values.
-- summary (optional): Return compact screening fields for ranking many symbols. Includes ratings, blue dot/ant flags, base type/stage/pivot/depth, industry group RS, up/down volume, funds float percent, ATR percent, and average dollar volume. Metadata mode is summary.
-- flat (optional): Flatten each analysis result inside the standard JSON envelope for lower-token parsing.
-
-**Example:**
-```bash
-marketsurge-agent stock analyze AAPL NVDA
-marketsurge-agent stock analyze --summary AAPL NVDA TSLA
-marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
-```
-
-**Expected Output Shape:**
-```json
-{
-  "symbol": "AAPL",
-  "stock": { ... },
-  "fundamentals": { ... },
-  "ownership": { ... },
-  "errors": []
-}
-```
-
-With `--summary`, each result is a small ranking object with keys such as `symbol`, `composite`, `eps`, `rs`, `ad`, `smr`, `blue_dot`, `ant_signal`, `base_type`, `base_stage`, `pivot`, `base_depth_percent`, `industry_group_rs`, `up_down_volume`, `atr_percent`, `avg_dollar_volume`, and `funds_float_percent`.
-
-With `--flat`, nested stock fields are emitted as single-level keys, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
-
-Technical analysis fields include `stock.base_pattern` for pattern type, base stage, pivot price, base length, depth, and volume at pivot, plus `stock.signals` for blue dot and ant signal flags.
-
-## Workflow Guidance
-
-1. Use **get_stock** for quick lookups of current ratings and pricing
-2. Use **analyze_stock** when you need comprehensive data including fundamentals and ownership
-3. Use **analyze_stock --summary** to rank many candidates with minimal token usage
-4. Combine with chart history for technical analysis
-5. Use RS rating to identify relative strength vs market
+Decision rule: start with `stock analyze --summary` for candidate ranking, then rerun interesting symbols without `--summary` for detail.

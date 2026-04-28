@@ -1,50 +1,24 @@
 # RS Rating History Skill
 
-## Overview
-Fetch reported relative strength rating history for one or more stocks from MarketSurge.
+Use `rs-history get` to compare relative strength trends over time. It accepts one or more symbols and avoids shell loops.
 
-## Tools
+## Command
 
-### get_rs_rating_history
-Fetch reported relative strength rating history for one or more stocks from MarketSurge.
-
-Returns a time series of RS rating snapshots showing relative price performance
-vs the market over various periods. Includes the rs_line_new_high flag indicating
-when the RS line hits a new high ahead of price.
-
-**Parameters:**
-- symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA
-
-**Example:**
 ```bash
-marketsurge-agent rs-history get AAPL NVDA
+marketsurge-agent rs-history get AAPL NVDA TSLA
 ```
 
-**Expected Output Shape:**
-```json
-{
-  "data": {
-    "AAPL": {
-      "symbol": "AAPL",
-      "ratings": [
-        {
-          "period": "Current",
-          "value": 78
-        }
-      ],
-      "rs_line_new_high": true
-    }
-  },
-  "metadata": {
-    "symbols": ["AAPL", "NVDA"]
-  }
-}
-```
+Required args: one or more ticker symbols.
 
-## Workflow Guidance
+## Output focus
 
-1. Track RS rating trends over time
-2. Pass multiple symbols at once when comparing candidates; multi-symbol output is keyed by ticker
-3. RS line new highs indicate strong relative strength
-4. Compare RS rating with price action for divergences
-5. Use for identifying leading stocks in uptrends
+- Single symbol: symbol metadata plus that symbol's RS history.
+- Multiple symbols: `data` object keyed by ticker.
+- Includes RS rating snapshots and `rs_line_new_high` when provided.
+- Partial multi-symbol failures can return successful symbols plus errors.
+
+## Agent guidance
+
+- Use this after `stock analyze --summary` when top candidates need RS trend confirmation.
+- RS line new highs can identify leadership before price breaks out.
+- Compare RS trend with `chart history` candles when checking divergence or confirmation.

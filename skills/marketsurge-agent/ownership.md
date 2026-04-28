@@ -1,43 +1,23 @@
-# Ownership Data Skill
+# Ownership Skill
 
-## Overview
-Fetch institutional fund ownership data from MarketSurge.
+Use `ownership get` for institutional sponsorship questions. Use `stock analyze` instead when ownership is only one part of a broader stock review.
 
-## Tools
+## Command
 
-### get_ownership
-Fetch institutional fund ownership data from MarketSurge.
-
-Returns quarterly fund ownership counts and funds as percentage of float.
-For comprehensive analysis, use analyze_stock instead.
-
-**Parameters:**
-- symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
-
-**Example:**
-`bash
+```bash
 marketsurge-agent ownership get AAPL
-`
+```
 
-**Expected Output Shape:**
-`json
-{
-  "symbol": "AAPL",
-  "ownership": {
-    "quarterly_data": [
-      {
-        "quarter": "Q4 2023",
-        "fund_count": 3245,
-        "percentage_of_float": 28.5
-      }
-    ]
-  }
-}
-`
+Required arg: one ticker symbol.
 
-## Workflow Guidance
+## Output focus
 
-1. Monitor institutional ownership trends
-2. High ownership percentage indicates strong institutional support
-3. Increasing fund count suggests growing institutional interest
-4. Use with stock analysis for comprehensive view
+- Quarterly fund ownership counts.
+- Funds as percentage of float.
+- Ownership trend data in a standard JSON envelope.
+
+## Agent guidance
+
+- Rising fund count suggests growing institutional interest.
+- High funds-float percentage can show sponsorship but may also imply crowded ownership.
+- For screening many symbols, prefer `stock analyze --summary` because it includes `funds_float_percent` with other ranking fields.

@@ -1,6 +1,6 @@
 # marketsurge-agent
 
-Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, auto-generated skill files for agent consumption.
+Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, static skill files for agent consumption.
 
 This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily.
 
@@ -18,13 +18,13 @@ internal/
   models/                        Data structures
   output/                        JSON envelope formatting
 queries/                         Embedded .graphql files (go:embed)
-skills/                          Auto-generated agent skill docs
+skills/                          Static agent skill docs
 ```
 
 ### Request flow
 
 1. `main.go` builds the CLI app with `buildApp()`
-2. `Before` hook resolves JWT via the auth chain (skipped for `skills` command)
+2. `Before` hook resolves JWT via the auth chain
 3. Command handler validates args, calls `client.Client` method
 4. Client loads embedded `.graphql` query, executes HTTP POST to GraphQL endpoint
 5. Response parsed into typed model, wrapped in JSON envelope via `output.WriteSuccess`
@@ -33,8 +33,8 @@ skills/                          Auto-generated agent skill docs
 
 Four-tier JWT precedence, first non-empty wins:
 
-1. `--token` CLI flag
-2. `MARKETSURGE_TOKEN` env var
+1. `--jwt` CLI flag
+2. `MARKETSURGE_JWT` env var
 3. `--cookie-db` explicit path to Firefox cookie DB
 4. Firefox profile auto-discovery
 
@@ -71,7 +71,7 @@ output.WriteError(w, err)
 output.WritePartial(w, results, errors, metadata)
 ```
 
-Envelope shape: `{ data, metadata, timestamp }` for success, `{ error, code, message, timestamp }` for errors.
+Envelope shape: `{ data, metadata }` for success, `{ data, errors, metadata }` for partial success, and `{ error: { code, message, details } }` for errors.
 
 ## Conventions
 

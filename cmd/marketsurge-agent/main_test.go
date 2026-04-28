@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,9 +33,40 @@ func TestHelpContainsAllCommands(t *testing.T) {
 	helpText := helpBuf.String()
 	for _, name := range []string{
 		"stock", "fundamental", "ownership",
-		"rs-history", "chart", "catalog", "skills",
+		"rs-history", "chart", "catalog",
 	} {
 		assert.Contains(t, helpText, name, "help output should list %q command", name)
+	}
+}
+
+// TestStaticSkillDocsStayWellFormed keeps the hand-maintained agent skills
+// aligned with the active CLI surface and markdown style rules.
+func TestStaticSkillDocsStayWellFormed(t *testing.T) {
+	t.Parallel()
+
+	skillDir := filepath.Join("..", "..", "skills", "marketsurge-agent")
+	entries, err := os.ReadDir(skillDir)
+	require.NoError(t, err)
+
+	seen := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
+			continue
+		}
+
+		content, readErr := os.ReadFile(filepath.Join(skillDir, entry.Name()))
+		require.NoError(t, readErr)
+
+		text := string(content)
+		seen[entry.Name()] = true
+		assert.True(t, strings.HasPrefix(text, "# "), "%s should start with a heading", entry.Name())
+		assert.NotContains(t, text, "\n`bash\n", "%s should use fenced code blocks", entry.Name())
+		assert.NotContains(t, text, "\n`json\n", "%s should use fenced code blocks", entry.Name())
+		assert.NotContains(t, text, "skills generate", "%s should not document the removed generator", entry.Name())
+	}
+
+	for _, name := range []string{"index.md", "stock.md", "fundamental.md", "ownership.md", "rs-history.md", "chart.md", "catalog.md"} {
+		assert.True(t, seen[name], "expected static skill doc %s", name)
 	}
 }
 

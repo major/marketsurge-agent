@@ -131,13 +131,7 @@ func buildApp(w io.Writer) *cli.Command {
 					commands.CatalogRunCommand(apiClient, w),
 				},
 			},
-			{
-				Name:  "skills",
-				Usage: "Agent skill commands",
-				Commands: []*cli.Command{
-					commands.SkillsGenerateCommand(w),
-				},
-			},
+
 		},
 	}
 }

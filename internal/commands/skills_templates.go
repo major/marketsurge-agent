@@ -21,12 +21,12 @@ Stock data now includes valuation ratios, risk metrics, short interest data, bas
 - symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
 
 **Example:**
-` + "```" + `bash
+` + "`" + `` + "`" + `` + "`" + `bash
 marketsurge-agent stock get AAPL
-` + "```" + `
+` + "`" + `` + "`" + `` + "`" + `
 
 **Expected Output Shape:**
-` + "```" + `json
+` + "`" + `` + "`" + `` + "`" + `json
 {
   "symbol": "AAPL",
   "ratings": {
@@ -39,7 +39,7 @@ marketsurge-agent stock get AAPL
     "eps": 5.28
   }
 }
-` + "```" + `
+` + "`" + `` + "`" + `` + "`" + `
 
 ### analyze_stock
 Analyze a stock with comprehensive data from MarketSurge.
@@ -52,17 +52,19 @@ Stock data now includes valuation ratios, risk metrics, short interest data, bas
 **Parameters:**
 - symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA. Each symbol is fetched concurrently.
 - tickers (optional): Comma-separated stock ticker symbols, e.g. AAPL,NVDA,TSLA. Useful for larger agent batch comparisons.
-- compact (optional): Remove formatted string fields such as market_cap_formatted. Raw numeric values remain when the API provides them.
+- compact (optional): Remove duplicate formatted string fields such as market_cap_formatted while keeping raw numeric values.
+- summary (optional): Return compact screening fields for ranking many symbols. Includes ratings, blue dot/ant flags, base type/stage/pivot/depth, industry group RS, up/down volume, funds float percent, ATR percent, and average dollar volume. Metadata mode is summary.
 - flat (optional): Flatten each analysis result inside the standard JSON envelope for lower-token parsing.
 
 **Example:**
-` + "```" + `bash
+` + "`" + `` + "`" + `` + "`" + `bash
 marketsurge-agent stock analyze AAPL NVDA
+marketsurge-agent stock analyze --summary AAPL NVDA TSLA
 marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
-` + "```" + `
+` + "`" + `` + "`" + `` + "`" + `
 
 **Expected Output Shape:**
-` + "```" + `json
+` + "`" + `` + "`" + `` + "`" + `json
 {
   "symbol": "AAPL",
   "stock": { ... },
@@ -70,7 +72,9 @@ marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
   "ownership": { ... },
   "errors": []
 }
-` + "```" + `
+` + "`" + `` + "`" + `` + "`" + `
+
+With ` + "`" + `--summary` + "`" + `, each result is a small ranking object with keys such as ` + "`" + `symbol` + "`" + `, ` + "`" + `composite` + "`" + `, ` + "`" + `eps` + "`" + `, ` + "`" + `rs` + "`" + `, ` + "`" + `ad` + "`" + `, ` + "`" + `smr` + "`" + `, ` + "`" + `blue_dot` + "`" + `, ` + "`" + `ant_signal` + "`" + `, ` + "`" + `base_type` + "`" + `, ` + "`" + `base_stage` + "`" + `, ` + "`" + `pivot` + "`" + `, ` + "`" + `base_depth_percent` + "`" + `, ` + "`" + `industry_group_rs` + "`" + `, ` + "`" + `up_down_volume` + "`" + `, ` + "`" + `atr_percent` + "`" + `, ` + "`" + `avg_dollar_volume` + "`" + `, and ` + "`" + `funds_float_percent` + "`" + `.
 
 With ` + "`" + `--flat` + "`" + `, nested stock fields are emitted as single-level keys, for example ` + "`" + `stock.pricing.market_cap` + "`" + ` becomes ` + "`" + `pricing_market_cap` + "`" + `.
 
@@ -80,8 +84,9 @@ Technical analysis fields include ` + "`" + `stock.base_pattern` + "`" + ` for p
 
 1. Use **get_stock** for quick lookups of current ratings and pricing
 2. Use **analyze_stock** when you need comprehensive data including fundamentals and ownership
-3. Combine with chart history for technical analysis
-4. Use RS rating to identify relative strength vs market
+3. Use **analyze_stock --summary** to rank many candidates with minimal token usage
+4. Combine with chart history for technical analysis
+5. Use RS rating to identify relative strength vs market
 `,
 
 	"fundamental": `# Fundamental Data Skill
@@ -186,45 +191,53 @@ marketsurge-agent ownership get AAPL
 	"rs-history": `# RS Rating History Skill
 
 ## Overview
-Fetch reported relative strength rating history for a stock from MarketSurge.
+Fetch reported relative strength rating history for one or more stocks from MarketSurge.
 
 ## Tools
 
 ### get_rs_rating_history
-Fetch reported relative strength rating history for a stock from MarketSurge.
+Fetch reported relative strength rating history for one or more stocks from MarketSurge.
 
 Returns a time series of RS rating snapshots showing relative price performance
 vs the market over various periods. Includes the rs_line_new_high flag indicating
 when the RS line hits a new high ahead of price.
 
 **Parameters:**
-- symbol (required): Stock ticker symbol, e.g. AAPL, NVDA, TSLA
+- symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA
 
 **Example:**
-` + "`" + `bash
-marketsurge-agent rs-history get AAPL
-` + "`" + `
+` + "`" + `` + "`" + `` + "`" + `bash
+marketsurge-agent rs-history get AAPL NVDA
+` + "`" + `` + "`" + `` + "`" + `
 
 **Expected Output Shape:**
-` + "`" + `json
+` + "`" + `` + "`" + `` + "`" + `json
 {
-  "symbol": "AAPL",
-  "rs_history": [
-    {
-      "date": "2024-04-21",
-      "rs_rating": 78,
+  "data": {
+    "AAPL": {
+      "symbol": "AAPL",
+      "ratings": [
+        {
+          "period": "Current",
+          "value": 78
+        }
+      ],
       "rs_line_new_high": true
     }
-  ]
+  },
+  "metadata": {
+    "symbols": ["AAPL", "NVDA"]
+  }
 }
-` + "`" + `
+` + "`" + `` + "`" + `` + "`" + `
 
 ## Workflow Guidance
 
 1. Track RS rating trends over time
-2. RS line new highs indicate strong relative strength
-3. Compare RS rating with price action for divergences
-4. Use for identifying leading stocks in uptrends
+2. Pass multiple symbols at once when comparing candidates; multi-symbol output is keyed by ticker
+3. RS line new highs indicate strong relative strength
+4. Compare RS rating with price action for divergences
+5. Use for identifying leading stocks in uptrends
 `,
 
 	"chart": `# Chart Data Skill

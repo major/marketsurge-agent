@@ -49,11 +49,13 @@ Stock data now includes valuation ratios, risk metrics, short interest data, bas
 - symbols (required): One or more stock ticker symbols separated by spaces, e.g. AAPL NVDA TSLA. Each symbol is fetched concurrently.
 - tickers (optional): Comma-separated stock ticker symbols, e.g. AAPL,NVDA,TSLA. Useful for larger agent batch comparisons.
 - compact (optional): Remove duplicate formatted string fields such as market_cap_formatted while keeping raw numeric values.
+- summary (optional): Return compact screening fields for ranking many symbols. Includes ratings, blue dot/ant flags, base type/stage/pivot/depth, industry group RS, up/down volume, funds float percent, ATR percent, and average dollar volume. Metadata mode is summary.
 - flat (optional): Flatten each analysis result inside the standard JSON envelope for lower-token parsing.
 
 **Example:**
 ```bash
 marketsurge-agent stock analyze AAPL NVDA
+marketsurge-agent stock analyze --summary AAPL NVDA TSLA
 marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
 ```
 
@@ -68,6 +70,8 @@ marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat
 }
 ```
 
+With `--summary`, each result is a small ranking object with keys such as `symbol`, `composite`, `eps`, `rs`, `ad`, `smr`, `blue_dot`, `ant_signal`, `base_type`, `base_stage`, `pivot`, `base_depth_percent`, `industry_group_rs`, `up_down_volume`, `atr_percent`, `avg_dollar_volume`, and `funds_float_percent`.
+
 With `--flat`, nested stock fields are emitted as single-level keys, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
 Technical analysis fields include `stock.base_pattern` for pattern type, base stage, pivot price, base length, depth, and volume at pivot, plus `stock.signals` for blue dot and ant signal flags.
@@ -76,5 +80,6 @@ Technical analysis fields include `stock.base_pattern` for pattern type, base st
 
 1. Use **get_stock** for quick lookups of current ratings and pricing
 2. Use **analyze_stock** when you need comprehensive data including fundamentals and ownership
-3. Combine with chart history for technical analysis
-4. Use RS rating to identify relative strength vs market
+3. Use **analyze_stock --summary** to rank many candidates with minimal token usage
+4. Combine with chart history for technical analysis
+5. Use RS rating to identify relative strength vs market

@@ -37,6 +37,7 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 			&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols to analyze"},
 			&cli.BoolFlag{Name: "compact", Usage: "Remove formatted string fields from analysis data"},
 			&cli.BoolFlag{Name: "flat", Usage: "Flatten each analysis result for token-efficient agent parsing"},
+			&cli.BoolFlag{Name: "summary", Usage: "Return compact screening fields for ranking multi-symbol candidates"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			symbols := analyzeSymbols(cmd)
@@ -65,6 +66,9 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 			wg.Wait()
 
 			meta := analyzeMetadata(symbols)
+			if cmd.Bool("summary") {
+				meta["mode"] = "summary"
+			}
 
 			// Determine if we have any data at all.
 			hasData := false
@@ -81,7 +85,7 @@ func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
 				return err
 			}
 
-			data, err := transformAnalysisOutput(results, cmd.Bool("compact"), cmd.Bool("flat"))
+			data, err := transformAnalysisOutput(results, cmd.Bool("compact"), cmd.Bool("flat"), cmd.Bool("summary"))
 			if err != nil {
 				return fmt.Errorf("transform analysis output: %w", err)
 			}
@@ -176,9 +180,14 @@ func analyzeMetadata(symbols []string) map[string]any {
 
 // transformAnalysisOutput applies optional token-efficiency transforms while
 // preserving the existing single-symbol object vs. multi-symbol array contract.
-func transformAnalysisOutput(results []AnalysisResult, compact, flat bool) (any, error) {
+func transformAnalysisOutput(results []AnalysisResult, compact, flat, summary bool) (any, error) {
 	transformed := make([]any, 0, len(results))
 	for _, result := range results {
+		if summary {
+			transformed = append(transformed, analysisSummaryMap(result))
+			continue
+		}
+
 		data, err := analysisResultMap(result)
 		if err != nil {
 			return nil, err
@@ -196,6 +205,68 @@ func transformAnalysisOutput(results []AnalysisResult, compact, flat bool) (any,
 		return transformed[0], nil
 	}
 	return transformed, nil
+}
+
+func analysisSummaryMap(result AnalysisResult) map[string]any {
+	data := map[string]any{"symbol": result.Symbol}
+	if result.Stock == nil {
+		return data
+	}
+
+	addRatingSummary(data, result.Stock.Ratings)
+	addSignalSummary(data, result.Stock.Signals)
+	addBaseSummary(data, result.Stock.BasePattern)
+	addScreeningMetrics(data, result.Stock)
+	return data
+}
+
+func addRatingSummary(data map[string]any, ratings *models.Ratings) {
+	if ratings == nil {
+		return
+	}
+	addPtrValue(data, "composite", ratings.Composite)
+	addPtrValue(data, "eps", ratings.EPS)
+	addPtrValue(data, "rs", ratings.RS)
+	addPtrValue(data, "ad", ratings.AD)
+	addPtrValue(data, "smr", ratings.SMR)
+}
+
+func addSignalSummary(data map[string]any, signals *models.Signals) {
+	if signals == nil {
+		return
+	}
+	addPtrValue(data, "blue_dot", signals.BlueDot)
+	addPtrValue(data, "ant_signal", signals.AntSignal)
+}
+
+func addBaseSummary(data map[string]any, base *models.BasePattern) {
+	if base == nil {
+		return
+	}
+	addPtrValue(data, "base_type", base.PatternType)
+	addPtrValue(data, "base_stage", base.BaseStage)
+	addPtrValue(data, "pivot", base.PivotPrice)
+	addPtrValue(data, "base_depth_percent", base.BaseDepthPercent)
+}
+
+func addScreeningMetrics(data map[string]any, stock *models.StockData) {
+	if stock.Company != nil {
+		addPtrValue(data, "industry_group_rs", stock.Company.IndustryGroupRS)
+	}
+	if stock.Pricing != nil {
+		addPtrValue(data, "up_down_volume", stock.Pricing.UpDownVolumeRatio)
+		addPtrValue(data, "atr_percent", stock.Pricing.ATRPercent21D)
+		addPtrValue(data, "avg_dollar_volume", stock.Pricing.AvgDollarVolume50D)
+	}
+	if stock.Ownership != nil {
+		addPtrValue(data, "funds_float_percent", stock.Ownership.FundsFloatPct)
+	}
+}
+
+func addPtrValue[T any](data map[string]any, key string, value *T) {
+	if value != nil {
+		data[key] = *value
+	}
 }
 
 func analysisResultMap(result AnalysisResult) (map[string]any, error) {

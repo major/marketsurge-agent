@@ -41,6 +41,9 @@ marketsurge-agent stock analyze AAPL MSFT NVDA GOOG
 # Analyze a comma-separated batch and remove formatted duplicate fields
 marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
 
+# Return screening fields for ranking many candidates
+marketsurge-agent stock analyze --summary AAPL MSFT NVDA
+
 # Flatten each analysis result for lower-token agent parsing
 marketsurge-agent stock analyze AAPL --flat
 
@@ -50,8 +53,8 @@ marketsurge-agent fundamental get TSLA
 # Institutional ownership
 marketsurge-agent ownership get AMZN
 
-# Relative strength history
-marketsurge-agent rs-history get META
+# Relative strength history for one or more symbols
+marketsurge-agent rs-history get META NVDA
 
 # Chart price history (daily, last 90 days)
 marketsurge-agent chart history AAPL --period 90
@@ -95,10 +98,10 @@ Errors follow the same pattern:
 | Command | Description |
 |---|---|
 | `stock get <symbol>` | Stock data (ratings, pricing, financials) |
-| `stock analyze [symbols...]` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, and comma-separated batch modes |
+| `stock analyze [symbols...]` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, summary, and comma-separated batch modes |
 | `fundamental get <symbol>` | Fundamental analysis data |
 | `ownership get <symbol>` | Institutional ownership |
-| `rs-history get <symbol>` | Relative strength rating history |
+| `rs-history get [symbols...]` | Relative strength rating history for one or more symbols |
 | `chart history <symbol>` | Price history (daily or weekly) |
 | `chart markups <symbol>` | Chart annotations and markups |
 | `catalog list` | List watchlists, screens, reports |
@@ -117,9 +120,12 @@ marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
 
 - `--tickers AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--tickers`.
 - `--compact` removes duplicate formatted string fields such as `market_cap_formatted`, while keeping raw numeric values.
+- `--summary` returns one small screening object per symbol with rankings, signal flags, base details, liquidity, volatility, and ownership fields. Response metadata includes `mode: "summary"`.
 - `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
 `stock analyze` also includes MarketSurge technical context for chart-driven screening: `stock.base_pattern` summarizes the current base with pattern type, base stage, pivot price, base length, depth, and volume at pivot; `stock.signals` reports blue dot and ant signal flags when the API provides them.
+
+`rs-history get` accepts multiple symbols in one request. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
 
 The `skills generate` command writes Markdown skill files to `skills/` that describe each command's inputs, outputs, and usage. These files are designed for consumption by AI agent frameworks that support tool/skill discovery.
 

@@ -144,3 +144,7 @@ The most complex client file (392 lines):
 ## `stock.go` specifics
 
 `GetStock()` does date template substitution in the GraphQL query (replaces `{{date}}` with today's date) and navigates a deeply nested response to build `models.StockData` with sub-structs: Ratings, Company, Pricing, Financials, QuarterlyFinancials.
+
+## Maintenance
+
+When adding or changing API methods, update this AGENTS.md, the root AGENTS.md, and the corresponding skill file in `skills/marketsurge-agent/` to match.

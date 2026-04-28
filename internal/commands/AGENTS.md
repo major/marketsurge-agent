@@ -34,7 +34,7 @@ Use `fundamental_get.go` (33 lines) as the canonical minimal example.
 | rs_history | `rs_history_get.go` | Relative strength history |
 | chart | `chart_history.go`, `chart_markups.go` | Price history + chart annotations |
 | catalog | `catalog_list.go`, `catalog_run.go` | List/run watchlists, screens, reports |
-| skills | `skills_generate.go` | Auto-generate agent skill docs |
+
 
 ## Error handling
 
@@ -137,3 +137,4 @@ func TestFooCommand(t *testing.T) {
 4. Register in `main.go` under the appropriate command group's `Commands` slice
 5. Create `<group>_<action>_test.go` with table-driven tests
 6. Use `testClient()` + `jsonServer()` from `helpers_test.go`
+7. Update the corresponding skill file in `skills/marketsurge-agent/` to reflect the new command's inputs, outputs, and usage

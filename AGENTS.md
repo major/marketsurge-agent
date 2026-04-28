@@ -131,6 +131,7 @@ Release: push `v*` tag -> goreleaser v2 -> multi-platform binaries (linux/darwin
 
 - **Keep this file updated**: When adding, removing, or changing commands, error types, conventions, or architecture, update this file and subdirectory AGENTS.md files to match.
 - **Keep README.md updated**: When changing commands, flags, output format, install instructions, or development workflow, update README.md as well.
+- **Keep skill files updated**: When changing command inputs, outputs, flags, or usage patterns, update the corresponding skill file in `skills/marketsurge-agent/` to match.
 
 ## Dependencies
 

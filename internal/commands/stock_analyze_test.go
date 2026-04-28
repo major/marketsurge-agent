@@ -203,6 +203,48 @@ func TestStockAnalyzeCompactFlatOutput(t *testing.T) {
 	assert.NotContains(t, data, "pricing_forward_price_to_earnings_ratio_formatted")
 }
 
+func TestStockAnalyzeSummaryOutput(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	var buf bytes.Buffer
+	cmd := StockAnalyzeCommand(c, &buf)
+	require.NoError(t, runTestCommand(t, cmd, "analyze", "--summary", "AAPL", "MSFT"))
+
+	result := parseJSONEnvelope(t, &buf)
+	data, ok := result["data"].([]any)
+	require.True(t, ok, "summary multi-symbol data should be an array")
+	assert.Len(t, data, 2)
+
+	first, ok := data[0].(map[string]any)
+	require.True(t, ok, "summary item should be an object")
+	assert.Equal(t, "AAPL", first["symbol"])
+	assert.Equal(t, float64(99), first["composite"])
+	assert.Equal(t, float64(95), first["eps"])
+	assert.Equal(t, float64(90), first["rs"])
+	assert.Equal(t, "B", first["ad"])
+	assert.Equal(t, "A", first["smr"])
+	assert.Equal(t, true, first["blue_dot"])
+	assert.Equal(t, true, first["ant_signal"])
+	assert.Equal(t, "Cup With Handle", first["base_type"])
+	assert.Equal(t, "STAGE_2", first["base_stage"])
+	assert.Equal(t, 199.99, first["pivot"])
+	assert.Equal(t, 18.5, first["base_depth_percent"])
+	assert.Equal(t, float64(95), first["industry_group_rs"])
+	assert.Equal(t, 1.2, first["up_down_volume"])
+	assert.Equal(t, float64(60), first["funds_float_percent"])
+	assert.Equal(t, 2.3, first["atr_percent"])
+	assert.Equal(t, float64(5000000), first["avg_dollar_volume"])
+	assert.NotContains(t, first, "stock")
+	assert.NotContains(t, first, "fundamentals")
+	assert.NotContains(t, first, "ownership")
+
+	meta, _ := result["metadata"].(map[string]any)
+	assert.Equal(t, "summary", meta["mode"])
+}
+
 func TestStockAnalyzeMissingSymbol(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(`{}`)

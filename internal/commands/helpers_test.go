@@ -57,6 +57,7 @@ func stockResponseFixture() string {
 	return `{
 		"data": {
 			"marketData": [{
+				"originRequest": {"symbol": "AAPL"},
 				"ratings": {
 					"compRating": [{"value": 99}],
 					"epsRating": [{"value": 95}],
@@ -184,4 +185,38 @@ func chartResponseFixture() string {
 // chartMarkupsFixture returns a minimal chart markups API response.
 func chartMarkupsFixture() string {
 	return `{"data":{"user":{"chartMarkups":{"cursorId":"cursor-abc","chartMarkups":[{"id":"m1","name":"My Markup","data":"{}","frequency":"DAILY","site":"marketsurge","createdAt":"2024-01-01","updatedAt":"2024-01-02"}]}}}}`
+}
+
+// rsHistoryMultiResponseFixture returns two marketData entries for multi-symbol RS history tests.
+func rsHistoryMultiResponseFixture() string {
+	return `{
+		"data": {
+			"marketData": [{
+				"originRequest": {"symbol": "AAPL"},
+				"ratings": {"rsRating": [{"value": 90, "letterValue": "A", "period": "WEEK", "periodOffset": "0"}]},
+				"pricingStatistics": {"intradayStatistics": {"rsLineNewHigh": true}}
+			}, {
+				"originRequest": {"symbol": "MSFT"},
+				"ratings": {"rsRating": [{"value": 82, "letterValue": "B", "period": "WEEK", "periodOffset": "0"}]},
+				"pricingStatistics": {"intradayStatistics": {"rsLineNewHigh": false}}
+			}]
+		}
+	}`
+}
+
+// rsHistoryMissingMiddleResponseFixture returns AAPL and MSFT after the API omits a missing middle symbol.
+func rsHistoryMissingMiddleResponseFixture() string {
+	return `{
+		"data": {
+			"marketData": [{
+				"originRequest": {"symbol": "AAPL"},
+				"ratings": {"rsRating": [{"value": 90, "letterValue": "A", "period": "WEEK", "periodOffset": "0"}]},
+				"pricingStatistics": {"intradayStatistics": {"rsLineNewHigh": true}}
+			}, {
+				"originRequest": {"symbol": "MSFT"},
+				"ratings": {"rsRating": [{"value": 82, "letterValue": "B", "period": "WEEK", "periodOffset": "0"}]},
+				"pricingStatistics": {"intradayStatistics": {"rsLineNewHigh": false}}
+			}]
+		}
+	}`
 }

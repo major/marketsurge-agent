@@ -23,8 +23,6 @@ func requireSymbol(cmd *cli.Command) (string, error) {
 
 // symbolGetCommand builds a CLI command that fetches data for a single symbol.
 // It handles argument validation, calls the fetcher, and writes the JSON envelope.
-//
-//nolint:unparam // name is always "get" today but kept as a parameter for future subcommands
 func symbolGetCommand(w io.Writer, name, usage string, fetch symbolFetcher) *cli.Command {
 	return &cli.Command{
 		Name:      name,

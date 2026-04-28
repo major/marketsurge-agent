@@ -136,12 +136,23 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		if !bytes.Contains(content, []byte("marketsurge-agent stock analyze --tickers AAPL,NVDA,TSLA --compact --flat")) {
 			t.Error("Token-efficient analyze example not found in stock.md")
 		}
+		if !bytes.Contains(content, []byte("marketsurge-agent stock analyze --summary AAPL NVDA TSLA")) {
+			t.Error("Summary analyze example not found in stock.md")
+		}
 
 		// Verify token-efficient analyze parameters are generated from the template.
-		expectedParameters := []string{"tickers (optional)", "compact (optional)", "flat (optional)"}
+		expectedParameters := []string{"tickers (optional)", "compact (optional)", "summary (optional)", "flat (optional)"}
 		for _, parameter := range expectedParameters {
 			if !bytes.Contains(content, []byte(parameter)) {
 				t.Errorf("Expected analyze parameter %q not found in stock.md", parameter)
+			}
+		}
+
+		// Verify summary mode guidance is generated from the template.
+		expectedSummaryFields := []string{"Metadata mode is summary", "base_depth_percent", "avg_dollar_volume", "funds_float_percent"}
+		for _, field := range expectedSummaryFields {
+			if !bytes.Contains(content, []byte(field)) {
+				t.Errorf("Expected summary guidance %q not found in stock.md", field)
 			}
 		}
 
@@ -159,6 +170,43 @@ func TestSkillsGenerateCommand(t *testing.T) {
 		}
 
 		t.Logf("stock.md content length: %d bytes", len(contentStr))
+	})
+
+	t.Run("generates rs history multi-symbol guidance", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		outputDir := filepath.Join(tmpDir, "skills")
+
+		var buf bytes.Buffer
+		cmd := SkillsGenerateCommand(&buf)
+
+		ctx := t.Context()
+		err := cmd.Action(ctx, &cli.Command{
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "output-dir",
+					Value: outputDir,
+				},
+			},
+		})
+
+		require.NoError(t, err)
+		rsHistoryFile := filepath.Join(outputDir, "rs-history.md")
+		content, err := os.ReadFile(rsHistoryFile)
+		require.NoError(t, err)
+
+		expectedPhrases := []string{
+			"one or more stocks",
+			"symbols (required)",
+			"marketsurge-agent rs-history get AAPL NVDA",
+			"multi-symbol output is keyed by ticker",
+			`"symbols": ["AAPL", "NVDA"]`,
+		}
+		for _, phrase := range expectedPhrases {
+			if !bytes.Contains(content, []byte(phrase)) {
+				t.Errorf("Expected RS history guidance %q not found in rs-history.md", phrase)
+			}
+		}
 	})
 
 	t.Run("uses custom output directory", func(t *testing.T) {

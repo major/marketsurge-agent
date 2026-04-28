@@ -91,6 +91,7 @@ func stockResponseJSON() string {
 	return `{
 		"data": {
 			"marketData": [{
+				"originRequest": {"symbol": "AAPL"},
 				"ratings": {
 					"compRating": [{"value": 99}],
 					"epsRating": [{"value": 95}],

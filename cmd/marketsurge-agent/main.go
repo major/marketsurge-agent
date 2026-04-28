@@ -68,11 +68,6 @@ func buildApp(w io.Writer) *cli.Command {
 				slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 			}
 
-			// Skills commands don't require authentication.
-			if cmd.Args().Len() > 0 && cmd.Args().First() == "skills" {
-				return ctx, nil
-			}
-
 			jwt, err := auth.ResolveJWT(ctx, cmd.String("jwt"), cmd.String("cookie-db"))
 			if err != nil {
 				return ctx, err
@@ -131,7 +126,6 @@ func buildApp(w io.Writer) *cli.Command {
 					commands.CatalogRunCommand(apiClient, w),
 				},
 			},
-
 		},
 	}
 }

@@ -19,14 +19,14 @@ go install github.com/major/marketsurge-agent/cmd/marketsurge-agent@latest
 MarketSurge requires a valid JWT. The CLI resolves credentials in this order:
 
 1. `--jwt` flag
-2. `MARKETSURGE_TOKEN` environment variable
+2. `MARKETSURGE_JWT` environment variable
 3. `--cookie-db` path to a Firefox `cookies.sqlite` file
 4. Auto-discovery from local Firefox profiles
 
 The simplest approach for automation:
 
 ```bash
-export MARKETSURGE_TOKEN="your-jwt-here"
+export MARKETSURGE_JWT="your-jwt-here"
 ```
 
 ## Usage
@@ -56,8 +56,8 @@ marketsurge-agent ownership get AMZN
 # Relative strength history for one or more symbols
 marketsurge-agent rs-history get META NVDA
 
-# Chart price history (daily, last 90 days)
-marketsurge-agent chart history AAPL --period 90
+# Chart price history (daily, last 3 months)
+marketsurge-agent chart history AAPL --lookback 3M
 
 # Chart markups and annotations
 marketsurge-agent chart markups AAPL
@@ -77,8 +77,7 @@ All commands return a JSON envelope:
 ```json
 {
   "data": { ... },
-  "metadata": { "symbol": "AAPL" },
-  "timestamp": "2026-04-21T12:00:00Z"
+  "metadata": { "symbol": "AAPL" }
 }
 ```
 
@@ -86,10 +85,11 @@ Errors follow the same pattern:
 
 ```json
 {
-  "error": "symbol not found",
-  "code": 2,
-  "message": "XYZZY: no matching symbol",
-  "timestamp": "2026-04-21T12:00:00Z"
+  "error": {
+    "code": "SYMBOL_NOT_FOUND",
+    "message": "XYZZY: no matching symbol",
+    "details": "symbol: XYZZY"
+  }
 }
 ```
 
@@ -105,8 +105,7 @@ Errors follow the same pattern:
 | `chart history <symbol>` | Price history (daily or weekly) |
 | `chart markups <symbol>` | Chart annotations and markups |
 | `catalog list` | List watchlists, screens, reports |
-| `catalog run` | Run a watchlist, screen, or report |
-| `skills generate` | Generate agent skill documentation |
+| `catalog run` | Run a watchlist, coach screen, or report |
 
 ## Agent integration
 
@@ -127,11 +126,7 @@ marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
 
 `rs-history get` accepts multiple symbols in one request. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
 
-The `skills generate` command writes Markdown skill files to `skills/` that describe each command's inputs, outputs, and usage. These files are designed for consumption by AI agent frameworks that support tool/skill discovery.
-
-```bash
-marketsurge-agent skills generate
-```
+The static Markdown files in `skills/marketsurge-agent/` describe each command group's inputs, outputs, and gotchas for AI agent frameworks that support tool or skill discovery. Keep them updated with CLI behavior changes.
 
 ## Development
 
@@ -158,7 +153,7 @@ internal/
   models/                Data structures
   output/                JSON envelope formatting
 queries/                 Embedded GraphQL queries
-skills/                  Generated agent skill docs
+skills/                  Static agent skill docs
 ```
 
 ### Running tests

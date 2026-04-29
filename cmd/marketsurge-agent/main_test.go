@@ -57,7 +57,11 @@ func TestStaticSkillDocsStayWellFormed(t *testing.T) {
 		content, readErr := os.ReadFile(filepath.Join(skillDir, entry.Name()))
 		require.NoError(t, readErr)
 
-		text := string(content)
+		text := strings.TrimPrefix(string(content), "---\n")
+		if text != string(content) {
+			_, text, _ = strings.Cut(text, "\n---\n")
+			text = strings.TrimLeft(text, "\n")
+		}
 		seen[entry.Name()] = true
 		assert.True(t, strings.HasPrefix(text, "# "), "%s should start with a heading", entry.Name())
 		assert.NotContains(t, text, "\n`bash\n", "%s should use fenced code blocks", entry.Name())

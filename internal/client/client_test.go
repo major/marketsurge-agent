@@ -8,24 +8,24 @@ import (
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"resty.dev/v3"
 )
 
 func TestNewClientDefaults(t *testing.T) {
 	t.Parallel()
 	client := NewClient("jwt-token")
 
-	require.NotNil(t, client.HTTPClient)
+	require.NotNil(t, client.RestyClient)
 	assert.Equal(t, "jwt-token", client.JWT)
-	assert.NotEmpty(t, client.Endpoint)
 }
 
 func TestNewClientWithOptions(t *testing.T) {
 	t.Parallel()
-	custom := &http.Client{}
-	c := NewClient("jwt-token", WithBaseURL("https://example.com"), WithHTTPClient(custom))
+	custom := resty.New()
+	t.Cleanup(func() { _ = custom.Close() })
+	c := NewClient("jwt-token", WithBaseURL("https://example.com"), WithRestyClient(custom))
 
-	assert.Equal(t, "https://example.com", c.Endpoint)
-	assert.Same(t, custom, c.HTTPClient)
+	assert.Same(t, custom, c.RestyClient)
 	assert.Equal(t, "jwt-token", c.JWT)
 }
 

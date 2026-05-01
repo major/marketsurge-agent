@@ -41,7 +41,7 @@ func assertSymbolMeta(t *testing.T, envelope map[string]any, symbol string) {
 // testClient creates a *client.Client backed by the given httptest server.
 func testClient(t *testing.T, server *httptest.Server) *client.Client {
 	t.Helper()
-	return client.NewClient("test-jwt", client.WithBaseURL(server.URL), client.WithHTTPClient(server.Client()))
+	return client.NewClient("test-jwt", client.WithBaseURL(server.URL))
 }
 
 // jsonServer returns an httptest.Server that always responds with the given JSON body.

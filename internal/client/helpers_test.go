@@ -19,5 +19,5 @@ func testServerAndClient(t *testing.T, handler http.HandlerFunc) *Client {
 	})
 	server := httptest.NewServer(wrapped)
 	t.Cleanup(server.Close)
-	return NewClient("jwt-token", WithBaseURL(server.URL), WithHTTPClient(server.Client()))
+	return NewClient("jwt-token", WithBaseURL(server.URL))
 }

@@ -76,6 +76,10 @@ func buildApp(w io.Writer) *cli.Command {
 			*apiClient = *client.NewClient(jwt)
 			return ctx, nil
 		},
+		After: func(ctx context.Context, cmd *cli.Command) error {
+			apiClient.Close()
+			return nil
+		},
 		CommandNotFound: func(_ context.Context, _ *cli.Command, name string) {
 			err := errors.NewValidationError(fmt.Sprintf("unknown command %q", name), nil)
 			_ = output.WriteError(w, err)

@@ -6,7 +6,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"mime"
 	"net/http"
@@ -76,7 +75,8 @@ func (c *Client) Close() error {
 
 // Execute sends a GraphQL request and returns the decoded response body.
 func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, error) {
-	req := c.RestyClient.R().SetContext(ctx)
+	var raw map[string]any
+	req := c.RestyClient.R().SetContext(ctx).SetResult(&raw)
 
 	headers := constants.GraphQLHeaders()
 	for key, values := range headers {
@@ -91,10 +91,9 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 	if err != nil {
 		return nil, fmt.Errorf("execute graphql request: %w", err)
 	}
-	body := resp.Bytes()
 
-	if resp.StatusCode() < http.StatusOK || resp.StatusCode() >= http.StatusMultipleChoices {
-		return nil, mapHTTPError(resp.StatusCode(), string(body), nil)
+	if !resp.IsSuccess() {
+		return nil, mapHTTPError(resp.StatusCode(), string(resp.Bytes()), nil)
 	}
 
 	// Validate Content-Type before attempting JSON decode. Without this,
@@ -103,17 +102,12 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 	if ct := resp.Header().Get("Content-Type"); ct != "" {
 		mediaType, _, err := mime.ParseMediaType(ct)
 		if err == nil && mediaType != "application/json" {
-			preview := string(body)
+			preview := string(resp.Bytes())
 			if len(preview) > 200 {
 				preview = preview[:200] + "..."
 			}
 			return nil, fmt.Errorf("unexpected Content-Type %q (expected application/json): %s", ct, preview)
 		}
-	}
-
-	var raw map[string]any
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, fmt.Errorf("decode graphql response: %w", err)
 	}
 
 	if err := mapGraphQLError(raw); err != nil {

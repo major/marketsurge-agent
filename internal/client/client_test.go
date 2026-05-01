@@ -129,6 +129,7 @@ func TestExecuteRejectsUnexpectedContentType(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected Content-Type")
 	assert.Contains(t, err.Error(), "text/html")
+	assert.Contains(t, err.Error(), "Service Unavailable")
 }
 
 func TestExecuteAcceptsJSONWithCharset(t *testing.T) {

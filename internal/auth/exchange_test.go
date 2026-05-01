@@ -204,7 +204,7 @@ func TestExchangeJWT_InvalidJSON(t *testing.T) {
 
 	var authErr *errors.AuthenticationError
 	require.ErrorAs(t, err, &authErr)
-	assert.Contains(t, authErr.Message, "failed to parse JWT exchange response")
+	assert.Contains(t, authErr.Message, "JWT exchange request failed")
 }
 
 func TestExchangeJWT_UsesGETMethod(t *testing.T) {

@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/errors"
+	"resty.dev/v3"
 )
 
 // exchangeURL is the JWT exchange endpoint URL. It defaults to
@@ -28,50 +28,39 @@ type clientResponse struct {
 // investors.com client endpoint. It sends a GET request with the provided
 // cookies and extracts the JWT from the JSON response.
 func ExchangeJWT(ctx context.Context, cookies []*http.Cookie) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, exchangeURL, http.NoBody)
-	if err != nil {
-		return "", errors.NewAuthenticationError(
-			fmt.Sprintf("failed to build JWT exchange request: %s", err),
-			err,
-		)
-	}
+	rc := resty.New()
+	defer rc.Close()
+
+	rc.SetTimeout(constants.HTTPTimeout).SetResponseBodyLimit(constants.MaxResponseSize)
+
+	req := rc.R().SetContext(ctx)
 
 	// Set required headers from constants.
 	for key, values := range constants.JWTExchangeHeaders() {
 		for _, v := range values {
-			req.Header.Set(key, v)
+			req.SetHeader(key, v)
 		}
 	}
 
 	// Forward all cookies to the request.
-	for _, c := range cookies {
-		req.AddCookie(c)
-	}
+	req.SetCookies(cookies)
 
-	client := &http.Client{Timeout: constants.HTTPTimeout}
-	resp, err := client.Do(req)
+	resp, err := req.Get(exchangeURL)
 	if err != nil {
 		return "", errors.NewAuthenticationError(
 			fmt.Sprintf("JWT exchange request failed: %s", err),
 			err,
 		)
 	}
-	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, constants.MaxResponseSize))
-	if err != nil {
+	if resp.StatusCode() < http.StatusOK || resp.StatusCode() >= http.StatusMultipleChoices {
 		return "", errors.NewAuthenticationError(
-			fmt.Sprintf("failed to read JWT exchange response: %s", err),
-			err,
-		)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", errors.NewAuthenticationError(
-			fmt.Sprintf("JWT exchange failed: HTTP %d", resp.StatusCode),
+			fmt.Sprintf("JWT exchange failed: HTTP %d", resp.StatusCode()),
 			nil,
 		)
 	}
+
+	body := resp.Bytes()
 
 	var data clientResponse
 	if err := json.Unmarshal(body, &data); err != nil {

@@ -5,16 +5,15 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"mime"
 	"net/http"
 
 	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"resty.dev/v3"
 )
 
 // Request is a GraphQL request payload.
@@ -26,9 +25,9 @@ type Request struct {
 
 // Client executes MarketSurge GraphQL requests.
 type Client struct {
-	JWT        string
-	Endpoint   string
-	HTTPClient *http.Client
+	JWT         string
+	BaseURL     string
+	RestyClient *resty.Client
 }
 
 // Option configures a Client.
@@ -37,14 +36,14 @@ type Option func(*Client)
 // WithBaseURL sets the GraphQL endpoint URL.
 func WithBaseURL(url string) Option {
 	return func(c *Client) {
-		c.Endpoint = url
+		c.BaseURL = url
 	}
 }
 
-// WithHTTPClient sets the HTTP client used for requests.
-func WithHTTPClient(httpClient *http.Client) Option {
+// WithRestyClient sets the Resty client used for requests.
+func WithRestyClient(restyClient *resty.Client) Option {
 	return func(c *Client) {
-		c.HTTPClient = httpClient
+		c.RestyClient = restyClient
 	}
 }
 
@@ -52,52 +51,56 @@ func WithHTTPClient(httpClient *http.Client) Option {
 // Use With* options to override defaults.
 func NewClient(jwt string, opts ...Option) *Client {
 	c := &Client{
-		JWT:      jwt,
-		Endpoint: constants.GraphQLEndpoint,
-		HTTPClient: &http.Client{
-			Timeout: constants.HTTPTimeout,
-		},
+		JWT:     jwt,
+		BaseURL: constants.GraphQLEndpoint,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
+	if c.RestyClient == nil {
+		c.RestyClient = resty.New().
+			SetTimeout(constants.HTTPTimeout).
+			SetResponseBodyLimit(constants.MaxResponseSize)
+	}
+	c.RestyClient.SetBaseURL(c.BaseURL)
 	return c
+}
+
+// Close releases resources held by the underlying Resty client.
+func (c *Client) Close() error {
+	if c.RestyClient != nil {
+		return c.RestyClient.Close()
+	}
+	return nil
 }
 
 // Execute sends a GraphQL request and returns the decoded response body.
 func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, error) {
-	encodedPayload, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal graphql payload: %w", err)
+	req := c.RestyClient.R().SetContext(ctx)
+
+	headers := constants.GraphQLHeaders()
+	for key, values := range headers {
+		for _, v := range values {
+			req.SetHeader(key, v)
+		}
 	}
+	req.SetHeader("Authorization", "Bearer "+c.JWT)
+	req.SetBody(payload)
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint(), bytes.NewReader(encodedPayload))
-	if err != nil {
-		return nil, fmt.Errorf("build graphql request: %w", err)
-	}
-
-	request.Header = constants.GraphQLHeaders().Clone()
-	request.Header.Set("Authorization", "Bearer "+c.JWT)
-
-	response, err := c.httpClient().Do(request)
+	resp, err := req.Post("")
 	if err != nil {
 		return nil, fmt.Errorf("execute graphql request: %w", err)
 	}
-	defer response.Body.Close()
+	body := resp.Bytes()
 
-	body, err := io.ReadAll(io.LimitReader(response.Body, constants.MaxResponseSize))
-	if err != nil {
-		return nil, fmt.Errorf("read graphql response: %w", err)
-	}
-
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return nil, mapHTTPError(response.StatusCode, string(body), nil)
+	if resp.StatusCode() < http.StatusOK || resp.StatusCode() >= http.StatusMultipleChoices {
+		return nil, mapHTTPError(resp.StatusCode(), string(body), nil)
 	}
 
 	// Validate Content-Type before attempting JSON decode. Without this,
 	// an HTML error page from a proxy or maintenance window produces a
 	// cryptic json.Unmarshal error instead of a clear diagnostic.
-	if ct := response.Header.Get("Content-Type"); ct != "" {
+	if ct := resp.Header().Get("Content-Type"); ct != "" {
 		mediaType, _, err := mime.ParseMediaType(ct)
 		if err == nil && mediaType != "application/json" {
 			preview := string(body)
@@ -118,20 +121,6 @@ func (c *Client) Execute(ctx context.Context, payload Request) (map[string]any, 
 	}
 
 	return raw, nil
-}
-
-func (c *Client) endpoint() string {
-	if c.Endpoint != "" {
-		return c.Endpoint
-	}
-	return constants.GraphQLEndpoint
-}
-
-func (c *Client) httpClient() *http.Client {
-	if c.HTTPClient != nil {
-		return c.HTTPClient
-	}
-	return &http.Client{Timeout: constants.HTTPTimeout}
 }
 
 func mapHTTPError(statusCode int, body string, cause error) error {

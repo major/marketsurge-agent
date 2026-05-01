@@ -8,8 +8,6 @@ import (
 
 // testServerAndClient creates a test HTTP server with the given handler and returns
 // a Client configured to use it. The server is automatically closed when the test ends.
-// testServerAndClient creates a test HTTP server with the given handler and returns
-// a Client configured to use it. The server is automatically closed when the test ends.
 // A default Content-Type of application/json is set on responses; handlers can override it.
 func testServerAndClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
@@ -19,5 +17,7 @@ func testServerAndClient(t *testing.T, handler http.HandlerFunc) *Client {
 	})
 	server := httptest.NewServer(wrapped)
 	t.Cleanup(server.Close)
-	return NewClient("jwt-token", WithBaseURL(server.URL), WithHTTPClient(server.Client()))
+	client := NewClient("jwt-token", WithBaseURL(server.URL))
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }

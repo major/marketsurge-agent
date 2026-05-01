@@ -26,6 +26,7 @@ type Request struct {
 // Client executes MarketSurge GraphQL requests.
 type Client struct {
 	JWT         string
+	BaseURL     string
 	RestyClient *resty.Client
 }
 
@@ -35,7 +36,7 @@ type Option func(*Client)
 // WithBaseURL sets the GraphQL endpoint URL.
 func WithBaseURL(url string) Option {
 	return func(c *Client) {
-		c.RestyClient.SetBaseURL(url)
+		c.BaseURL = url
 	}
 }
 
@@ -50,23 +51,27 @@ func WithRestyClient(restyClient *resty.Client) Option {
 // Use With* options to override defaults.
 func NewClient(jwt string, opts ...Option) *Client {
 	c := &Client{
-		JWT: jwt,
-		RestyClient: resty.New().
-			SetBaseURL(constants.GraphQLEndpoint).
-			SetTimeout(constants.HTTPTimeout).
-			SetResponseBodyLimit(constants.MaxResponseSize),
+		JWT:     jwt,
+		BaseURL: constants.GraphQLEndpoint,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
+	if c.RestyClient == nil {
+		c.RestyClient = resty.New().
+			SetTimeout(constants.HTTPTimeout).
+			SetResponseBodyLimit(constants.MaxResponseSize)
+	}
+	c.RestyClient.SetBaseURL(c.BaseURL)
 	return c
 }
 
 // Close releases resources held by the underlying Resty client.
-func (c *Client) Close() {
+func (c *Client) Close() error {
 	if c.RestyClient != nil {
-		c.RestyClient.Close()
+		return c.RestyClient.Close()
 	}
+	return nil
 }
 
 // Execute sends a GraphQL request and returns the decoded response body.

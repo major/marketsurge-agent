@@ -77,8 +77,7 @@ func buildApp(w io.Writer) *cli.Command {
 			return ctx, nil
 		},
 		After: func(ctx context.Context, cmd *cli.Command) error {
-			apiClient.Close()
-			return nil
+			return apiClient.Close()
 		},
 		CommandNotFound: func(_ context.Context, _ *cli.Command, name string) {
 			err := errors.NewValidationError(fmt.Sprintf("unknown command %q", name), nil)

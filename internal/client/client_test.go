@@ -26,6 +26,8 @@ func TestNewClientWithOptions(t *testing.T) {
 	c := NewClient("jwt-token", WithBaseURL("https://example.com"), WithRestyClient(custom))
 
 	assert.Same(t, custom, c.RestyClient)
+	assert.Equal(t, "https://example.com", c.BaseURL)
+	assert.Equal(t, "https://example.com", c.RestyClient.BaseURL())
 	assert.Equal(t, "jwt-token", c.JWT)
 }
 

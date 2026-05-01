@@ -3,7 +3,6 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -33,7 +32,8 @@ func ExchangeJWT(ctx context.Context, cookies []*http.Cookie) (string, error) {
 
 	rc.SetTimeout(constants.HTTPTimeout).SetResponseBodyLimit(constants.MaxResponseSize)
 
-	req := rc.R().SetContext(ctx)
+	var data clientResponse
+	req := rc.R().SetContext(ctx).SetResult(&data)
 
 	// Set required headers from constants.
 	for key, values := range constants.JWTExchangeHeaders() {
@@ -53,20 +53,10 @@ func ExchangeJWT(ctx context.Context, cookies []*http.Cookie) (string, error) {
 		)
 	}
 
-	if resp.StatusCode() < http.StatusOK || resp.StatusCode() >= http.StatusMultipleChoices {
+	if !resp.IsSuccess() {
 		return "", errors.NewAuthenticationError(
 			fmt.Sprintf("JWT exchange failed: HTTP %d", resp.StatusCode()),
 			nil,
-		)
-	}
-
-	body := resp.Bytes()
-
-	var data clientResponse
-	if err := json.Unmarshal(body, &data); err != nil {
-		return "", errors.NewAuthenticationError(
-			fmt.Sprintf("failed to parse JWT exchange response: %s", err),
-			err,
 		)
 	}
 

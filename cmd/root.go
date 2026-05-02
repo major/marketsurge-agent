@@ -18,22 +18,24 @@ import (
 // version is set via ldflags at build time.
 var version = "dev"
 
-var rootCmd *cobra.Command
-
 type clientKeyType struct{}
 
 var clientKey = clientKeyType{}
 
+// rootCmd is the root cobra command. Initialized as a package-level variable so
+// that each command file's init() can safely call rootCmd.AddCommand() regardless
+// of source-file initialization order.
+var rootCmd = &cobra.Command{
+	Use:                "marketsurge-agent",
+	Short:              "Query the MarketSurge stock research API",
+	Version:            version,
+	SilenceUsage:       true,
+	SilenceErrors:      true,
+	PersistentPreRunE:  persistentPreRunE,
+	PersistentPostRunE: persistentPostRunE,
+}
+
 func init() {
-	rootCmd = &cobra.Command{
-		Use:                "marketsurge-agent",
-		Short:              "Query the MarketSurge stock research API",
-		Version:            version,
-		SilenceUsage:       true,
-		SilenceErrors:      true,
-		PersistentPreRunE:  persistentPreRunE,
-		PersistentPostRunE: persistentPostRunE,
-	}
 	rootCmd.PersistentFlags().String("jwt", "", "JWT token for authentication (overrides env var and cookie)")
 	rootCmd.PersistentFlags().String("cookie-db", "", "Path to Firefox cookie database file")
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose logging")

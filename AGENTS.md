@@ -7,11 +7,14 @@ This project is unofficial and is not affiliated with, approved by, or endorsed 
 ## Architecture
 
 ```text
-cmd/marketsurge-agent/main.go    Entry point, buildApp() factory
+cmd/
+  marketsurge-agent/main.go      Entry point, calls cmd.Execute()
+  root.go                        Root command, PersistentPreRunE (auth), Execute()
+  symbol.go                      Shared symbol-fetcher pattern
+  <group>.go                     One file per command group (stock, chart, etc.)
 internal/
   auth/                          JWT resolution (4-tier chain)
   client/                        GraphQL client + domain methods
-  commands/                      CLI command implementations
   constants/                     API endpoints, columns, report IDs
   cookies/                       Firefox cookie extraction
   errors/                        Custom error hierarchy
@@ -23,11 +26,12 @@ skills/                          Static agent skill docs
 
 ### Request flow
 
-1. `main.go` builds the CLI app with `buildApp()`
-2. `Before` hook resolves JWT via the auth chain
-3. Command handler validates args, calls `client.Client` method
+1. `main.go` calls `cmd.Execute()` which runs the root cobra command
+2. `PersistentPreRunE` resolves JWT via the auth chain, injects `client.Client` into context
+3. Command `RunE` retrieves client via `ClientFromContext(cmd.Context())`, validates args, calls client method
 4. Client loads embedded `.graphql` query, executes HTTP POST to GraphQL endpoint
 5. Response parsed into typed model, wrapped in JSON envelope via `output.WriteSuccess`
+6. `PersistentPostRunE` closes the client
 
 ### Auth chain (`internal/auth/chain.go`)
 
@@ -77,8 +81,8 @@ Envelope shape: `{ data, metadata }` for success, `{ data, errors, metadata }` f
 
 ### Code style
 
-- **No `init()` functions**: All setup in `main()` and the `Before` hook
-- **Command factories**: `FooCommand(c *client.Client, w io.Writer) *cli.Command`
+- **`init()` for cobra wiring**: Each command file uses `func init() { rootCmd.AddCommand(newXxxCmd()) }` to register commands
+- **Command constructors**: `newXxxCmd() *cobra.Command` (unexported, called by init and tests)
 - **Error wrapping**: Always use `fmt.Errorf("context: %w", err)` with `%w`
 - **Typed errors**: Use `errors.As()` to match, constructor functions to create
 - **Concurrency**: `sync.WaitGroup` + `sync.Mutex` for parallel ops (see `stock_analyze.go`)
@@ -92,23 +96,23 @@ Envelope shape: `{ data, metadata }` for success, `{ data, errors, metadata }` f
 
 ### Adding a new command
 
-1. Create `internal/commands/<group>_<action>.go` with factory function
+1. Create `cmd/<group>.go` with constructor function and `init()` wiring
 2. Add client method in `internal/client/<group>.go`
 3. Add GraphQL query in `queries/<operation>.graphql`
 4. Add model structs in `internal/models/` if needed
-5. Register in `main.go` `buildApp()` under the appropriate command group
-6. Add tests in `internal/commands/<group>_<action>_test.go`
+5. Add tests in `cmd/<group>_test.go`
+6. Update skill files in `skills/marketsurge-agent/`
 
-Follow `fundamental_get.go` (33 lines) as the canonical simple command template.
+Follow `fundamental.go` (21 lines) as the canonical simple command template.
 
 ## Testing
 
 - Framework: Go stdlib `testing` + `testify/assert` + `testify/require`
 - CI runs: `go test -v -race -coverprofile=coverage.out ./...`
 - Mock pattern: `httptest.NewServer` with request capture (no external mock libraries)
-- Shared helpers in `internal/commands/helpers_test.go`: `testClient()`, `jsonServer()`, fixture builders
+- Shared helpers in `cmd/helpers_test.go`: `testClient()`, `jsonServer()`, fixture builders
 - Table-driven subtests with `t.Run()`, typed error checks with `assert.ErrorAs()`
-- CLI tests suppress exit via `ExitErrHandler`, capture output to `bytes.Buffer`
+- CLI tests call constructors directly, inject client via context, capture output to `bytes.Buffer`
 
 ## Build
 
@@ -135,8 +139,6 @@ Release: push `v*` tag -> goreleaser v2 -> multi-platform binaries (linux/darwin
 
 ## Dependencies
 
-- `github.com/nicholasgasior/urfave-cli-v3-docs-markdown` - CLI doc generation
-- `github.com/urfave/cli/v3` - CLI framework
-- `github.com/nicholasgasior/gcs` - cookie/session handling
+- `github.com/spf13/cobra` - CLI framework
 - `github.com/browserutils/kooky` - Firefox cookie extraction
 - `github.com/stretchr/testify` - Test assertions

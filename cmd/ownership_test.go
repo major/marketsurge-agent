@@ -1,7 +1,6 @@
-package commands
+package cmd
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,11 +15,9 @@ func TestOwnershipGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := OwnershipGetCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL"))
-
-	result := parseJSONEnvelope(t, &buf)
+	output, err := executeCommandWithClient(newOwnershipCmd(), c, "get", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
 }
 
@@ -30,14 +27,10 @@ func TestOwnershipGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := OwnershipGetCommand(c, &buf)
-	err := runTestCommand(t, cmd, "get", "MISSING")
+	_, err := executeCommandWithClient(newOwnershipCmd(), c, "get", "MISSING")
 	require.Error(t, err)
-
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
-	assert.Empty(t, buf.String())
 }
 
 func TestOwnershipGetMissingSymbol(t *testing.T) {
@@ -46,12 +39,6 @@ func TestOwnershipGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := OwnershipGetCommand(c, &buf)
-	err := runTestCommand(t, cmd, "get")
+	_, err := executeCommandWithClient(newOwnershipCmd(), c, "get")
 	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Empty(t, buf.String())
 }

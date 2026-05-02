@@ -106,6 +106,22 @@ Errors follow the same pattern:
 | `chart markups <symbol>` | Chart annotations and markups |
 | `catalog list` | List watchlists, screens, reports |
 | `catalog run` | Run a watchlist, coach screen, or report |
+| `completion <shell>` | Generate shell completion script (bash, zsh, fish, powershell) |
+| `docs [--output dir]` | Generate markdown documentation for all commands |
+| `--version` | Print version information |
+
+### Shell completion and docs
+
+```bash
+# Generate shell completion (bash, zsh, fish, powershell)
+marketsurge-agent completion zsh > ~/.zsh/completions/_marketsurge-agent
+
+# Generate markdown documentation for all commands
+marketsurge-agent docs --output ./docs
+
+# Print version
+marketsurge-agent --version
+```
 
 ## Agent integration
 
@@ -142,11 +158,14 @@ make clean     # Remove binary and build artifacts
 ### Project layout
 
 ```text
-cmd/marketsurge-agent/   Entry point
+cmd/
+  marketsurge-agent/     Entry point (main.go)
+  root.go                Root command, auth, Execute()
+  symbol.go              Shared symbol-fetcher pattern
+  <group>.go             One file per command group
 internal/
   auth/                  JWT resolution (4-tier chain)
   client/                GraphQL client + API methods
-  commands/              CLI command implementations
   constants/             API endpoints, column names
   cookies/               Firefox cookie extraction
   errors/                Typed error hierarchy
@@ -174,3 +193,10 @@ git push origin v1.2.3
 ```
 
 This produces binaries for linux/darwin on amd64/arm64, published to GitHub Releases.
+
+### Dependencies
+
+- [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI framework
+- [`github.com/browserutils/kooky`](https://github.com/nicholasgasior/kooky) - Firefox cookie extraction
+- [`resty.dev/v3`](https://resty.dev) - HTTP client
+- [`github.com/stretchr/testify`](https://github.com/stretchr/testify) - Test assertions

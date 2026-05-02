@@ -1,7 +1,6 @@
-package commands
+package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"math"
 	"net/http"
@@ -9,10 +8,134 @@ import (
 	"testing"
 
 	"github.com/major/marketsurge-agent/internal/client"
+	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCatalogListAllSourcesSucceed(t *testing.T) {
+	t.Parallel()
+	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
+		switch op {
+		case "GetAllWatchlistNames":
+			_, _ = w.Write([]byte(`{"data":{"watchlists":[{"id":"99","name":"My Watchlist","description":"desc"}]}}`))
+		case "Screens":
+			_, _ = w.Write([]byte(`{"data":{"user":{"screens":[{"name":"Saved Screen","description":"screen desc"}]}}}`))
+		case "CoachTree":
+			_, _ = w.Write([]byte(`{"data":{"user":{"screens":[{"name":"Coach Alpha","referenceId":"{\"screenId\":\"screen-1\"}"}],"watchlists":[{"name":"Coach WL","referenceId":"{\"watchlistId\":\"123\"}"}]}}}`))
+		default:
+			t.Fatalf("unexpected operation %s", op)
+		}
+	})
+	defer server.Close()
+
+	envelope := runCatalogListCommand(t, testClient(t, server))
+	entries := catalogEntriesFromEnvelope(t, envelope)
+
+	assert.Empty(t, envelope.Errors)
+	assert.Equal(t, float64(len(entries)), envelope.Metadata["total"])
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "watchlist", "name": "My Watchlist", "watchlist_id": float64(99)})
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "screen", "name": "Saved Screen", "description": "screen desc"})
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "coach_screen", "name": "Coach Alpha", "coach_screen_id": "screen-1"})
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "report", "name": constants.PredefinedReports[0].Name, "report_id": float64(constants.PredefinedReports[0].ID)})
+}
+
+func TestCatalogListPartialFailure(t *testing.T) {
+	t.Parallel()
+	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
+		switch op {
+		case "GetAllWatchlistNames":
+			_, _ = w.Write([]byte(`{"data":{"watchlists":[{"id":"99","name":"My Watchlist"}]}}`))
+		case "Screens":
+			_, _ = w.Write([]byte(`{"errors":[{"message":"screens failed"}]}`))
+		case "CoachTree":
+			_, _ = w.Write([]byte(`{"data":{"user":{"screens":[{"name":"Coach Alpha","referenceId":"{\"screenId\":\"screen-1\"}"}],"watchlists":[]}}}`))
+		default:
+			t.Fatalf("unexpected operation %s", op)
+		}
+	})
+	defer server.Close()
+
+	envelope := runCatalogListCommand(t, testClient(t, server))
+	entries := catalogEntriesFromEnvelope(t, envelope)
+
+	require.NotEmpty(t, envelope.Errors)
+	assert.Contains(t, envelope.Errors[0], "screens failed")
+	assert.NotEmpty(t, entries)
+	assert.Equal(t, float64(len(entries)), envelope.Metadata["total"])
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "watchlist", "name": "My Watchlist", "watchlist_id": float64(99)})
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "coach_screen", "name": "Coach Alpha", "coach_screen_id": "screen-1"})
+	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "report", "name": constants.PredefinedReports[0].Name, "report_id": float64(constants.PredefinedReports[0].ID)})
+}
+
+func TestCatalogListKindFilter(t *testing.T) {
+	t.Parallel()
+	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
+		switch op {
+		case "GetAllWatchlistNames":
+			_, _ = w.Write([]byte(`{"data":{"watchlists":[{"id":"99","name":"My Watchlist"}]}}`))
+		case "Screens":
+			_, _ = w.Write([]byte(`{"data":{"user":{"screens":[{"name":"Saved Screen"}]}}}`))
+		case "CoachTree":
+			_, _ = w.Write([]byte(`{"data":{"user":{"screens":[{"name":"Coach Alpha","referenceId":"{\"screenId\":\"screen-1\"}"}],"watchlists":[]}}}`))
+		default:
+			t.Fatalf("unexpected operation %s", op)
+		}
+	})
+	defer server.Close()
+
+	envelope := runCatalogListCommand(t, testClient(t, server), "--kind", string(models.CatalogKindCoachScreen))
+	entries := catalogEntriesFromEnvelope(t, envelope)
+
+	assert.Empty(t, envelope.Errors)
+	assert.Equal(t, string(models.CatalogKindCoachScreen), envelope.Metadata["kind"])
+	require.Len(t, entries, 1)
+	assert.Equal(t, map[string]any{"kind": "coach_screen", "name": "Coach Alpha", "coach_screen_id": "screen-1"}, entries[0])
+}
+
+func TestCatalogListAllAPISourcesFailStillReturnsReports(t *testing.T) {
+	t.Parallel()
+	server := newCatalogServer(t, func(op string, w http.ResponseWriter) {
+		switch op {
+		case "GetAllWatchlistNames":
+			_, _ = w.Write([]byte(`{"errors":[{"message":"watchlists failed"}]}`))
+		case "Screens":
+			_, _ = w.Write([]byte(`{"errors":[{"message":"screens failed"}]}`))
+		case "CoachTree":
+			_, _ = w.Write([]byte(`{"errors":[{"message":"coach tree failed"}]}`))
+		default:
+			t.Fatalf("unexpected operation %s", op)
+		}
+	})
+	defer server.Close()
+
+	envelope := runCatalogListCommand(t, testClient(t, server))
+	entries := catalogEntriesFromEnvelope(t, envelope)
+
+	require.Len(t, envelope.Errors, 3)
+	assert.Len(t, entries, len(constants.PredefinedReports))
+	assert.Equal(t, float64(len(constants.PredefinedReports)), envelope.Metadata["total"])
+	assert.Equal(t, map[string]any{"kind": "report", "name": constants.PredefinedReports[0].Name, "report_id": float64(constants.PredefinedReports[0].ID)}, entries[0])
+	for _, entry := range entries {
+		assert.Equal(t, "report", entry["kind"])
+	}
+}
+
+func TestCatalogListInvalidKind(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(`{}`)
+	defer server.Close()
+
+	c := testClient(t, server)
+	_, err := executeCommandWithClient(newCatalogCmd(), c, "list", "--kind", "invalid")
+	require.Error(t, err)
+
+	var verr *mserrors.ValidationError
+	assert.ErrorAs(t, err, &verr)
+	assert.Contains(t, err.Error(), "kind must be one of")
+}
 
 func TestCatalogRunReportDispatch(t *testing.T) {
 	t.Parallel()
@@ -78,15 +201,12 @@ func TestCatalogRunMissingKind(t *testing.T) {
 	server := jsonServer(`{}`)
 	defer server.Close()
 
-	var buf bytes.Buffer
-	cmd := CatalogRunCommand(testClient(t, server), &buf)
-	err := runTestCommand(t, cmd, "run")
+	_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), "run")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
 	assert.Contains(t, err.Error(), "kind is required")
-	assert.Empty(t, buf.String())
 }
 
 func TestCatalogRunScreenKindValidation(t *testing.T) {
@@ -94,15 +214,12 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 	server := jsonServer(`{}`)
 	defer server.Close()
 
-	var buf bytes.Buffer
-	cmd := CatalogRunCommand(testClient(t, server), &buf)
-	err := runTestCommand(t, cmd, "run", "--kind", "screen")
+	_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), "run", "--kind", "screen")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
 	assert.Contains(t, err.Error(), "screens cannot be run directly")
-	assert.Empty(t, buf.String())
 }
 
 func TestCatalogRunMissingIDForKind(t *testing.T) {
@@ -122,17 +239,14 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-	t.Parallel()
-	var buf bytes.Buffer
-			cmd := CatalogRunCommand(testClient(t, server), &buf)
-			err := runTestCommand(t, cmd, tt.args...)
+			t.Parallel()
+			_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), tt.args...)
 			require.Error(t, err)
 
 			var verr *mserrors.ValidationError
 			assert.ErrorAs(t, err, &verr)
 			assert.Contains(t, err.Error(), tt.message)
-			assert.Empty(t, buf.String())
-})
+		})
 	}
 }
 
@@ -195,69 +309,15 @@ func TestPaginateSlice(t *testing.T) {
 		offset   int
 		expected []string
 	}{
-		{
-			name:     "no pagination",
-			items:    []string{"a", "b", "c"},
-			limit:    0,
-			offset:   0,
-			expected: []string{"a", "b", "c"},
-		},
-		{
-			name:     "limit within bounds",
-			items:    []string{"a", "b", "c", "d"},
-			limit:    2,
-			offset:   0,
-			expected: []string{"a", "b"},
-		},
-		{
-			name:     "offset and limit",
-			items:    []string{"a", "b", "c", "d"},
-			limit:    2,
-			offset:   1,
-			expected: []string{"b", "c"},
-		},
-		{
-			name:     "negative offset clamps to zero",
-			items:    []string{"a", "b", "c"},
-			limit:    2,
-			offset:   -5,
-			expected: []string{"a", "b"},
-		},
-		{
-			name:     "offset beyond length",
-			items:    []string{"a", "b", "c"},
-			limit:    2,
-			offset:   10,
-			expected: []string{},
-		},
-		{
-			name:     "negative limit returns full slice from offset",
-			items:    []string{"a", "b", "c"},
-			limit:    -1,
-			offset:   0,
-			expected: []string{"a", "b", "c"},
-		},
-		{
-			name:     "empty slice",
-			items:    []string{},
-			limit:    10,
-			offset:   0,
-			expected: []string{},
-		},
-		{
-			name:     "offset at end of slice",
-			items:    []string{"a", "b", "c"},
-			limit:    10,
-			offset:   3,
-			expected: []string{},
-		},
-		{
-			name:     "limit exceeds remaining items",
-			items:    []string{"a", "b", "c"},
-			limit:    10,
-			offset:   1,
-			expected: []string{"b", "c"},
-		},
+		{name: "no pagination", items: []string{"a", "b", "c"}, limit: 0, offset: 0, expected: []string{"a", "b", "c"}},
+		{name: "limit within bounds", items: []string{"a", "b", "c", "d"}, limit: 2, offset: 0, expected: []string{"a", "b"}},
+		{name: "offset and limit", items: []string{"a", "b", "c", "d"}, limit: 2, offset: 1, expected: []string{"b", "c"}},
+		{name: "negative offset clamps to zero", items: []string{"a", "b", "c"}, limit: 2, offset: -5, expected: []string{"a", "b"}},
+		{name: "offset beyond length", items: []string{"a", "b", "c"}, limit: 2, offset: 10, expected: []string{}},
+		{name: "negative limit returns full slice from offset", items: []string{"a", "b", "c"}, limit: -1, offset: 0, expected: []string{"a", "b", "c"}},
+		{name: "empty slice", items: []string{}, limit: 10, offset: 0, expected: []string{}},
+		{name: "offset at end of slice", items: []string{"a", "b", "c"}, limit: 10, offset: 3, expected: []string{}},
+		{name: "limit exceeds remaining items", items: []string{"a", "b", "c"}, limit: 10, offset: 1, expected: []string{"b", "c"}},
 	}
 
 	for _, tt := range tests {
@@ -285,6 +345,14 @@ func TestCatalogRunWatchlistID64Bit(t *testing.T) {
 	assert.Len(t, envelope.Data.Entries, 2)
 }
 
+type catalogListEnvelope struct {
+	Data struct {
+		Entries []map[string]any `json:"entries"`
+	} `json:"data"`
+	Errors   []string       `json:"errors"`
+	Metadata map[string]any `json:"metadata"`
+}
+
 type catalogRunEnvelope struct {
 	Data struct {
 		Entries []map[string]any `json:"entries"`
@@ -299,21 +367,52 @@ type catalogRunRequest struct {
 	Variables     map[string]any `json:"variables"`
 }
 
-// runCatalogRunCommand executes the catalog run command and decodes its JSON response.
-func runCatalogRunCommand(t *testing.T, c *client.Client, args ...string) catalogRunEnvelope {
+func runCatalogListCommand(t *testing.T, c *client.Client, args ...string) catalogListEnvelope {
 	t.Helper()
 
-	var buf bytes.Buffer
-	cmd := CatalogRunCommand(c, &buf)
-	argv := append([]string{"run"}, args...)
-	require.NoError(t, runTestCommand(t, cmd, argv...))
+	argv := append([]string{"list"}, args...)
+	output, err := executeCommandWithClient(newCatalogCmd(), c, argv...)
+	require.NoError(t, err)
 
-	var envelope catalogRunEnvelope
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &envelope))
+	var envelope catalogListEnvelope
+	require.NoError(t, json.Unmarshal([]byte(output), &envelope))
 	return envelope
 }
 
-// newCatalogRunServer builds an httptest server for report, watchlist, and coach screen flows.
+func runCatalogRunCommand(t *testing.T, c *client.Client, args ...string) catalogRunEnvelope {
+	t.Helper()
+
+	argv := append([]string{"run"}, args...)
+	output, err := executeCommandWithClient(newCatalogCmd(), c, argv...)
+	require.NoError(t, err)
+
+	var envelope catalogRunEnvelope
+	require.NoError(t, json.Unmarshal([]byte(output), &envelope))
+	return envelope
+}
+
+func catalogEntriesFromEnvelope(t *testing.T, envelope catalogListEnvelope) []map[string]any {
+	t.Helper()
+	require.NotNil(t, envelope.Metadata)
+	assert.Equal(t, float64(0), envelope.Metadata["limit"])
+	assert.Equal(t, float64(0), envelope.Metadata["offset"])
+	assert.NotEmpty(t, envelope.Metadata["timestamp"])
+	return envelope.Data.Entries
+}
+
+func newCatalogServer(t *testing.T, handler func(op string, w http.ResponseWriter)) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var payload struct {
+			OperationName string `json:"operationName"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		w.Header().Set("Content-Type", "application/json")
+		handler(payload.OperationName, w)
+	}))
+}
+
 func newCatalogRunServer(t *testing.T) (*httptest.Server, *[]catalogRunRequest) {
 	t.Helper()
 
@@ -341,7 +440,6 @@ func newCatalogRunServer(t *testing.T) (*httptest.Server, *[]catalogRunRequest) 
 	return server, &requests
 }
 
-// nestedMap walks a decoded JSON object through successive keys.
 func nestedMap(t *testing.T, value map[string]any, keys ...string) map[string]any {
 	t.Helper()
 
@@ -354,7 +452,6 @@ func nestedMap(t *testing.T, value map[string]any, keys ...string) map[string]an
 	return current
 }
 
-// catalogRunAdhocFixture returns a minimal adhoc screen response with two rows.
 func catalogRunAdhocFixture() string {
 	return `{
 		"data": {
@@ -379,7 +476,6 @@ func catalogRunAdhocFixture() string {
 	}`
 }
 
-// catalogRunScreenFixture returns a minimal coach screen response with two rows.
 func catalogRunScreenFixture() string {
 	return `{
 		"data": {
@@ -400,4 +496,21 @@ func catalogRunScreenFixture() string {
 			}
 		}
 	}`
+}
+
+func assertCatalogEntrySubset(t *testing.T, entries []map[string]any, expected map[string]any) {
+	t.Helper()
+	for _, entry := range entries {
+		matched := true
+		for key, want := range expected {
+			if entry[key] != want {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return
+		}
+	}
+	t.Fatalf("no catalog entry matched subset %#v", expected)
 }

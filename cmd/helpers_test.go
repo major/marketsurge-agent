@@ -1,4 +1,4 @@
-package commands
+package cmd
 
 import (
 	"bytes"
@@ -9,23 +9,32 @@ import (
 	"testing"
 
 	"github.com/major/marketsurge-agent/internal/client"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v3"
 )
 
-// runTestCommand configures the command to suppress os.Exit and runs it with the given args.
-func runTestCommand(t *testing.T, cmd *cli.Command, args ...string) error {
-	t.Helper()
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-	return cmd.Run(t.Context(), args)
+// executeCommand runs a cobra command with the given args and returns its output and error.
+func executeCommand(cmd *cobra.Command, args ...string) (string, error) {
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return buf.String(), err
 }
 
-// parseJSONEnvelope unmarshals buf into a map and asserts it contains data and metadata keys.
-func parseJSONEnvelope(t *testing.T, buf *bytes.Buffer) map[string]any {
+// executeCommandWithClient runs a cobra command with a client injected into the context.
+func executeCommandWithClient(cmd *cobra.Command, c *client.Client, args ...string) (string, error) {
+	cmd.SetContext(ContextWithClient(context.Background(), c))
+	return executeCommand(cmd, args...)
+}
+
+// parseJSONEnvelope unmarshals output into a map and asserts it contains data and metadata keys.
+func parseJSONEnvelope(t *testing.T, output string) map[string]any {
 	t.Helper()
 	var result map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
+	require.NoError(t, json.Unmarshal([]byte(output), &result))
 	assert.Contains(t, result, "data")
 	assert.Contains(t, result, "metadata")
 	return result

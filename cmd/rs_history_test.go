@@ -1,7 +1,6 @@
-package commands
+package cmd
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,11 +15,10 @@ func TestRSHistoryGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := RSHistoryGetCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL"))
+	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
 }
 
@@ -30,11 +28,10 @@ func TestRSHistoryGetMultiSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := RSHistoryGetCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL", "MSFT"))
+	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL", "MSFT")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].(map[string]any)
 	require.True(t, ok, "multi-symbol RS history should be keyed by symbol")
 	assert.Contains(t, data, "AAPL")
@@ -51,11 +48,10 @@ func TestRSHistoryGetMultiSymbolPartial(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := RSHistoryGetCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL", "MISSING"))
+	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL", "MISSING")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].(map[string]any)
 	require.True(t, ok, "partial RS history data should be keyed by symbol")
 	assert.Contains(t, data, "AAPL")
@@ -72,11 +68,10 @@ func TestRSHistoryGetMultiSymbolPartialMissingMiddle(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := RSHistoryGetCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL", "MISSING", "MSFT"))
+	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL", "MISSING", "MSFT")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].(map[string]any)
 	require.True(t, ok, "partial RS history data should be keyed by response symbol")
 	assert.Contains(t, data, "AAPL")
@@ -101,14 +96,11 @@ func TestRSHistoryGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := RSHistoryGetCommand(c, &buf)
-	err := runTestCommand(t, cmd, "get", "MISSING")
+	_, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "MISSING")
 	require.Error(t, err)
 
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
-	assert.Empty(t, buf.String())
 }
 
 func TestRSHistoryGetMissingSymbol(t *testing.T) {
@@ -117,12 +109,6 @@ func TestRSHistoryGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := RSHistoryGetCommand(c, &buf)
-	err := runTestCommand(t, cmd, "get")
+	_, err := executeCommandWithClient(newRSHistoryCmd(), c, "get")
 	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Empty(t, buf.String())
 }

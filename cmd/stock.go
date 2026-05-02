@@ -1,185 +1,199 @@
-package commands
+// Package cmd provides the cobra command tree for marketsurge-agent.
+package cmd
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/urfave/cli/v3"
 
 	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/internal/output"
+	"github.com/spf13/cobra"
 )
 
-// AnalysisResult holds the combined stock, fundamental, and ownership data
-// for a single symbol.
-type AnalysisResult struct {
-	Symbol       string                  `json:"symbol"`
-	Stock        *models.StockData       `json:"stock,omitempty"`
-	Fundamentals *models.FundamentalData `json:"fundamentals,omitempty"`
-	Ownership    *models.OwnershipData   `json:"ownership,omitempty"`
+func init() { rootCmd.AddCommand(newStockCmd()) }
+
+func newStockCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           "stock",
+		Short:         "Get stock data",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	cmd.AddCommand(newSymbolCmd("get", "Get stock data for a symbol", func(ctx context.Context, symbol string) (any, error) {
+		return ClientFromContext(ctx).GetStock(ctx, symbol)
+	}))
+	cmd.AddCommand(newStockAnalyzeCmd())
+	return cmd
 }
 
-// StockAnalyzeCommand returns the CLI command for analyzing one or more symbols.
-// For each symbol, it concurrently fetches stock, fundamental, and ownership data.
-func StockAnalyzeCommand(c *client.Client, w io.Writer) *cli.Command {
-	return &cli.Command{
-		Name:      "analyze",
-		Usage:     "Analyze one or more stock symbols",
-		ArgsUsage: "[symbol...]",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols to analyze"},
-			&cli.BoolFlag{Name: "compact", Usage: "Remove formatted string fields from analysis data"},
-			&cli.BoolFlag{Name: "flat", Usage: "Flatten each analysis result for token-efficient agent parsing"},
-			&cli.BoolFlag{Name: "summary", Usage: "Return compact screening fields for ranking multi-symbol candidates"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			symbols := analyzeSymbols(cmd)
+// AnalysisResult holds the combined stock, fundamental, and ownership data for a single symbol.
+type AnalysisResult struct {
+	Symbol      string                  `json:"symbol"`
+	Stock       *models.StockData       `json:"stock,omitempty"`
+	Fundamental *models.FundamentalData `json:"fundamentals,omitempty"`
+	Ownership   *models.OwnershipData   `json:"ownership,omitempty"`
+	Errors      []string                `json:"errors,omitempty"`
+}
+
+func newStockAnalyzeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "analyze [symbol...]",
+		Short: "Analyze one or more stock symbols",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			symbols := analyzeSymbols(cmd, args)
 			if len(symbols) == 0 {
-				verr := mserrors.NewValidationError("at least one symbol required", nil)
-				return verr
+				return mserrors.NewValidationError("at least one symbol required", nil)
 			}
 
+			ctx := cmd.Context()
+			c := ClientFromContext(ctx)
 			results := make([]AnalysisResult, len(symbols))
-			var allErrors []string
+			allErrors := make([]string, 0)
 			var mu sync.Mutex
 
-			// Process each symbol concurrently.
 			var wg sync.WaitGroup
 			for i, symbol := range symbols {
 				wg.Go(func() {
-					result, errs := analyzeSymbol(ctx, c, symbol)
+					result := analyzeSymbol(ctx, c, symbol)
 					results[i] = result
-					if len(errs) > 0 {
+					if len(result.Errors) > 0 {
 						mu.Lock()
-						allErrors = append(allErrors, errs...)
+						allErrors = append(allErrors, result.Errors...)
 						mu.Unlock()
 					}
 				})
 			}
 			wg.Wait()
 
-			meta := analyzeMetadata(symbols)
-			if cmd.Bool("summary") {
-				meta["mode"] = "summary"
+			if !analysisHasData(results) {
+				return fmt.Errorf("analysis failed for all symbols: %v", allErrors)
 			}
 
-			// Determine if we have any data at all.
-			hasData := false
-			for _, r := range results {
-				if r.Stock != nil || r.Fundamentals != nil || r.Ownership != nil {
-					hasData = true
-					break
-				}
+			compact, err := cmd.Flags().GetBool("compact")
+			if err != nil {
+				return fmt.Errorf("read compact flag: %w", err)
+			}
+			flat, err := cmd.Flags().GetBool("flat")
+			if err != nil {
+				return fmt.Errorf("read flat flag: %w", err)
+			}
+			summary, err := cmd.Flags().GetBool("summary")
+			if err != nil {
+				return fmt.Errorf("read summary flag: %w", err)
 			}
 
-			if !hasData {
-				// Total failure: no data for any symbol.
-				err := fmt.Errorf("analysis failed for all symbols: %v", allErrors)
-				return err
-			}
-
-			data, err := transformAnalysisOutput(results, cmd.Bool("compact"), cmd.Bool("flat"), cmd.Bool("summary"))
+			data, err := transformAnalysisOutput(results, compact, flat, summary)
 			if err != nil {
 				return fmt.Errorf("transform analysis output: %w", err)
 			}
 
-			// Single symbol: unwrap from array.
-			if len(symbols) == 1 {
-				if len(allErrors) > 0 {
-					return output.WritePartial(w, data, allErrors, meta)
-				}
-				return output.WriteSuccess(w, data, meta)
+			metadata := analyzeMetadata(symbols)
+			if summary {
+				metadata["mode"] = "summary"
 			}
-
-			// Multi-symbol: output as array.
 			if len(allErrors) > 0 {
-				return output.WritePartial(w, data, allErrors, meta)
+				return output.WritePartial(cmd.OutOrStdout(), data, allErrors, metadata)
 			}
-			return output.WriteSuccess(w, data, meta)
+			return output.WriteSuccess(cmd.OutOrStdout(), data, metadata)
 		},
 	}
+	cmd.Flags().StringSlice("tickers", []string{}, "Additional ticker symbols to analyze")
+	cmd.Flags().Bool("compact", false, "Remove formatted string fields from analysis data")
+	cmd.Flags().Bool("flat", false, "Flatten each analysis result for token-efficient agent parsing")
+	cmd.Flags().Bool("summary", false, "Return compact screening fields for ranking multi-symbol candidates")
+	return cmd
 }
 
-// analyzeSymbols combines positional symbols with the --tickers comma-separated
-// input used for larger batch analysis requests.
-func analyzeSymbols(cmd *cli.Command) []string {
-	symbols := append([]string{}, cmd.Args().Slice()...)
-	for symbol := range strings.SplitSeq(cmd.String("tickers"), ",") {
+func analyzeSymbols(cmd *cobra.Command, args []string) []string {
+	tickers, err := cmd.Flags().GetStringSlice("tickers")
+	if err != nil {
+		tickers = nil
+	}
+
+	symbols := make([]string, 0, len(args)+len(tickers))
+	seen := make(map[string]struct{}, len(args)+len(tickers))
+	addSymbol := func(symbol string) {
 		trimmed := strings.TrimSpace(symbol)
-		if trimmed != "" {
-			symbols = append(symbols, trimmed)
+		if trimmed == "" {
+			return
 		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		symbols = append(symbols, trimmed)
+	}
+
+	for _, symbol := range args {
+		addSymbol(symbol)
+	}
+	for _, symbol := range tickers {
+		addSymbol(symbol)
 	}
 	return symbols
 }
 
-// analyzeSymbol fetches stock, fundamental, and ownership data concurrently
-// for a single symbol. Returns the combined result and any errors encountered.
-func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) (result AnalysisResult, errs []string) {
-	result = AnalysisResult{Symbol: symbol}
+func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) AnalysisResult {
+	result := AnalysisResult{Symbol: symbol}
 	var mu sync.Mutex
 
 	var wg sync.WaitGroup
-
 	wg.Go(func() {
 		stock, err := c.GetStock(ctx, symbol)
-		if err != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Sprintf("%s: stock: %s", symbol, err))
-			mu.Unlock()
-			return
-		}
+		mu.Lock()
+		defer mu.Unlock()
 		result.Stock = stock
-	})
-
-	wg.Go(func() {
-		fund, err := c.GetFundamentals(ctx, symbol)
 		if err != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Sprintf("%s: fundamentals: %s", symbol, err))
-			mu.Unlock()
-			return
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: stock: %s", symbol, err))
 		}
-		result.Fundamentals = fund
 	})
-
 	wg.Go(func() {
-		own, err := c.GetOwnership(ctx, symbol)
+		fundamental, err := c.GetFundamentals(ctx, symbol)
+		mu.Lock()
+		defer mu.Unlock()
+		result.Fundamental = fundamental
 		if err != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Sprintf("%s: ownership: %s", symbol, err))
-			mu.Unlock()
-			return
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: fundamentals: %s", symbol, err))
 		}
-		result.Ownership = own
 	})
-
+	wg.Go(func() {
+		ownership, err := c.GetOwnership(ctx, symbol)
+		mu.Lock()
+		defer mu.Unlock()
+		result.Ownership = ownership
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: ownership: %s", symbol, err))
+		}
+	})
 	wg.Wait()
-	return result, errs
+	return result
 }
 
-// analyzeMetadata builds metadata for an analyze response.
+func analysisHasData(results []AnalysisResult) bool {
+	for _, result := range results {
+		if result.Stock != nil || result.Fundamental != nil || result.Ownership != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func analyzeMetadata(symbols []string) map[string]any {
-	meta := map[string]any{
+	if len(symbols) == 1 {
+		return output.SymbolMeta(symbols[0])
+	}
+	return map[string]any{
+		"symbols":   symbols,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
-	if len(symbols) == 1 {
-		meta["symbol"] = symbols[0]
-	} else {
-		meta["symbols"] = symbols
-	}
-	return meta
 }
 
-// transformAnalysisOutput applies optional token-efficiency transforms while
-// preserving the existing single-symbol object vs. multi-symbol array contract.
 func transformAnalysisOutput(results []AnalysisResult, compact, flat, summary bool) (any, error) {
 	transformed := make([]any, 0, len(results))
 	for _, result := range results {

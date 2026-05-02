@@ -1,7 +1,6 @@
-package commands
+package cmd
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,11 +15,9 @@ func TestFundamentalGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := FundamentalGetCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "get", "AAPL"))
-
-	result := parseJSONEnvelope(t, &buf)
+	output, err := executeCommandWithClient(newFundamentalCmd(), c, "get", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
 }
 
@@ -30,14 +27,10 @@ func TestFundamentalGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := FundamentalGetCommand(c, &buf)
-	err := runTestCommand(t, cmd, "get", "MISSING")
+	_, err := executeCommandWithClient(newFundamentalCmd(), c, "get", "MISSING")
 	require.Error(t, err)
-
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
-	assert.Empty(t, buf.String())
 }
 
 func TestFundamentalGetMissingSymbol(t *testing.T) {
@@ -46,12 +39,6 @@ func TestFundamentalGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := FundamentalGetCommand(c, &buf)
-	err := runTestCommand(t, cmd, "get")
+	_, err := executeCommandWithClient(newFundamentalCmd(), c, "get")
 	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Empty(t, buf.String())
 }

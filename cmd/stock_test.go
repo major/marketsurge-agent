@@ -1,17 +1,51 @@
-package commands
+package cmd
 
 import (
-	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
+
+func TestStockGetSuccess(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(newStockCmd(), c, "get", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
+}
+
+func TestStockGetSymbolNotFound(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(emptyMarketDataFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	_, err := executeCommandWithClient(newStockCmd(), c, "get", "MISSING")
+	require.Error(t, err)
+	var snf *mserrors.SymbolNotFoundError
+	assert.ErrorAs(t, err, &snf)
+}
+
+func TestStockGetMissingSymbol(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(`{}`)
+	defer server.Close()
+	c := testClient(t, server)
+
+	_, err := executeCommandWithClient(newStockCmd(), c, "get")
+	require.Error(t, err)
+}
 
 func TestStockAnalyzeSuccess(t *testing.T) {
 	t.Parallel()
@@ -19,11 +53,10 @@ func TestStockAnalyzeSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, _ := result["data"].(map[string]any)
 	assert.Equal(t, "AAPL", data["symbol"])
 	assert.Contains(t, data, "stock")
@@ -37,11 +70,10 @@ func TestStockAnalyzeTechnicalSignals(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, _ := result["data"].(map[string]any)
 	stock, _ := data["stock"].(map[string]any)
 
@@ -79,13 +111,10 @@ func TestStockAnalyzeMultiSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "AAPL", "MSFT"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL", "MSFT")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
-
-	// Multi-symbol returns an array.
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].([]any)
 	require.True(t, ok, "multi-symbol data should be an array")
 	assert.Len(t, data, 2)
@@ -100,11 +129,10 @@ func TestStockAnalyzePartialFailureWithCompactFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "--compact", "--flat", "AAPL", "MSFT"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL", "MSFT")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].([]any)
 	require.True(t, ok, "partial multi-symbol data should remain an array")
 	assert.Len(t, data, 2)
@@ -132,11 +160,10 @@ func TestStockAnalyzeTickersFlag(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "--tickers", "AAPL, MSFT"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--tickers", "AAPL, MSFT")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].([]any)
 	require.True(t, ok, "--tickers should return multi-symbol data as an array")
 	assert.Len(t, data, 2)
@@ -152,11 +179,10 @@ func TestStockAnalyzeCompactOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "--compact", "AAPL"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "AAPL")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, _ := result["data"].(map[string]any)
 	stock, _ := data["stock"].(map[string]any)
 	pricing, _ := stock["pricing"].(map[string]any)
@@ -171,11 +197,10 @@ func TestStockAnalyzeFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "--flat", "AAPL"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--flat", "AAPL")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, _ := result["data"].(map[string]any)
 	assert.Equal(t, "AAPL", data["symbol"])
 	assert.NotContains(t, data, "stock")
@@ -192,11 +217,10 @@ func TestStockAnalyzeCompactFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "--compact", "--flat", "AAPL"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, _ := result["data"].(map[string]any)
 	assert.Contains(t, data, "pricing_market_cap")
 	assert.NotContains(t, data, "pricing_market_cap_formatted")
@@ -209,11 +233,10 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd, "analyze", "--summary", "AAPL", "MSFT"))
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--summary", "AAPL", "MSFT")
+	require.NoError(t, err)
 
-	result := parseJSONEnvelope(t, &buf)
+	result := parseJSONEnvelope(t, output)
 	data, ok := result["data"].([]any)
 	require.True(t, ok, "summary multi-symbol data should be an array")
 	assert.Len(t, data, 2)
@@ -251,13 +274,11 @@ func TestStockAnalyzeMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	err := runTestCommand(t, cmd, "analyze")
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze")
 	require.Error(t, err)
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Empty(t, buf.String())
+	assert.Empty(t, output)
 }
 
 func TestStockAnalyzeTotalFailure(t *testing.T) {
@@ -266,11 +287,9 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := StockAnalyzeCommand(c, &buf)
-	err := runTestCommand(t, cmd, "analyze", "MISSING")
+	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "MISSING")
 	require.Error(t, err)
-	assert.Empty(t, buf.String())
+	assert.Empty(t, output)
 }
 
 func stockAnalyzePartialServer(t *testing.T) *httptest.Server {

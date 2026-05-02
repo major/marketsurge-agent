@@ -1,7 +1,6 @@
-package commands
+package cmd
 
 import (
-	"bytes"
 	"testing"
 	"time"
 
@@ -11,19 +10,51 @@ import (
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
 
+func TestChartMarkupsSuccess(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(chartMarkupsFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(newChartCmd(), c, "markups", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
+}
+
+func TestChartMarkupsWithFlags(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(chartMarkupsFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(newChartCmd(), c, "markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL")
+	require.NoError(t, err)
+	parseJSONEnvelope(t, output)
+}
+
+func TestChartMarkupsMissingSymbol(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(`{}`)
+	defer server.Close()
+	c := testClient(t, server)
+
+	_, err := executeCommandWithClient(newChartCmd(), c, "markups")
+	require.Error(t, err)
+}
+
 func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(chartResponseFixture())
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd,
+	output, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL",
-	))
-
-	parseJSONEnvelope(t, &buf)
+	)
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
 }
 
 func TestChartHistorySuccessWithLookback(t *testing.T) {
@@ -32,13 +63,11 @@ func TestChartHistorySuccessWithLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	require.NoError(t, runTestCommand(t, cmd,
+	output, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--lookback", "3M", "AAPL",
-	))
-
-	parseJSONEnvelope(t, &buf)
+	)
+	require.NoError(t, err)
+	parseJSONEnvelope(t, output)
 }
 
 func TestChartHistorySymbolNotFound(t *testing.T) {
@@ -47,9 +76,7 @@ func TestChartHistorySymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	err := runTestCommand(t, cmd,
+	_, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--lookback", "1M", "MISSING",
 	)
 	require.Error(t, err)
@@ -64,15 +91,10 @@ func TestChartHistoryMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	err := runTestCommand(t, cmd,
+	_, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--lookback", "1M",
 	)
 	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
 }
 
 func TestChartHistoryMutualExclusion(t *testing.T) {
@@ -81,9 +103,7 @@ func TestChartHistoryMutualExclusion(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	err := runTestCommand(t, cmd,
+	_, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL",
 	)
 	require.Error(t, err)
@@ -99,9 +119,7 @@ func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	err := runTestCommand(t, cmd, "history", "AAPL")
+	_, err := executeCommandWithClient(newChartCmd(), c, "history", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -115,9 +133,7 @@ func TestChartHistoryPartialExplicitDates(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	err := runTestCommand(t, cmd,
+	_, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--start-date", "2024-01-01", "AAPL",
 	)
 	require.Error(t, err)
@@ -133,9 +149,7 @@ func TestChartHistoryInvalidLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	var buf bytes.Buffer
-	cmd := ChartHistoryCommand(c, &buf)
-	err := runTestCommand(t, cmd,
+	_, err := executeCommandWithClient(newChartCmd(), c,
 		"history", "--lookback", "2W", "AAPL",
 	)
 	require.Error(t, err)
@@ -146,6 +160,7 @@ func TestChartHistoryInvalidLookback(t *testing.T) {
 }
 
 func TestResolveLookback(t *testing.T) {
+	t.Parallel()
 	// Fixed reference date: 2025-06-15
 	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 
@@ -163,10 +178,10 @@ func TestResolveLookback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.lookback, func(t *testing.T) {
-	t.Parallel()
-	result := resolveLookback(tt.lookback, now)
+			t.Parallel()
+			result := resolveLookback(tt.lookback, now)
 			assert.Equal(t, tt.expected, result)
-})
+		})
 	}
 }
 

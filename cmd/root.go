@@ -4,10 +4,14 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 
+	"github.com/leodido/structcli"
+	"github.com/leodido/structcli/debug"
+	"github.com/leodido/structcli/helptopics"
 	"github.com/spf13/cobra"
 
 	"github.com/major/marketsurge-agent/internal/auth"
@@ -24,16 +28,9 @@ var clientKey = clientKeyType{}
 
 // RootOptions holds persistent flag values for the root command.
 type RootOptions struct {
-	JWT      string
-	CookieDB string
-	Verbose  bool
-}
-
-// BindFlags registers persistent flags on the root command and binds them to RootOptions fields.
-func (o *RootOptions) BindFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&o.JWT, "jwt", "", "JWT token for authentication (overrides env var and cookie)")
-	cmd.PersistentFlags().StringVar(&o.CookieDB, "cookie-db", "", "Path to Firefox cookie database file")
-	cmd.PersistentFlags().BoolVar(&o.Verbose, "verbose", false, "Enable verbose logging")
+	JWT      string `flag:"jwt" flagdescr:"JWT token for authentication (overrides env var and cookie)"`
+	CookieDB string `flag:"cookie-db" flagdescr:"Path to Firefox cookie database file"`
+	Verbose  bool   `flag:"verbose" flagshort:"v" flagdescr:"Enable verbose logging"`
 }
 
 // rootOpts is the package-level instance of RootOptions, initialized by init().
@@ -98,15 +95,26 @@ Gotchas
     single-level keys.
   - Batch tickers: stock analyze --tickers AAPL,NVDA,TSLA accepts
     comma-separated symbols. Positional and --tickers can be combined.`,
-	Version: version,
+	Version:            version,
 	SilenceUsage:       true,
 	SilenceErrors:      true,
+	TraverseChildren:   true,
 	PersistentPreRunE:  persistentPreRunE,
 	PersistentPostRunE: persistentPostRunE,
 }
 
 func init() {
-	rootOpts.BindFlags(rootCmd)
+	if err := structcli.Bind(rootCmd, rootOpts); err != nil {
+		panic(err)
+	}
+	if err := structcli.Setup(rootCmd,
+		structcli.WithJSONSchema(),
+		structcli.WithFlagErrors(),
+		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
+		structcli.WithDebug(debug.Options{AppName: "marketsurge-agent", Exit: true}),
+	); err != nil {
+		panic(err)
+	}
 }
 
 // ClientFromContext returns the API client stored by PersistentPreRunE.
@@ -162,7 +170,7 @@ func persistentPostRunE(cmd *cobra.Command, _ []string) error {
 func isNonAPICommand(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		switch c.Name() {
-		case "completion", "help":
+		case "completion", "help", "env-vars", "config-keys":
 			return true
 		}
 	}
@@ -171,7 +179,11 @@ func isNonAPICommand(cmd *cobra.Command) bool {
 
 // Execute runs the root command and writes errors as JSON envelopes.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	executed, err := structcli.ExecuteC(rootCmd)
+	if err == nil && executed == rootCmd && len(rootCmd.Flags().Args()) > 0 {
+		err = fmt.Errorf("unknown command %q", rootCmd.Flags().Arg(0))
+	}
+	if err != nil {
 		_ = output.WriteError(rootCmd.OutOrStderr(), err)
 		var mserr interface{ ExitCode() int }
 		if errors.As(err, &mserr) {

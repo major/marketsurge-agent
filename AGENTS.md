@@ -86,11 +86,16 @@ Root setup in `init()`:
 structcli.Bind(rootCmd, rootOpts)
 structcli.Setup(rootCmd,
     structcli.WithAppName("marketsurge-agent"),
-    structcli.WithConfig(),
+    structcli.WithConfig(config.Options{ValidateKeys: true}),
     structcli.WithJSONSchema(),
     structcli.WithFlagErrors(),
     structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
     structcli.WithDebug(debug.Options{Exit: true}),
+    structcli.WithMCP(mcp.Options{
+        Name:    "marketsurge-agent",
+        Version: version,
+        Exclude: []string{"completion-bash", "completion-fish", "completion-powershell", "completion-zsh"},
+    }),
 )
 ```
 
@@ -98,6 +103,7 @@ Key behaviors:
 - `WithAppName("marketsurge-agent")` sets the structcli env prefix to `MARKETSURGE_AGENT` and propagates the app name to config/debug helpers
 - `WithConfig()` adds the persistent `--config` flag, auto-loads config before structcli unmarshals options, and honors `MARKETSURGE_AGENT_CONFIG`
 - `--jsonschema` prints a machine-readable JSON schema for all flags and exits without auth
+- `--mcp` runs a stdio Model Context Protocol server; `initialize` and `tools/list` discovery do not require auth, while `tools/call` for API commands uses the normal Firefox cookie auth chain; shell completion subcommands are excluded from the MCP tool list
 - `--debug-options` prints resolved flag values and exits (requires `Exit: true` in debug options)
 - `env-vars` and `config-keys` are built-in help topics (e.g., `marketsurge-agent help env-vars`)
 - `structcli.ExecuteC(rootCmd)` replaces `rootCmd.Execute()` in `Execute()`
@@ -107,7 +113,7 @@ Root options use structcli-managed configuration:
 - `--cookie-db` and `--verbose` use `flagenv:"true"`, so structcli binds them to `MARKETSURGE_AGENT_COOKIE_DB` and `MARKETSURGE_AGENT_VERBOSE`
 - Config files can set non-secret root keys such as `cookie-db` and `verbose`
 
-`isNonAPICommand()` skips auth for: `completion`, `help`, `env-vars`, `config-keys`.
+`isNonAPICommand()` skips auth for: `completion`, `help`, `env-vars`, `config-keys`. structcli intercepts `--mcp` before normal hooks for discovery requests, so MCP discovery also skips auth.
 
 ### Typed enums (`internal/models/enums.go`)
 

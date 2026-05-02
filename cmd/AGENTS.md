@@ -40,6 +40,12 @@ Client is stored in context by PersistentPreRunE, retrieved in RunE:
 c := ClientFromContext(cmd.Context())
 ```
 
+### MCP behavior
+
+The root command enables structcli's stdio MCP server with `structcli.WithMCP()`. MCP discovery requests (`initialize`, `tools/list`) are intercepted before `PersistentPreRunE`, so they must not require Firefox cookie auth. MCP `tools/call` executes the normal Cobra command path and must keep using `PersistentPreRunE` auth for API commands.
+
+Shell completion subcommands are excluded from MCP tool discovery because they are not useful agent-callable API tools. Keep the MCP tool list focused on MarketSurge data commands.
+
 ### Test pattern
 
 Tests call constructors directly (not package-level vars) and inject client via context:

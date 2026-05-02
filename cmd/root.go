@@ -15,6 +15,7 @@ import (
 	"github.com/leodido/structcli/config"
 	"github.com/leodido/structcli/debug"
 	"github.com/leodido/structcli/helptopics"
+	structclimcp "github.com/leodido/structcli/mcp"
 	"github.com/spf13/cobra"
 
 	"github.com/major/marketsurge-agent/internal/auth"
@@ -113,6 +114,16 @@ func init() {
 		structcli.WithFlagErrors(),
 		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
 		structcli.WithDebug(debug.Options{Exit: true}),
+		structcli.WithMCP(structclimcp.Options{
+			Name:    "marketsurge-agent",
+			Version: version,
+			Exclude: []string{
+				"completion-bash",
+				"completion-fish",
+				"completion-powershell",
+				"completion-zsh",
+			},
+		}),
 	); err != nil {
 		panic(err)
 	}

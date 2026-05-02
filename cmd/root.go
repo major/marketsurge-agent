@@ -2,14 +2,17 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/leodido/structcli"
+	"github.com/leodido/structcli/config"
 	"github.com/leodido/structcli/debug"
 	"github.com/leodido/structcli/helptopics"
 	"github.com/spf13/cobra"
@@ -28,9 +31,8 @@ var clientKey = clientKeyType{}
 
 // RootOptions holds persistent flag values for the root command.
 type RootOptions struct {
-	JWT      string `flag:"jwt" flagdescr:"JWT token for authentication (overrides env var and cookie)"`
-	CookieDB string `flag:"cookie-db" flagdescr:"Path to Firefox cookie database file"`
-	Verbose  bool   `flag:"verbose" flagshort:"v" flagdescr:"Enable verbose logging"`
+	CookieDB string `flag:"cookie-db" flagdescr:"Path to Firefox cookie database file" flagenv:"true"`
+	Verbose  bool   `flag:"verbose" flagshort:"v" flagdescr:"Enable verbose logging" flagenv:"true"`
 }
 
 // rootOpts is the package-level instance of RootOptions, initialized by init().
@@ -47,17 +49,14 @@ All output is structured JSON with semantic exit codes.
 
 Auth
 
-  MarketSurge requires a valid JWT. Credentials resolve in this order
-  (first non-empty wins):
+  MarketSurge authentication uses Firefox browser cookies. The CLI exchanges
+  the local browser session for the API JWT automatically. Cookie databases
+  resolve in this order:
 
-    1. --jwt flag
-    2. MARKETSURGE_JWT env var
-    3. --cookie-db path to a Firefox cookies.sqlite file
-    4. Auto-discovery from local Firefox profiles
+    1. --cookie-db path to a Firefox cookies.sqlite file
+    2. Auto-discovery from local Firefox profiles
 
-  For automation, set the env var:
-
-    export MARKETSURGE_JWT="your-jwt-here"
+  Sign into MarketSurge in Firefox before running API commands.
 
 Output
 
@@ -80,8 +79,8 @@ Exit Codes
 
 Gotchas
 
-  - JWT expiry: exit code 32 means the user needs to refresh their token
-    or ensure Firefox has an active MarketSurge session.
+  - Auth expiry: exit code 32 means Firefox needs an active MarketSurge
+    session or the explicit --cookie-db path is not usable.
   - Chart date params: --start-date/--end-date and --lookback are
     mutually exclusive.
   - Catalog kind: catalog run requires --kind and the matching ID flag.
@@ -108,10 +107,12 @@ func init() {
 		panic(err)
 	}
 	if err := structcli.Setup(rootCmd,
+		structcli.WithAppName("marketsurge-agent"),
+		structcli.WithConfig(config.Options{ValidateKeys: true}),
 		structcli.WithJSONSchema(),
 		structcli.WithFlagErrors(),
 		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
-		structcli.WithDebug(debug.Options{AppName: "marketsurge-agent", Exit: true}),
+		structcli.WithDebug(debug.Options{Exit: true}),
 	); err != nil {
 		panic(err)
 	}
@@ -158,12 +159,7 @@ func persistentPreRunE(cmd *cobra.Command, args []string) error {
 		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	}
 
-	jwt := rootOpts.JWT
-	if jwt == "" {
-		jwt = os.Getenv("MARKETSURGE_JWT")
-	}
-
-	token, err := auth.ResolveJWT(cmd.Context(), jwt, rootOpts.CookieDB)
+	token, err := auth.ResolveJWT(cmd.Context(), rootOpts.CookieDB)
 	if err != nil {
 		return err
 	}
@@ -193,7 +189,17 @@ func isNonAPICommand(cmd *cobra.Command) bool {
 
 // Execute runs the root command and writes errors as JSON envelopes.
 func Execute() {
+	rootCmd.SetArgs(os.Args[1:])
+
+	originalOut := rootCmd.OutOrStdout()
+	filter := &configStatusFilter{w: originalOut}
+	rootCmd.SetOut(filter)
 	executed, err := structcli.ExecuteC(rootCmd)
+	if flushErr := filter.Flush(); err == nil && flushErr != nil {
+		err = flushErr
+	}
+	rootCmd.SetOut(nil)
+
 	if err == nil && executed == rootCmd && len(rootCmd.Flags().Args()) > 0 {
 		err = fmt.Errorf("unknown command %q", rootCmd.Flags().Arg(0))
 	}
@@ -205,4 +211,52 @@ func Execute() {
 		}
 		os.Exit(1)
 	}
+}
+
+type configStatusFilter struct {
+	w       io.Writer
+	pending []byte
+}
+
+func (f *configStatusFilter) Write(p []byte) (int, error) {
+	f.pending = append(f.pending, p...)
+
+	for {
+		line, rest, found := bytes.Cut(f.pending, []byte("\n"))
+		if !found {
+			break
+		}
+
+		line = append(line, '\n')
+		if err := f.writeLine(line); err != nil {
+			return 0, err
+		}
+		f.pending = rest
+	}
+
+	return len(p), nil
+}
+
+func (f *configStatusFilter) Flush() error {
+	if len(f.pending) == 0 {
+		return nil
+	}
+
+	err := f.writeLine(f.pending)
+	f.pending = nil
+	return err
+}
+
+func (f *configStatusFilter) writeLine(line []byte) error {
+	if isConfigStatusLine(line) {
+		return nil
+	}
+
+	_, err := f.w.Write(line)
+	return err
+}
+
+func isConfigStatusLine(line []byte) bool {
+	trimmed := strings.TrimSpace(string(line))
+	return trimmed == "Running without a configuration file" || strings.HasPrefix(trimmed, "Using config file: ")
 }

@@ -352,7 +352,7 @@ func TestExitCodeConstants(t *testing.T) {
 // TestAllErrorTypesExitCodeGe30 verifies that all error types return exit codes >= 30.
 func TestAllErrorTypesExitCodeGe30(t *testing.T) {
 	t.Parallel()
-	errors := []interface{ ExitCode() int }{
+	allErrors := []interface{ ExitCode() int }{
 		NewAuthenticationError("test", nil),
 		NewCookieExtractionError("test", nil, "Firefox"),
 		NewTokenExpiredError("test", nil, 401),
@@ -361,7 +361,7 @@ func TestAllErrorTypesExitCodeGe30(t *testing.T) {
 		NewHTTPError("test", nil, 500, ""),
 		NewValidationError("test", nil),
 	}
-	for _, err := range errors {
+	for _, err := range allErrors {
 		code := err.ExitCode()
 		if code < 30 {
 			t.Errorf("%T.ExitCode() = %d, want >= 30", err, code)

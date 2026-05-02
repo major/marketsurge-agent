@@ -353,7 +353,7 @@ func TestCatalogRunWatchlistID64Bit(t *testing.T) {
 func TestCatalogListStructTags(t *testing.T) {
 	t.Parallel()
 
-	typ := reflect.TypeOf(CatalogListOptions{})
+	typ := reflect.TypeFor[CatalogListOptions]()
 	field, ok := typ.FieldByName("Kind")
 	require.True(t, ok, "Kind field should exist")
 	assert.Equal(t, "kind", field.Tag.Get("flag"))
@@ -363,7 +363,7 @@ func TestCatalogListStructTags(t *testing.T) {
 func TestCatalogRunStructTags(t *testing.T) {
 	t.Parallel()
 
-	typ := reflect.TypeOf(CatalogRunOptions{})
+	typ := reflect.TypeFor[CatalogRunOptions]()
 	tests := []struct {
 		field        string
 		flag         string

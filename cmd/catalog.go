@@ -115,7 +115,7 @@ type CatalogRunOptions struct {
 
 // DefineKind keeps catalog kind parsing in Validate so missing and invalid kind
 // values continue to return the CLI's domain-specific ValidationError type.
-func (o *CatalogRunOptions) DefineKind(_ string, _ string, descr string, _ reflect.StructField, _ reflect.Value) (pflag.Value, string) {
+func (o *CatalogRunOptions) DefineKind(_ string, _ string, descr string, _ reflect.StructField, _ reflect.Value) (pflag.Value, string) { //nolint:gocritic // signature dictated by structcli convention
 	value := string(o.Kind)
 	return structclivalues.NewString(&value), descr
 }
@@ -388,7 +388,7 @@ type CatalogListOptions struct {
 
 // DefineKind keeps catalog kind parsing in RunE so invalid list kinds continue
 // to return the CLI's domain-specific ValidationError type.
-func (o *CatalogListOptions) DefineKind(_ string, _ string, descr string, _ reflect.StructField, _ reflect.Value) (pflag.Value, string) {
+func (o *CatalogListOptions) DefineKind(_ string, _ string, descr string, _ reflect.StructField, _ reflect.Value) (pflag.Value, string) { //nolint:gocritic // signature dictated by structcli convention
 	value := string(o.Kind)
 	return structclivalues.NewString(&value), descr
 }

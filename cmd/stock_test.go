@@ -274,7 +274,7 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 func TestStockAnalyzeStructTags(t *testing.T) {
 	t.Parallel()
 
-	typ := reflect.TypeOf(StockAnalyzeOptions{})
+	typ := reflect.TypeFor[StockAnalyzeOptions]()
 	tests := []struct {
 		field    string
 		flag     string

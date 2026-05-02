@@ -278,13 +278,13 @@ func TestChartMarkupsStructTags(t *testing.T) {
 		value    string
 		wantType reflect.Type
 	}{
-		{"Frequency", "flag", "frequency", reflect.TypeOf(models.Frequency(""))},
-		{"Frequency", "default", "DAILY", reflect.TypeOf(models.Frequency(""))},
-		{"SortDir", "flag", "sort-dir", reflect.TypeOf(models.SortDirection(""))},
-		{"SortDir", "default", "ASC", reflect.TypeOf(models.SortDirection(""))},
+		{"Frequency", "flag", "frequency", reflect.TypeFor[models.Frequency]()},
+		{"Frequency", "default", "DAILY", reflect.TypeFor[models.Frequency]()},
+		{"SortDir", "flag", "sort-dir", reflect.TypeFor[models.SortDirection]()},
+		{"SortDir", "default", "ASC", reflect.TypeFor[models.SortDirection]()},
 	}
 
-	rt := reflect.TypeOf(ChartMarkupsOptions{})
+	rt := reflect.TypeFor[ChartMarkupsOptions]()
 	for _, tt := range tests {
 		t.Run(tt.field+"/"+tt.tag, func(t *testing.T) {
 			t.Parallel()
@@ -307,15 +307,15 @@ func TestChartHistoryStructTags(t *testing.T) {
 		value    string
 		wantType reflect.Type
 	}{
-		{"StartDate", "flag", "start-date", reflect.TypeOf("")},
-		{"EndDate", "flag", "end-date", reflect.TypeOf("")},
-		{"Lookback", "flag", "lookback", reflect.TypeOf("")},
-		{"Period", "flag", "period", reflect.TypeOf(models.Period(""))},
-		{"Period", "default", "daily", reflect.TypeOf(models.Period(""))},
-		{"Benchmark", "flag", "benchmark", reflect.TypeOf("")},
+		{"StartDate", "flag", "start-date", reflect.TypeFor[string]()},
+		{"EndDate", "flag", "end-date", reflect.TypeFor[string]()},
+		{"Lookback", "flag", "lookback", reflect.TypeFor[string]()},
+		{"Period", "flag", "period", reflect.TypeFor[models.Period]()},
+		{"Period", "default", "daily", reflect.TypeFor[models.Period]()},
+		{"Benchmark", "flag", "benchmark", reflect.TypeFor[string]()},
 	}
 
-	rt := reflect.TypeOf(ChartHistoryOptions{})
+	rt := reflect.TypeFor[ChartHistoryOptions]()
 	for _, tt := range tests {
 		t.Run(tt.field+"/"+tt.tag, func(t *testing.T) {
 			t.Parallel()

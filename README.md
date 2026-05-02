@@ -107,17 +107,25 @@ Errors follow the same pattern:
 | `catalog list` | List watchlists, screens, reports |
 | `catalog run` | Run a watchlist, coach screen, or report |
 | `completion <shell>` | Generate shell completion script (bash, zsh, fish, powershell) |
-| `docs [--output dir]` | Generate markdown documentation for all commands |
 | `--version` | Print version information |
 
-### Shell completion and docs
+### Shell completion and self-documentation
 
 ```bash
 # Generate shell completion (bash, zsh, fish, powershell)
 marketsurge-agent completion zsh > ~/.zsh/completions/_marketsurge-agent
 
-# Generate markdown documentation for all commands
-marketsurge-agent docs --output ./docs
+# Print machine-readable JSON schema for all flags (useful for LLM tool definitions)
+marketsurge-agent --jsonschema
+
+# List all supported environment variables
+marketsurge-agent help env-vars
+
+# List all supported config file keys
+marketsurge-agent help config-keys
+
+# Print resolved flag values for debugging
+marketsurge-agent --debug-options
 
 # Print version
 marketsurge-agent --version
@@ -142,7 +150,20 @@ marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
 
 `rs-history get` accepts multiple symbols in one request. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
 
-The static Markdown files in `skills/marketsurge-agent/` describe each command group's inputs, outputs, and gotchas for AI agent frameworks that support tool or skill discovery. Keep them updated with CLI behavior changes.
+### Schema discovery
+
+`--jsonschema` prints a machine-readable JSON schema for all flags and exits without making any API calls. This is useful for generating tool definitions in LLM agent frameworks:
+
+```bash
+marketsurge-agent --jsonschema
+```
+
+Each command also carries a detailed `--help` description covering inputs, outputs, and gotchas. The `env-vars` and `config-keys` help topics list every supported environment variable and config file key:
+
+```bash
+marketsurge-agent help env-vars
+marketsurge-agent stock analyze --help
+```
 
 ## Development
 
@@ -172,7 +193,6 @@ internal/
   models/                Data structures
   output/                JSON envelope formatting
 queries/                 Embedded GraphQL queries
-skills/                  Static agent skill docs
 ```
 
 ### Running tests
@@ -197,6 +217,7 @@ This produces binaries for linux/darwin on amd64/arm64, published to GitHub Rele
 ### Dependencies
 
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI framework
+- [`github.com/leodido/structcli`](https://github.com/leodido/structcli) - Flag binding, validation, self-documentation
 - [`github.com/browserutils/kooky`](https://github.com/nicholasgasior/kooky) - Firefox cookie extraction
 - [`resty.dev/v3`](https://resty.dev) - HTTP client
 - [`github.com/stretchr/testify`](https://github.com/stretchr/testify) - Test assertions

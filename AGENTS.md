@@ -1,6 +1,6 @@
 # marketsurge-agent
 
-Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, static skill files for agent consumption.
+Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, self-documenting via `--jsonschema` and `--help`.
 
 This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily.
 
@@ -18,10 +18,9 @@ internal/
   constants/                     API endpoints, columns, report IDs
   cookies/                       Firefox cookie extraction
   errors/                        Custom error hierarchy
-  models/                        Data structures
+  models/                        Data structures (includes enums.go)
   output/                        JSON envelope formatting
 queries/                         Embedded .graphql files (go:embed)
-skills/                          Static agent skill docs
 ```
 
 ### Request flow
@@ -48,15 +47,17 @@ The JWT is exchanged at `investors.com` using the DylanToken constant, then used
 
 All errors embed `MarketSurgeError` base type. Use the constructor functions, not raw structs.
 
+Exit code ranges: 0 = success, 10-23 = reserved by structcli, 30+ = domain errors.
+
 | Type | Exit Code | When |
 |---|---|---|
-| `AuthenticationError` | 3 | 401/403, missing token |
-| `TokenExpiredError` | 3 | 401 specifically |
-| `CookieExtractionError` | 3 | Cookie DB read failures |
-| `APIError` | 4 | GraphQL-level errors |
-| `SymbolNotFoundError` | 2 | Ticker not recognized |
-| `HTTPError` | 4 | 429, 5xx |
-| `ValidationError` | 1 | Bad args, missing fields |
+| `ValidationError` | 30 | Bad args, missing fields |
+| `SymbolNotFoundError` | 31 | Ticker not recognized |
+| `AuthenticationError` | 32 | 401/403, missing token |
+| `TokenExpiredError` | 32 | 401 specifically |
+| `CookieExtractionError` | 32 | Cookie DB read failures |
+| `APIError` | 33 | GraphQL-level errors |
+| `HTTPError` | 33 | 429, 5xx |
 
 Import alias convention: `mserrors` in commands, `mserr` in the output package.
 
@@ -77,6 +78,47 @@ output.WritePartial(w, results, errors, metadata)
 
 Envelope shape: `{ data, metadata }` for success, `{ data, errors, metadata }` for partial success, and `{ error: { code, message, details } }` for errors.
 
+### structcli integration (`cmd/root.go`)
+
+The CLI uses [structcli](https://github.com/leodido/structcli) v0.17.0 for flag binding, validation, and self-documentation.
+
+Root setup in `init()`:
+
+```go
+structcli.Bind(rootCmd, rootOpts)
+structcli.Setup(rootCmd,
+    structcli.WithJSONSchema(),
+    structcli.WithFlagErrors(),
+    structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
+    structcli.WithDebug(debug.Options{AppName: "marketsurge-agent", Exit: true}),
+)
+```
+
+Key behaviors:
+- `--jsonschema` prints a machine-readable JSON schema for all flags and exits without auth
+- `--debug-options` prints resolved flag values and exits (requires `Exit: true` in debug options)
+- `env-vars` and `config-keys` are built-in help topics (e.g., `marketsurge-agent help env-vars`)
+- `structcli.ExecuteC(rootCmd)` replaces `rootCmd.Execute()` in `Execute()`
+- `rootCmd.TraverseChildren = true` is required for root-bound flags to work on subcommands
+
+`isNonAPICommand()` skips auth for: `completion`, `help`, `env-vars`, `config-keys`.
+
+### Typed enums (`internal/models/enums.go`)
+
+Typed string enums are registered with structcli so flag validation and schema generation know the allowed values.
+
+| Type | Values | Used by |
+|---|---|---|
+| `Frequency` | `DAILY`, `WEEKLY` | chart markups, chart history |
+| `SortDirection` | `ASC`, `DESC` | chart markups |
+| `Lookback` | `1W`, `1M`, `3M`, `6M`, `1Y`, `YTD` | chart history |
+| `Period` | `daily`, `weekly` | chart history |
+| `CatalogKind` | `watchlist`, `screen`, `report`, `coach_screen` | catalog run |
+
+`CatalogKind` is defined in `catalog.go` but registered in `enums.go`'s `init()`.
+
+**Optional enum fields**: fields with no `default:` struct tag must stay `string` type. structcli rejects an empty string for a registered enum during unmarshal, before `Validate()` can return a typed `ValidationError`. Only use typed enum fields when a non-empty default is always present.
+
 ## Conventions
 
 ### Code style
@@ -93,17 +135,19 @@ Envelope shape: `{ data, metadata }` for success, `{ data, errors, metadata }` f
 - JWT and Cookie HTTP headers must be added per-request in `client.Execute()`, not in base/default headers
 - Chart history has mutually exclusive date params: explicit start/end dates XOR lookback period
 - `kind` is required for catalog commands; each kind requires its own ID flag (report-id, watchlist-id, coach-screen-id)
+- `structcli.Bind(cmd, opts)` sets a scope context on the command. This blocks cobra's parent-to-child context propagation. Test helpers must layer the client onto each subcommand's context explicitly (see `executeStockAnalyze` in `stock_test.go` for the pattern).
 
 ### Adding a new command
 
 1. Create `cmd/<group>.go` with constructor function and `init()` wiring
-2. Add client method in `internal/client/<group>.go`
-3. Add GraphQL query in `queries/<operation>.graphql`
-4. Add model structs in `internal/models/` if needed
-5. Add tests in `cmd/<group>_test.go`
-6. Update skill files in `skills/marketsurge-agent/`
+2. Define an options struct with `flag:`, `flagdescr:`, and `default:` struct tags
+3. Call `structcli.Bind(cmd, opts)` in the constructor (replaces manual `BindFlags`)
+4. Add client method in `internal/client/<group>.go`
+5. Add GraphQL query in `queries/<operation>.graphql`
+6. Add model structs in `internal/models/` if needed
+7. Add tests in `cmd/<group>_test.go`
 
-Follow `fundamental.go` (21 lines) as the canonical simple command template.
+Follow `fundamental.go` (35 lines) as the canonical simple command template (no options struct needed for symbol-only commands using `newSymbolCmd`).
 
 ## Testing
 
@@ -113,6 +157,8 @@ Follow `fundamental.go` (21 lines) as the canonical simple command template.
 - Shared helpers in `cmd/helpers_test.go`: `testClient()`, `jsonServer()`, fixture builders
 - Table-driven subtests with `t.Run()`, typed error checks with `assert.ErrorAs()`
 - CLI tests call constructors directly, inject client via context, capture output to `bytes.Buffer`
+- `viper.Reset()` called before and after each test execution (structcli uses viper internally)
+- `commandExecutionMu sync.Mutex` in helpers serializes command executions to prevent viper races under `t.Parallel()`
 
 ## Build
 
@@ -135,10 +181,10 @@ Release: push `v*` tag -> goreleaser v2 -> multi-platform binaries (linux/darwin
 
 - **Keep this file updated**: When adding, removing, or changing commands, error types, conventions, or architecture, update this file and subdirectory AGENTS.md files to match.
 - **Keep README.md updated**: When changing commands, flags, output format, install instructions, or development workflow, update README.md as well.
-- **Keep skill files updated**: When changing command inputs, outputs, flags, or usage patterns, update the corresponding skill file in `skills/marketsurge-agent/` to match.
 
 ## Dependencies
 
 - `github.com/spf13/cobra` - CLI framework
+- `github.com/leodido/structcli` - Flag binding, validation, self-documentation
 - `github.com/browserutils/kooky` - Firefox cookie extraction
 - `github.com/stretchr/testify` - Test assertions

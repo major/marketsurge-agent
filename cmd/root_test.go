@@ -46,10 +46,10 @@ func TestRootHelpShowsConfigFlag(t *testing.T) {
 
 func TestRootMCPInitializeAndToolsList(t *testing.T) {
 	cmd := rootExecCommand(t, "--mcp")
-	cmd.Stdin = strings.NewReader(strings.Join([]string{
-		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"test"}}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
-	}, "\n"))
+	cmd.Stdin = strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"test"}}}` + "\n" +
+			`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+	)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 

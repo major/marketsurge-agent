@@ -164,7 +164,7 @@ func optionalIntFlag(cmd *cobra.Command, name string) *int {
 	return &v
 }
 
-func runCatalogEntries(ctx context.Context, c *client.Client, cmd *cobra.Command, kind models.CatalogKind) (any, int, error) {
+func runCatalogEntries(ctx context.Context, c *client.Client, cmd *cobra.Command, kind models.CatalogKind) (result any, total int, err error) {
 	filters, err := catalogRunFiltersFromFlags(cmd)
 	if err != nil {
 		return nil, 0, err

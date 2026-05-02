@@ -41,12 +41,54 @@ type AnalysisResult struct {
 	Errors      []string                `json:"errors,omitempty"`
 }
 
+// StockAnalyzeOptions holds the options for the stock analyze command.
+type StockAnalyzeOptions struct {
+	Tickers []string
+	Compact bool
+	Flat    bool
+	Summary bool
+}
+
+// BindFlags registers the stock analyze command flags and binds them to the options struct.
+func (o *StockAnalyzeOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringSliceVar(&o.Tickers, "tickers", []string{}, "Additional ticker symbols to analyze")
+	cmd.Flags().BoolVar(&o.Compact, "compact", false, "Remove formatted string fields from analysis data")
+	cmd.Flags().BoolVar(&o.Flat, "flat", false, "Flatten each analysis result for token-efficient agent parsing")
+	cmd.Flags().BoolVar(&o.Summary, "summary", false, "Return compact screening fields for ranking multi-symbol candidates")
+}
+
+// MergeSymbols merges positional arguments with --tickers flag values, deduplicating and trimming whitespace.
+func (o *StockAnalyzeOptions) MergeSymbols(args []string) []string {
+	symbols := make([]string, 0, len(args)+len(o.Tickers))
+	seen := make(map[string]struct{}, len(args)+len(o.Tickers))
+	addSymbol := func(symbol string) {
+		trimmed := strings.TrimSpace(symbol)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		symbols = append(symbols, trimmed)
+	}
+
+	for _, symbol := range args {
+		addSymbol(symbol)
+	}
+	for _, symbol := range o.Tickers {
+		addSymbol(symbol)
+	}
+	return symbols
+}
+
 func newStockAnalyzeCmd() *cobra.Command {
+	opts := &StockAnalyzeOptions{}
 	cmd := &cobra.Command{
 		Use:   "analyze [symbol...]",
 		Short: "Analyze one or more stock symbols",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			symbols := analyzeSymbols(cmd, args)
+			symbols := opts.MergeSymbols(args)
 			if len(symbols) == 0 {
 				return mserrors.NewValidationError("at least one symbol required", nil)
 			}
@@ -75,26 +117,13 @@ func newStockAnalyzeCmd() *cobra.Command {
 				return fmt.Errorf("analysis failed for all symbols: %v", allErrors)
 			}
 
-			compact, err := cmd.Flags().GetBool("compact")
-			if err != nil {
-				return fmt.Errorf("read compact flag: %w", err)
-			}
-			flat, err := cmd.Flags().GetBool("flat")
-			if err != nil {
-				return fmt.Errorf("read flat flag: %w", err)
-			}
-			summary, err := cmd.Flags().GetBool("summary")
-			if err != nil {
-				return fmt.Errorf("read summary flag: %w", err)
-			}
-
-			data, err := transformAnalysisOutput(results, compact, flat, summary)
+			data, err := transformAnalysisOutput(results, opts.Compact, opts.Flat, opts.Summary)
 			if err != nil {
 				return fmt.Errorf("transform analysis output: %w", err)
 			}
 
 			metadata := analyzeMetadata(symbols)
-			if summary {
+			if opts.Summary {
 				metadata["mode"] = "summary"
 			}
 			if len(allErrors) > 0 {
@@ -103,40 +132,8 @@ func newStockAnalyzeCmd() *cobra.Command {
 			return output.WriteSuccess(cmd.OutOrStdout(), data, metadata)
 		},
 	}
-	cmd.Flags().StringSlice("tickers", []string{}, "Additional ticker symbols to analyze")
-	cmd.Flags().Bool("compact", false, "Remove formatted string fields from analysis data")
-	cmd.Flags().Bool("flat", false, "Flatten each analysis result for token-efficient agent parsing")
-	cmd.Flags().Bool("summary", false, "Return compact screening fields for ranking multi-symbol candidates")
+	opts.BindFlags(cmd)
 	return cmd
-}
-
-func analyzeSymbols(cmd *cobra.Command, args []string) []string {
-	tickers, err := cmd.Flags().GetStringSlice("tickers")
-	if err != nil {
-		tickers = nil
-	}
-
-	symbols := make([]string, 0, len(args)+len(tickers))
-	seen := make(map[string]struct{}, len(args)+len(tickers))
-	addSymbol := func(symbol string) {
-		trimmed := strings.TrimSpace(symbol)
-		if trimmed == "" {
-			return
-		}
-		if _, ok := seen[trimmed]; ok {
-			return
-		}
-		seen[trimmed] = struct{}{}
-		symbols = append(symbols, trimmed)
-	}
-
-	for _, symbol := range args {
-		addSymbol(symbol)
-	}
-	for _, symbol := range tickers {
-		addSymbol(symbol)
-	}
-	return symbols
 }
 
 func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) AnalysisResult {

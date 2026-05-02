@@ -195,3 +195,79 @@ func TestMapPeriod(t *testing.T) {
 	assert.Equal(t, "P1W", period)
 	assert.False(t, daily)
 }
+
+func TestChartHistoryOptionsValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		opts    ChartHistoryOptions
+		wantErr string
+	}{
+		{
+			name:    "both explicit dates and lookback",
+			opts:    ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30", Lookback: "3M"},
+			wantErr: "cannot use both",
+		},
+		{
+			name:    "neither dates nor lookback",
+			opts:    ChartHistoryOptions{},
+			wantErr: "either",
+		},
+		{
+			name:    "only start-date without end-date",
+			opts:    ChartHistoryOptions{StartDate: "2024-01-01"},
+			wantErr: "both --start-date and --end-date",
+		},
+		{
+			name: "valid explicit dates",
+			opts: ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30"},
+		},
+		{
+			name: "valid lookback",
+			opts: ChartHistoryOptions{Lookback: "3M"},
+		},
+		{
+			name:    "invalid lookback value",
+			opts:    ChartHistoryOptions{Lookback: "2W"},
+			wantErr: "invalid lookback",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.opts.Validate()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				var verr *mserrors.ValidationError
+				assert.ErrorAs(t, err, &verr)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestChartHistoryOptionsResolveDates(t *testing.T) {
+	t.Parallel()
+	// Fixed reference date: 2025-06-15
+	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+
+	t.Run("explicit dates pass through", func(t *testing.T) {
+		t.Parallel()
+		opts := ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30"}
+		start, end := opts.ResolveDates(now)
+		assert.Equal(t, "2024-01-01", start)
+		assert.Equal(t, "2024-06-30", end)
+	})
+
+	t.Run("lookback computes dates", func(t *testing.T) {
+		t.Parallel()
+		opts := ChartHistoryOptions{Lookback: "3M"}
+		start, end := opts.ResolveDates(now)
+		assert.Equal(t, "2025-03-15", start)
+		assert.Equal(t, "2025-06-15", end)
+	})
+}

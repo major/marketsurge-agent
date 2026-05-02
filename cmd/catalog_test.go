@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/major/marketsurge-agent/internal/client"
 	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
@@ -496,6 +498,105 @@ func catalogRunScreenFixture() string {
 			}
 		}
 	}`
+}
+
+func TestCatalogRunOptionsValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		opts    CatalogRunOptions
+		wantErr string
+	}{
+		{
+			name:    "missing kind",
+			opts:    CatalogRunOptions{},
+			wantErr: "kind is required",
+		},
+		{
+			name:    "invalid kind",
+			opts:    CatalogRunOptions{Kind: "bogus"},
+			wantErr: "kind must be one of",
+		},
+		{
+			name:    "screen kind rejected",
+			opts:    CatalogRunOptions{Kind: "screen"},
+			wantErr: "screens cannot be run directly",
+		},
+		{
+			name:    "report without report-id",
+			opts:    CatalogRunOptions{Kind: "report"},
+			wantErr: "report-id is required when kind=report",
+		},
+		{
+			name: "report with report-id",
+			opts: CatalogRunOptions{Kind: "report", ReportID: 42},
+		},
+		{
+			name:    "watchlist without watchlist-id",
+			opts:    CatalogRunOptions{Kind: "watchlist"},
+			wantErr: "watchlist-id is required when kind=watchlist",
+		},
+		{
+			name: "watchlist with watchlist-id",
+			opts: CatalogRunOptions{Kind: "watchlist", WatchlistID: 99},
+		},
+		{
+			name:    "coach_screen without coach-screen-id",
+			opts:    CatalogRunOptions{Kind: "coach_screen"},
+			wantErr: "coach-screen-id is required when kind=coach_screen",
+		},
+		{
+			name: "coach_screen with coach-screen-id",
+			opts: CatalogRunOptions{Kind: "coach_screen", CoachScreenID: "s-1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.opts.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				var verr *mserrors.ValidationError
+				assert.ErrorAs(t, err, &verr)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCatalogRunOptionsFromCommand(t *testing.T) {
+	t.Parallel()
+
+	t.Run("explicit zero is distinguishable from unset", func(t *testing.T) {
+		t.Parallel()
+		opts := &CatalogRunOptions{}
+		cmd := &cobra.Command{Use: "test"}
+		opts.BindFlags(cmd)
+
+		require.NoError(t, cmd.ParseFlags([]string{"--min-composite", "0"}))
+		opts.FromCommand(cmd)
+
+		require.NotNil(t, opts.MinComposite, "explicitly set --min-composite 0 should produce non-nil pointer")
+		assert.Equal(t, 0, *opts.MinComposite)
+		assert.Nil(t, opts.MinRS, "unset --min-rs should remain nil")
+	})
+
+	t.Run("unset flags remain nil", func(t *testing.T) {
+		t.Parallel()
+		opts := &CatalogRunOptions{}
+		cmd := &cobra.Command{Use: "test"}
+		opts.BindFlags(cmd)
+
+		require.NoError(t, cmd.ParseFlags([]string{}))
+		opts.FromCommand(cmd)
+
+		assert.Nil(t, opts.MinComposite)
+		assert.Nil(t, opts.MinRS)
+	})
 }
 
 func assertCatalogEntrySubset(t *testing.T, entries []map[string]any, expected map[string]any) {

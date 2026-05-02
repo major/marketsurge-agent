@@ -22,6 +22,23 @@ type clientKeyType struct{}
 
 var clientKey = clientKeyType{}
 
+// RootOptions holds persistent flag values for the root command.
+type RootOptions struct {
+	JWT      string
+	CookieDB string
+	Verbose  bool
+}
+
+// BindFlags registers persistent flags on the root command and binds them to RootOptions fields.
+func (o *RootOptions) BindFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVar(&o.JWT, "jwt", "", "JWT token for authentication (overrides env var and cookie)")
+	cmd.PersistentFlags().StringVar(&o.CookieDB, "cookie-db", "", "Path to Firefox cookie database file")
+	cmd.PersistentFlags().BoolVar(&o.Verbose, "verbose", false, "Enable verbose logging")
+}
+
+// rootOpts is the package-level instance of RootOptions, initialized by init().
+var rootOpts = &RootOptions{}
+
 // rootCmd is the root cobra command. Initialized as a package-level variable so
 // that each command file's init() can safely call rootCmd.AddCommand() regardless
 // of source-file initialization order.
@@ -36,9 +53,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().String("jwt", "", "JWT token for authentication (overrides env var and cookie)")
-	rootCmd.PersistentFlags().String("cookie-db", "", "Path to Firefox cookie database file")
-	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose logging")
+	rootOpts.BindFlags(rootCmd)
 }
 
 // ClientFromContext returns the API client stored by PersistentPreRunE.
@@ -60,11 +75,7 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	verbose, err := cmd.Flags().GetBool("verbose")
-	if err != nil {
-		return err
-	}
-	if verbose {
+	if rootOpts.Verbose {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})))
@@ -72,20 +83,12 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	}
 
-	jwt, err := cmd.Flags().GetString("jwt")
-	if err != nil {
-		return err
-	}
+	jwt := rootOpts.JWT
 	if jwt == "" {
 		jwt = os.Getenv("MARKETSURGE_JWT")
 	}
 
-	cookieDB, err := cmd.Flags().GetString("cookie-db")
-	if err != nil {
-		return err
-	}
-
-	token, err := auth.ResolveJWT(cmd.Context(), jwt, cookieDB)
+	token, err := auth.ResolveJWT(cmd.Context(), jwt, rootOpts.CookieDB)
 	if err != nil {
 		return err
 	}

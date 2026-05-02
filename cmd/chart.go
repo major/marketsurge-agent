@@ -22,25 +22,35 @@ func newChartCmd() *cobra.Command {
 	return cmd
 }
 
+// ChartMarkupsOptions holds flags for the chart markups command.
+type ChartMarkupsOptions struct {
+	Frequency string
+	SortDir   string
+}
+
+// BindFlags registers chart markups flags and binds them to struct fields.
+func (o *ChartMarkupsOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.Frequency, "frequency", "DAILY", "Chart frequency: DAILY or WEEKLY")
+	cmd.Flags().StringVar(&o.SortDir, "sort-dir", "ASC", "Sort direction: ASC or DESC")
+}
+
 func newChartMarkupsCmd() *cobra.Command {
+	opts := &ChartMarkupsOptions{}
 	cmd := &cobra.Command{
 		Use:   "markups <symbol>",
 		Short: "Get chart markup data for a symbol",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbol := args[0]
-			frequency, _ := cmd.Flags().GetString("frequency")
-			sortDir, _ := cmd.Flags().GetString("sort-dir")
 			c := ClientFromContext(cmd.Context())
-			data, err := c.GetChartMarkups(cmd.Context(), symbol, frequency, sortDir)
+			data, err := c.GetChartMarkups(cmd.Context(), symbol, opts.Frequency, opts.SortDir)
 			if err != nil {
 				return err
 			}
 			return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
 		},
 	}
-	cmd.Flags().String("frequency", "DAILY", "Chart frequency: DAILY or WEEKLY")
-	cmd.Flags().String("sort-dir", "ASC", "Sort direction: ASC or DESC")
+	opts.BindFlags(cmd)
 	return cmd
 }
 
@@ -52,7 +62,70 @@ var validLookbacks = map[string]bool{
 // defaultExchangeName is used for daily chart queries.
 const defaultExchangeName = "NYSE"
 
+// ChartHistoryOptions holds flags for the chart history command.
+type ChartHistoryOptions struct {
+	StartDate string
+	EndDate   string
+	Lookback  string
+	Period    string
+	Benchmark string
+}
+
+// BindFlags registers chart history flags and binds them to struct fields.
+func (o *ChartHistoryOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.StartDate, "start-date", "", "Start date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&o.EndDate, "end-date", "", "End date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&o.Lookback, "lookback", "", "Relative lookback period: 1W, 1M, 3M, 6M, 1Y, YTD")
+	cmd.Flags().StringVar(&o.Period, "period", "daily", "Chart period: daily or weekly")
+	cmd.Flags().StringVar(&o.Benchmark, "benchmark", "", "Benchmark symbol for relative strength (e.g. 0S&P5)")
+}
+
+// Validate checks mutual exclusion and required-field constraints for chart history flags.
+func (o *ChartHistoryOptions) Validate() error {
+	hasExplicit := o.StartDate != "" || o.EndDate != ""
+	hasLookback := o.Lookback != ""
+
+	if hasExplicit && hasLookback {
+		return mserrors.NewValidationError(
+			"cannot use both --start-date/--end-date and --lookback", nil,
+		)
+	}
+
+	if !hasExplicit && !hasLookback {
+		return mserrors.NewValidationError(
+			"either --start-date and --end-date or --lookback is required", nil,
+		)
+	}
+
+	if hasExplicit {
+		if o.StartDate == "" || o.EndDate == "" {
+			return mserrors.NewValidationError(
+				"both --start-date and --end-date are required when using explicit dates", nil,
+			)
+		}
+		return nil
+	}
+
+	if !validLookbacks[o.Lookback] {
+		return mserrors.NewValidationError(
+			"invalid lookback value: must be one of 1W, 1M, 3M, 6M, 1Y, YTD", nil,
+		)
+	}
+
+	return nil
+}
+
+// ResolveDates computes start and end date strings from validated options.
+// Validate must be called before ResolveDates.
+func (o *ChartHistoryOptions) ResolveDates(now time.Time) (startDate, endDate string) {
+	if o.StartDate != "" {
+		return o.StartDate, o.EndDate
+	}
+	return resolveLookback(o.Lookback, now), now.Format("2006-01-02")
+}
+
 func newChartHistoryCmd() *cobra.Command {
+	opts := &ChartHistoryOptions{}
 	cmd := &cobra.Command{
 		Use:   "history <symbol>",
 		Short: "Get chart history for a symbol",
@@ -60,76 +133,28 @@ func newChartHistoryCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbol := args[0]
 
-			startDate, endDate, err := resolveChartDates(cmd, time.Now().UTC())
-			if err != nil {
+			if err := opts.Validate(); err != nil {
 				return err
 			}
 
-			period, _ := cmd.Flags().GetString("period")
-			graphqlPeriod, daily := mapPeriod(period)
+			startDate, endDate := opts.ResolveDates(time.Now().UTC())
+			graphqlPeriod, daily := mapPeriod(opts.Period)
 
 			exchangeName := ""
 			if daily {
 				exchangeName = defaultExchangeName
 			}
 
-			benchmark, _ := cmd.Flags().GetString("benchmark")
-
 			c := ClientFromContext(cmd.Context())
-			data, err := c.GetChartHistory(cmd.Context(), symbol, startDate, endDate, graphqlPeriod, daily, exchangeName, benchmark)
+			data, err := c.GetChartHistory(cmd.Context(), symbol, startDate, endDate, graphqlPeriod, daily, exchangeName, opts.Benchmark)
 			if err != nil {
 				return err
 			}
 			return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
 		},
 	}
-	cmd.Flags().String("start-date", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().String("end-date", "", "End date (YYYY-MM-DD)")
-	cmd.Flags().String("lookback", "", "Relative lookback period: 1W, 1M, 3M, 6M, 1Y, YTD")
-	cmd.Flags().String("period", "daily", "Chart period: daily or weekly")
-	cmd.Flags().String("benchmark", "", "Benchmark symbol for relative strength (e.g. 0S&P5)")
+	opts.BindFlags(cmd)
 	return cmd
-}
-
-// resolveChartDates validates and resolves the date flags into start/end date strings.
-// Either (--start-date AND --end-date) or --lookback must be provided, not both.
-func resolveChartDates(cmd *cobra.Command, now time.Time) (startDate, endDate string, err error) {
-	startDate, _ = cmd.Flags().GetString("start-date")
-	endDate, _ = cmd.Flags().GetString("end-date")
-	lookback, _ := cmd.Flags().GetString("lookback")
-
-	hasExplicit := cmd.Flags().Changed("start-date") || cmd.Flags().Changed("end-date")
-	hasLookback := cmd.Flags().Changed("lookback")
-
-	if hasExplicit && hasLookback {
-		return "", "", mserrors.NewValidationError(
-			"cannot use both --start-date/--end-date and --lookback", nil,
-		)
-	}
-
-	if !hasExplicit && !hasLookback {
-		return "", "", mserrors.NewValidationError(
-			"either --start-date and --end-date or --lookback is required", nil,
-		)
-	}
-
-	if hasExplicit {
-		if startDate == "" || endDate == "" {
-			return "", "", mserrors.NewValidationError(
-				"both --start-date and --end-date are required when using explicit dates", nil,
-			)
-		}
-		return startDate, endDate, nil
-	}
-
-	// Lookback mode.
-	if !validLookbacks[lookback] {
-		return "", "", mserrors.NewValidationError(
-			"invalid lookback value: must be one of 1W, 1M, 3M, 6M, 1Y, YTD", nil,
-		)
-	}
-
-	return resolveLookback(lookback, now), now.Format("2006-01-02"), nil
 }
 
 // resolveLookback computes the start date for a given lookback token.

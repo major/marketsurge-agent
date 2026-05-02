@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/leodido/structcli"
 	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
@@ -20,8 +21,25 @@ func init() { rootCmd.AddCommand(newStockCmd()) }
 
 func newStockCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "stock",
-		Short:         "Get stock data",
+		Use:   "stock",
+		Short: "Get stock data",
+		Long: `Stock commands retrieve current MarketSurge ratings, price context,
+base patterns, and signal flags.
+
+  Need                             Command
+  ----                             -------
+  One-symbol quote/ratings/base    stock get AAPL
+  Complete research packet         stock analyze AAPL
+  Compare many candidates          stock analyze --summary AAPL NVDA TSLA
+  Batch from a generated list      stock analyze --tickers AAPL,NVDA --compact
+  Parser wants one-level keys      stock analyze AAPL --flat
+
+Use "stock get" for targeted current stock data when fundamentals and
+ownership are not needed. Output focus: ratings, price, valuation ratios,
+risk metrics, short interest, base_pattern, and signals (blue dot, ant).
+
+Use "stock analyze" for the complete research packet including stock,
+fundamentals, and ownership data fetched concurrently.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -43,18 +61,10 @@ type AnalysisResult struct {
 
 // StockAnalyzeOptions holds the options for the stock analyze command.
 type StockAnalyzeOptions struct {
-	Tickers []string
-	Compact bool
-	Flat    bool
-	Summary bool
-}
-
-// BindFlags registers the stock analyze command flags and binds them to the options struct.
-func (o *StockAnalyzeOptions) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringSliceVar(&o.Tickers, "tickers", []string{}, "Additional ticker symbols to analyze")
-	cmd.Flags().BoolVar(&o.Compact, "compact", false, "Remove formatted string fields from analysis data")
-	cmd.Flags().BoolVar(&o.Flat, "flat", false, "Flatten each analysis result for token-efficient agent parsing")
-	cmd.Flags().BoolVar(&o.Summary, "summary", false, "Return compact screening fields for ranking multi-symbol candidates")
+	Tickers []string `flag:"tickers" flagshort:"t" flagdescr:"Additional stock symbols to analyze"`
+	Compact bool     `flag:"compact" flagdescr:"Use compact output format"`
+	Flat    bool     `flag:"flat" flagdescr:"Use flat output format"`
+	Summary bool     `flag:"summary" flagdescr:"Include summary statistics"`
 }
 
 // MergeSymbols merges positional arguments with --tickers flag values, deduplicating and trimming whitespace.
@@ -87,6 +97,22 @@ func newStockAnalyzeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "analyze [symbol...]",
 		Short: "Analyze one or more stock symbols",
+		Long: `Fetches stock, fundamentals, and ownership concurrently for one or more
+symbols. Accepts positional symbols and --tickers comma-separated symbols
+together. Multi-symbol requests are concurrent and can return partial
+results when only some symbols or subresources fail.
+
+Flags:
+
+  --summary   Compact screening keys: symbol, composite, eps, rs, ad, smr,
+              blue_dot, ant_signal, base_type, base_stage, pivot,
+              base_depth_percent, industry_group_rs, up_down_volume,
+              atr_percent, avg_dollar_volume, funds_float_percent
+  --compact   Removes duplicate formatted string fields, keeps raw values
+  --flat      Flattens nested analysis fields inside the JSON envelope
+
+Start with "stock analyze --summary" for candidate ranking, then rerun
+interesting symbols without --summary for detail.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbols := opts.MergeSymbols(args)
 			if len(symbols) == 0 {
@@ -132,7 +158,9 @@ func newStockAnalyzeCmd() *cobra.Command {
 			return output.WriteSuccess(cmd.OutOrStdout(), data, metadata)
 		},
 	}
-	opts.BindFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

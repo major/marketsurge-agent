@@ -6,28 +6,41 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
+	"github.com/leodido/structcli"
 	"github.com/major/marketsurge-agent/internal/client"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var commandExecutionMu sync.Mutex
+
 // executeCommand runs a cobra command with the given args and returns its output and error.
-func executeCommand(cmd *cobra.Command, args ...string) (string, error) {
+func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
+	t.Helper()
+	commandExecutionMu.Lock()
+	t.Cleanup(func() {
+		viper.Reset()
+		commandExecutionMu.Unlock()
+	})
+	viper.Reset()
 	buf := &bytes.Buffer{}
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 	cmd.SetArgs(args)
-	err := cmd.Execute()
+	_, err := structcli.ExecuteC(cmd)
 	return buf.String(), err
 }
 
 // executeCommandWithClient runs a cobra command with a client injected into the context.
-func executeCommandWithClient(cmd *cobra.Command, c *client.Client, args ...string) (string, error) {
+func executeCommandWithClient(t *testing.T, cmd *cobra.Command, c *client.Client, args ...string) (string, error) {
+	t.Helper()
 	cmd.SetContext(ContextWithClient(context.Background(), c))
-	return executeCommand(cmd, args...)
+	return executeCommand(t, cmd, args...)
 }
 
 // parseJSONEnvelope unmarshals output into a map and asserts it contains data and metadata keys.

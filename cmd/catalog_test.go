@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/marketsurge-agent/internal/client"
@@ -131,7 +134,7 @@ func TestCatalogListInvalidKind(t *testing.T) {
 	defer server.Close()
 
 	c := testClient(t, server)
-	_, err := executeCommandWithClient(newCatalogCmd(), c, "list", "--kind", "invalid")
+	_, err := executeCatalogList(t, c, "list", "--kind", "invalid")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -203,7 +206,7 @@ func TestCatalogRunMissingKind(t *testing.T) {
 	server := jsonServer(`{}`)
 	defer server.Close()
 
-	_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), "run")
+	_, err := executeCatalogRun(t, testClient(t, server), "run")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -216,7 +219,7 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 	server := jsonServer(`{}`)
 	defer server.Close()
 
-	_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), "run", "--kind", "screen")
+	_, err := executeCatalogRun(t, testClient(t, server), "run", "--kind", "screen")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -242,7 +245,7 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), tt.args...)
+			_, err := executeCatalogRun(t, testClient(t, server), tt.args...)
 			require.Error(t, err)
 
 			var verr *mserrors.ValidationError
@@ -347,6 +350,55 @@ func TestCatalogRunWatchlistID64Bit(t *testing.T) {
 	assert.Len(t, envelope.Data.Entries, 2)
 }
 
+func TestCatalogListStructTags(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeFor[CatalogListOptions]()
+	field, ok := typ.FieldByName("Kind")
+	require.True(t, ok, "Kind field should exist")
+	assert.Equal(t, "kind", field.Tag.Get("flag"))
+	assert.Equal(t, "Catalog kind: watchlist, report, coach_screen, screen", field.Tag.Get("flagdescr"))
+}
+
+func TestCatalogRunStructTags(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeFor[CatalogRunOptions]()
+	tests := []struct {
+		field        string
+		flag         string
+		descr        string
+		defaultValue string
+	}{
+		{field: "Kind", flag: "kind", descr: "Catalog kind to run: watchlist, report, coach_screen"},
+		{field: "ReportID", flag: "report-id", descr: "Report ID (required when kind=report)"},
+		{field: "WatchlistID", flag: "watchlist-id", descr: "Watchlist ID (required when kind=watchlist)"},
+		{field: "CoachScreenID", flag: "coach-screen-id", descr: "Coach screen ID (required when kind=coach_screen)"},
+		{field: "Limit", flag: "limit", descr: "Maximum number of results to return", defaultValue: "50"},
+		{field: "Offset", flag: "offset", descr: "Number of results to skip"},
+		{field: "Fields", flag: "fields", descr: "Fields to include in results"},
+		{field: "ExcludeSPACs", flag: "exclude-spacs", descr: "Exclude SPACs from results"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			f, ok := typ.FieldByName(tt.field)
+			require.True(t, ok, "field %s should exist", tt.field)
+			assert.Equal(t, tt.flag, f.Tag.Get("flag"))
+			assert.Equal(t, tt.descr, f.Tag.Get("flagdescr"))
+			assert.Equal(t, tt.defaultValue, f.Tag.Get("default"))
+		})
+	}
+
+	for _, field := range []string{"MinComposite", "MinRS"} {
+		t.Run(field, func(t *testing.T) {
+			f, ok := typ.FieldByName(field)
+			require.True(t, ok, "field %s should exist", field)
+			assert.Empty(t, f.Tag.Get("flag"), "pointer field should stay untagged")
+		})
+	}
+}
+
 type catalogListEnvelope struct {
 	Data struct {
 		Entries []map[string]any `json:"entries"`
@@ -373,7 +425,7 @@ func runCatalogListCommand(t *testing.T, c *client.Client, args ...string) catal
 	t.Helper()
 
 	argv := append([]string{"list"}, args...)
-	output, err := executeCommandWithClient(newCatalogCmd(), c, argv...)
+	output, err := executeCatalogList(t, c, argv...)
 	require.NoError(t, err)
 
 	var envelope catalogListEnvelope
@@ -385,12 +437,46 @@ func runCatalogRunCommand(t *testing.T, c *client.Client, args ...string) catalo
 	t.Helper()
 
 	argv := append([]string{"run"}, args...)
-	output, err := executeCommandWithClient(newCatalogCmd(), c, argv...)
+	output, err := executeCatalogRun(t, c, argv...)
 	require.NoError(t, err)
 
 	var envelope catalogRunEnvelope
 	require.NoError(t, json.Unmarshal([]byte(output), &envelope))
 	return envelope
+}
+
+// executeCatalogList layers the test client onto the list subcommand's context.
+// structcli.Bind sets subcommand scope context before execution, which prevents
+// cobra from propagating the parent command's client context automatically.
+func executeCatalogList(t *testing.T, c *client.Client, args ...string) (string, error) {
+	t.Helper()
+	return executeCatalogSubcommand(t, c, "list", args...)
+}
+
+// executeCatalogRun layers the test client onto the run subcommand's context.
+// structcli.Bind sets subcommand scope context before execution, which prevents
+// cobra from propagating the parent command's client context automatically.
+func executeCatalogRun(t *testing.T, c *client.Client, args ...string) (string, error) {
+	t.Helper()
+	return executeCatalogSubcommand(t, c, "run", args...)
+}
+
+func executeCatalogSubcommand(t *testing.T, c *client.Client, subcommand string, args ...string) (string, error) {
+	t.Helper()
+	cmd := newCatalogCmd()
+	ctx := ContextWithClient(context.Background(), c)
+	cmd.SetContext(ctx)
+	for _, child := range cmd.Commands() {
+		if child.Name() != subcommand {
+			continue
+		}
+		childCtx := child.Context()
+		if childCtx == nil {
+			childCtx = ctx
+		}
+		child.SetContext(ContextWithClient(childCtx, c))
+	}
+	return executeCommand(t, cmd, args...)
 }
 
 func catalogEntriesFromEnvelope(t *testing.T, envelope catalogListEnvelope) []map[string]any {
@@ -555,10 +641,12 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.opts.Validate()
+			errs := tt.opts.Validate(context.Background())
 			if tt.wantErr == "" {
-				assert.NoError(t, err)
+				assert.Nil(t, errs)
 			} else {
+				require.NotEmpty(t, errs)
+				err := errs[0]
 				require.Error(t, err)
 				var verr *mserrors.ValidationError
 				assert.ErrorAs(t, err, &verr)
@@ -575,7 +663,9 @@ func TestCatalogRunOptionsFromCommand(t *testing.T) {
 		t.Parallel()
 		opts := &CatalogRunOptions{}
 		cmd := &cobra.Command{Use: "test"}
-		opts.BindFlags(cmd)
+		require.NoError(t, structcli.Bind(cmd, opts))
+		cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter (0-99)")
+		cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter (0-99)")
 
 		require.NoError(t, cmd.ParseFlags([]string{"--min-composite", "0"}))
 		opts.FromCommand(cmd)
@@ -589,7 +679,9 @@ func TestCatalogRunOptionsFromCommand(t *testing.T) {
 		t.Parallel()
 		opts := &CatalogRunOptions{}
 		cmd := &cobra.Command{Use: "test"}
-		opts.BindFlags(cmd)
+		require.NoError(t, structcli.Bind(cmd, opts))
+		cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter (0-99)")
+		cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter (0-99)")
 
 		require.NoError(t, cmd.ParseFlags([]string{}))
 		opts.FromCommand(cmd)

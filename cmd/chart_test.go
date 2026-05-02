@@ -1,13 +1,17 @@
 package cmd
 
 import (
+	"context"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"github.com/major/marketsurge-agent/internal/models"
 )
 
 func TestChartMarkupsSuccess(t *testing.T) {
@@ -16,7 +20,7 @@ func TestChartMarkupsSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c, "markups", "AAPL")
+	output, err := executeChartCmd(t, c, "markups", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -28,7 +32,7 @@ func TestChartMarkupsWithFlags(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c, "markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL")
+	output, err := executeChartCmd(t, c, "markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL")
 	require.NoError(t, err)
 	parseJSONEnvelope(t, output)
 }
@@ -39,7 +43,7 @@ func TestChartMarkupsMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c, "markups")
+	_, err := executeChartCmd(t, c, "markups")
 	require.Error(t, err)
 }
 
@@ -49,9 +53,8 @@ func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL",
-	)
+	output, err := executeChartCmd(t, c,
+		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -63,9 +66,8 @@ func TestChartHistorySuccessWithLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "3M", "AAPL",
-	)
+	output, err := executeChartCmd(t, c,
+		"history", "--lookback", "3M", "AAPL")
 	require.NoError(t, err)
 	parseJSONEnvelope(t, output)
 }
@@ -76,9 +78,8 @@ func TestChartHistorySymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "1M", "MISSING",
-	)
+	_, err := executeChartCmd(t, c,
+		"history", "--lookback", "1M", "MISSING")
 	require.Error(t, err)
 
 	var snf *mserrors.SymbolNotFoundError
@@ -91,9 +92,8 @@ func TestChartHistoryMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "1M",
-	)
+	_, err := executeChartCmd(t, c,
+		"history", "--lookback", "1M")
 	require.Error(t, err)
 }
 
@@ -103,9 +103,8 @@ func TestChartHistoryMutualExclusion(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL",
-	)
+	_, err := executeChartCmd(t, c,
+		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -119,7 +118,7 @@ func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c, "history", "AAPL")
+	_, err := executeChartCmd(t, c, "history", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -133,9 +132,8 @@ func TestChartHistoryPartialExplicitDates(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--start-date", "2024-01-01", "AAPL",
-	)
+	_, err := executeChartCmd(t, c,
+		"history", "--start-date", "2024-01-01", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -149,9 +147,8 @@ func TestChartHistoryInvalidLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "2W", "AAPL",
-	)
+	_, err := executeChartCmd(t, c,
+		"history", "--lookback", "2W", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -237,14 +234,14 @@ func TestChartHistoryOptionsValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.opts.Validate()
+			errs := tt.opts.Validate(context.Background())
 			if tt.wantErr != "" {
-				require.Error(t, err)
+				require.Len(t, errs, 1)
 				var verr *mserrors.ValidationError
-				assert.ErrorAs(t, err, &verr)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.ErrorAs(t, errs[0], &verr)
+				assert.Contains(t, errs[0].Error(), tt.wantErr)
 			} else {
-				assert.NoError(t, err)
+				assert.Empty(t, errs)
 			}
 		})
 	}
@@ -270,4 +267,84 @@ func TestChartHistoryOptionsResolveDates(t *testing.T) {
 		assert.Equal(t, "2025-03-15", start)
 		assert.Equal(t, "2025-06-15", end)
 	})
+}
+
+func TestChartMarkupsStructTags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		field    string
+		tag      string
+		value    string
+		wantType reflect.Type
+	}{
+		{"Frequency", "flag", "frequency", reflect.TypeFor[models.Frequency]()},
+		{"Frequency", "default", "DAILY", reflect.TypeFor[models.Frequency]()},
+		{"SortDir", "flag", "sort-dir", reflect.TypeFor[models.SortDirection]()},
+		{"SortDir", "default", "ASC", reflect.TypeFor[models.SortDirection]()},
+	}
+
+	rt := reflect.TypeFor[ChartMarkupsOptions]()
+	for _, tt := range tests {
+		t.Run(tt.field+"/"+tt.tag, func(t *testing.T) {
+			t.Parallel()
+			f, ok := rt.FieldByName(tt.field)
+			require.True(t, ok, "field %s not found", tt.field)
+			assert.Equal(t, tt.value, f.Tag.Get(tt.tag), "tag %q on field %s", tt.tag, tt.field)
+			if tt.tag == "flag" {
+				assert.Equal(t, tt.wantType, f.Type, "field %s type mismatch", tt.field)
+			}
+		})
+	}
+}
+
+func TestChartHistoryStructTags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		field    string
+		tag      string
+		value    string
+		wantType reflect.Type
+	}{
+		{"StartDate", "flag", "start-date", reflect.TypeFor[string]()},
+		{"EndDate", "flag", "end-date", reflect.TypeFor[string]()},
+		{"Lookback", "flag", "lookback", reflect.TypeFor[string]()},
+		{"Period", "flag", "period", reflect.TypeFor[models.Period]()},
+		{"Period", "default", "daily", reflect.TypeFor[models.Period]()},
+		{"Benchmark", "flag", "benchmark", reflect.TypeFor[string]()},
+	}
+
+	rt := reflect.TypeFor[ChartHistoryOptions]()
+	for _, tt := range tests {
+		t.Run(tt.field+"/"+tt.tag, func(t *testing.T) {
+			t.Parallel()
+			f, ok := rt.FieldByName(tt.field)
+			require.True(t, ok, "field %s not found", tt.field)
+			assert.Equal(t, tt.value, f.Tag.Get(tt.tag), "tag %q on field %s", tt.tag, tt.field)
+			if tt.tag == "flag" {
+				assert.Equal(t, tt.wantType, f.Type, "field %s type mismatch", tt.field)
+			}
+		})
+	}
+}
+
+// executeChartCmd creates a chart command tree, injects the client into subcommand
+// contexts, and executes with the given args. structcli.Bind sets a scope context on
+// subcommands, which prevents cobra's parent-to-child context propagation. This helper
+// layers the client onto each subcommand's existing context so both the structcli scope
+// and the test client are available during RunE.
+func executeChartCmd(t *testing.T, c *client.Client, args ...string) (string, error) {
+	t.Helper()
+	cmd := newChartCmd()
+	ctx := ContextWithClient(context.Background(), c)
+	cmd.SetContext(ctx)
+	for _, child := range cmd.Commands() {
+		childCtx := child.Context()
+		if childCtx == nil {
+			childCtx = ctx
+		}
+		child.SetContext(ContextWithClient(childCtx, c))
+	}
+	return executeCommand(t, cmd, args...)
 }

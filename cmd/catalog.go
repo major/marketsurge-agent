@@ -4,9 +4,13 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 
+	"github.com/leodido/structcli"
+	structclivalues "github.com/leodido/structcli/values"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
@@ -80,6 +84,15 @@ func newCatalogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "catalog",
 		Short: "Catalog commands",
+		Long: `Catalog commands discover and run MarketSurge watchlists, screens,
+reports, and coach screens.
+
+Workflow:
+
+  1. Run "catalog list" to discover entries and their IDs
+  2. Run a returned ID with "catalog run" using the matching kind and ID flag
+  3. Page and project results before deeper analysis
+  4. Feed selected tickers into "stock analyze --summary" or "stock analyze"`,
 	}
 	cmd.AddCommand(newCatalogListCmd())
 	cmd.AddCommand(newCatalogRunCmd())
@@ -88,30 +101,29 @@ func newCatalogCmd() *cobra.Command {
 
 // CatalogRunOptions holds flags for the catalog run command.
 type CatalogRunOptions struct {
-	Kind          string
-	ReportID      int
-	WatchlistID   int64
-	CoachScreenID string
-	Limit         int
-	Offset        int
-	Fields        []string
+	Kind          models.CatalogKind `flag:"kind" flagdescr:"Catalog kind to run: watchlist, report, coach_screen" flagcustom:"true"`
+	ReportID      int                `flag:"report-id" flagdescr:"Report ID (required when kind=report)"`
+	WatchlistID   int64              `flag:"watchlist-id" flagdescr:"Watchlist ID (required when kind=watchlist)"`
+	CoachScreenID string             `flag:"coach-screen-id" flagdescr:"Coach screen ID (required when kind=coach_screen)"`
+	Limit         int                `flag:"limit" flagdescr:"Maximum number of results to return" default:"50"`
+	Offset        int                `flag:"offset" flagdescr:"Number of results to skip"`
+	Fields        []string           `flag:"fields" flagdescr:"Fields to include in results"`
 	MinComposite  *int
 	MinRS         *int
-	ExcludeSPACs  bool
+	ExcludeSPACs  bool `flag:"exclude-spacs" flagdescr:"Exclude SPACs from results"`
 }
 
-// BindFlags registers catalog run flags on the given command.
-func (o *CatalogRunOptions) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.Kind, "kind", "", "Catalog kind (required): report, watchlist, or coach_screen")
-	cmd.Flags().IntVar(&o.ReportID, "report-id", 0, "Report ID (required when --kind=report)")
-	cmd.Flags().Int64Var(&o.WatchlistID, "watchlist-id", 0, "Watchlist ID (required when --kind=watchlist)")
-	cmd.Flags().StringVar(&o.CoachScreenID, "coach-screen-id", "", "Coach screen ID (required when --kind=coach_screen)")
-	cmd.Flags().IntVar(&o.Limit, "limit", defaultCatalogRunLimit, "Maximum number of entries to return")
-	cmd.Flags().IntVar(&o.Offset, "offset", 0, "Starting offset for pagination")
-	cmd.Flags().StringSliceVar(&o.Fields, "fields", []string{}, "Optional fields to include in each entry")
-	cmd.Flags().BoolVar(&o.ExcludeSPACs, "exclude-spacs", false, "Exclude SPAC/blank-check entries")
-	cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter")
-	cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter")
+// DefineKind keeps catalog kind parsing in Validate so missing and invalid kind
+// values continue to return the CLI's domain-specific ValidationError type.
+func (o *CatalogRunOptions) DefineKind(_ string, _ string, descr string, _ reflect.StructField, _ reflect.Value) (pflag.Value, string) { //nolint:gocritic // signature dictated by structcli convention
+	value := string(o.Kind)
+	return structclivalues.NewString(&value), descr
+}
+
+// DecodeKind converts the custom string flag into the typed catalog enum.
+func (o *CatalogRunOptions) DecodeKind(input any) (any, error) {
+	value, _ := input.(string)
+	return models.CatalogKind(value), nil
 }
 
 // FromCommand populates pointer fields that require cobra's Changed() detection.
@@ -127,34 +139,34 @@ func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
 }
 
 // Validate checks that the catalog run options are consistent and complete.
-func (o *CatalogRunOptions) Validate() error {
+func (o *CatalogRunOptions) Validate(_ context.Context) []error {
 	if o.Kind == "" {
-		return mserrors.NewValidationError("kind is required", nil)
+		return []error{mserrors.NewValidationError("kind is required", nil)}
 	}
 
-	kind, err := parseCatalogKind(o.Kind)
+	kind, err := parseCatalogKind(string(o.Kind))
 	if err != nil {
-		return err
+		return []error{err}
 	}
 	if kind == nil {
-		return mserrors.NewValidationError("kind is required", nil)
+		return []error{mserrors.NewValidationError("kind is required", nil)}
 	}
 	if *kind == models.CatalogKindScreen {
-		return mserrors.NewValidationError("screens cannot be run directly, use catalog list to view them", nil)
+		return []error{mserrors.NewValidationError("screens cannot be run directly, use catalog list to view them", nil)}
 	}
 
 	switch *kind {
 	case models.CatalogKindReport:
 		if o.ReportID == 0 {
-			return mserrors.NewValidationError("report-id is required when kind=report", nil)
+			return []error{mserrors.NewValidationError("report-id is required when kind=report", nil)}
 		}
 	case models.CatalogKindWatchlist:
 		if o.WatchlistID == 0 {
-			return mserrors.NewValidationError("watchlist-id is required when kind=watchlist", nil)
+			return []error{mserrors.NewValidationError("watchlist-id is required when kind=watchlist", nil)}
 		}
 	case models.CatalogKindCoachScreen:
 		if o.CoachScreenID == "" {
-			return mserrors.NewValidationError("coach-screen-id is required when kind=coach_screen", nil)
+			return []error{mserrors.NewValidationError("coach-screen-id is required when kind=coach_screen", nil)}
 		}
 	}
 
@@ -175,14 +187,37 @@ func newCatalogRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a catalog report, watchlist, or coach screen",
+		Long: `Runs a catalog entry and returns its contents.
+
+Required by kind:
+
+  Kind           Required flag          Runnable
+  ----           -------------          --------
+  watchlist      --watchlist-id         Yes
+  report         --report-id            Yes
+  coach_screen   --coach-screen-id      Yes
+  screen         (none)                 No, list only
+
+Useful flags:
+
+  --limit, --offset   Page large lists (default limit: 50)
+  --fields            Project columns: symbol, price, composite_rating,
+                      eps_rating, rs_rating, acc_dis_rating, smr_rating,
+                      industry_name, market_cap, volume_dollar_avg_50d
+  --min-composite     Minimum composite rating filter
+  --min-rs            Minimum RS rating filter
+  --exclude-spacs     Exclude SPAC/blank-check entries
+
+Coach screen rows are paginated, but field projection and filters do
+not behave like report or watchlist rows.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.FromCommand(cmd)
 
-			if err := opts.Validate(); err != nil {
-				return err
+			if errs := opts.Validate(cmd.Context()); errs != nil {
+				return errs[0]
 			}
 
-			kind, _ := parseCatalogKind(opts.Kind)
+			kind, _ := parseCatalogKind(string(opts.Kind))
 
 			entries, total, err := runCatalogEntries(cmd.Context(), ClientFromContext(cmd.Context()), opts, *kind)
 			if err != nil {
@@ -193,7 +228,11 @@ func newCatalogRunCmd() *cobra.Command {
 			return output.WriteSuccess(cmd.OutOrStdout(), data, output.CatalogMeta(string(*kind), total, opts.Limit, opts.Offset))
 		},
 	}
-	opts.BindFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter (0-99)")
+	cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter (0-99)")
 	return cmd
 }
 
@@ -344,12 +383,20 @@ func normalizeWatchlistField(field string) (string, bool) {
 
 // CatalogListOptions holds flags for the catalog list command.
 type CatalogListOptions struct {
-	Kind string
+	Kind models.CatalogKind `flag:"kind" flagdescr:"Catalog kind: watchlist, report, coach_screen, screen" flagcustom:"true"`
 }
 
-// BindFlags registers catalog list flags on the given command.
-func (o *CatalogListOptions) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.Kind, "kind", "", "Catalog kind (required): report, watchlist, coach_screen, screen")
+// DefineKind keeps catalog kind parsing in RunE so invalid list kinds continue
+// to return the CLI's domain-specific ValidationError type.
+func (o *CatalogListOptions) DefineKind(_ string, _ string, descr string, _ reflect.StructField, _ reflect.Value) (pflag.Value, string) { //nolint:gocritic // signature dictated by structcli convention
+	value := string(o.Kind)
+	return structclivalues.NewString(&value), descr
+}
+
+// DecodeKind converts the custom string flag into the typed catalog enum.
+func (o *CatalogListOptions) DecodeKind(input any) (any, error) {
+	value, _ := input.(string)
+	return models.CatalogKind(value), nil
 }
 
 func newCatalogListCmd() *cobra.Command {
@@ -357,8 +404,16 @@ func newCatalogListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List catalog entries",
+		Long: `Lists catalog entries. The --kind flag is optional.
+
+Valid --kind values: watchlist, screen, report, coach_screen.
+
+Omit --kind to aggregate all sources. Partial source failures can
+still return entries from working sources.
+
+Output: entries[] with name, kind, description, and the relevant ID field.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kind, err := parseCatalogKind(opts.Kind)
+			kind, err := parseCatalogKind(string(opts.Kind))
 			if err != nil {
 				return err
 			}
@@ -370,14 +425,16 @@ func newCatalogListCmd() *cobra.Command {
 			}
 
 			data := map[string]any{"entries": catalog.Entries}
-			meta := output.CatalogMeta(opts.Kind, len(catalog.Entries), 0, 0)
+			meta := output.CatalogMeta(string(opts.Kind), len(catalog.Entries), 0, 0)
 			if len(catalog.Errors) > 0 {
 				return output.WritePartial(cmd.OutOrStdout(), data, catalog.Errors, meta)
 			}
 			return output.WriteSuccess(cmd.OutOrStdout(), data, meta)
 		},
 	}
-	opts.BindFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

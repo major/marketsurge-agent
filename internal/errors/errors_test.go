@@ -328,3 +328,47 @@ func TestExitCodePriority(t *testing.T) {
 		t.Errorf("ExitCodeFor(SymbolNotFoundError) = %d, want %d (ExitNotFound takes priority over ExitAPIError)", code, ExitNotFound)
 	}
 }
+
+// TestExitCodeConstants verifies that exit code constants have the correct values.
+func TestExitCodeConstants(t *testing.T) {
+	t.Parallel()
+	if ExitSuccess != 0 {
+		t.Errorf("ExitSuccess = %d, want 0", ExitSuccess)
+	}
+	if ExitGeneral != 30 {
+		t.Errorf("ExitGeneral = %d, want 30", ExitGeneral)
+	}
+	if ExitNotFound != 31 {
+		t.Errorf("ExitNotFound = %d, want 31", ExitNotFound)
+	}
+	if ExitAuthFailure != 32 {
+		t.Errorf("ExitAuthFailure = %d, want 32", ExitAuthFailure)
+	}
+	if ExitAPIError != 33 {
+		t.Errorf("ExitAPIError = %d, want 33", ExitAPIError)
+	}
+}
+
+// TestAllErrorTypesExitCodeGe30 verifies that all error types return exit codes >= 30.
+func TestAllErrorTypesExitCodeGe30(t *testing.T) {
+	t.Parallel()
+	allErrors := []interface{ ExitCode() int }{
+		NewAuthenticationError("test", nil),
+		NewCookieExtractionError("test", nil, "Firefox"),
+		NewTokenExpiredError("test", nil, 401),
+		NewAPIError("test", nil),
+		NewSymbolNotFoundError("test", nil, "INVALID"),
+		NewHTTPError("test", nil, 500, ""),
+		NewValidationError("test", nil),
+	}
+	for _, err := range allErrors {
+		code := err.ExitCode()
+		if code < 30 {
+			t.Errorf("%T.ExitCode() = %d, want >= 30", err, code)
+		}
+		// Also verify no overlap with structcli's 10-23 range
+		if code >= 10 && code <= 23 {
+			t.Errorf("%T.ExitCode() = %d, overlaps with structcli range 10-23", err, code)
+		}
+	}
+}

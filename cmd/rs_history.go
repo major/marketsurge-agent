@@ -17,6 +17,20 @@ func newRSHistoryCmd() *cobra.Command {
 	parent := &cobra.Command{
 		Use:   "rs-history",
 		Short: "RS rating history commands",
+		Long: `Use "rs-history get" to compare relative strength trends over time.
+Accepts one or more symbols in a single request.
+
+Output shape:
+
+  - Single symbol: symbol metadata plus RS history
+  - Multiple symbols: data object keyed by ticker
+  - Includes RS rating snapshots and rs_line_new_high when provided
+  - Partial multi-symbol failures return successful symbols plus errors
+
+Use this after "stock analyze --summary" when top candidates need RS
+trend confirmation. RS line new highs can identify leadership before
+price breaks out. Compare RS trend with "chart history" candles when
+checking divergence or confirmation.`,
 	}
 	parent.AddCommand(newRSHistoryGetCmd())
 	return parent

@@ -147,4 +147,4 @@ The most complex client file (392 lines):
 
 ## Maintenance
 
-When adding or changing API methods, update this AGENTS.md, the root AGENTS.md, and the corresponding skill file in `skills/marketsurge-agent/` to match.
+When adding or changing API methods, update this AGENTS.md and the root AGENTS.md to match.

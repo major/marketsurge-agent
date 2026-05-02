@@ -5,13 +5,17 @@ import (
 	"errors"
 )
 
-// Exit code constants for different error types.
+// Exit code ranges:
+//   0:     Success
+//   1-9:   Reserved (general errors)
+//   10-23: Reserved by structcli (flag parsing, validation, schema)
+//   30+:   Domain-specific errors (MarketSurge)
 const (
 	ExitSuccess     = 0
-	ExitGeneral     = 1
-	ExitNotFound    = 2
-	ExitAuthFailure = 3
-	ExitAPIError    = 4
+	ExitGeneral     = 30
+	ExitNotFound    = 31
+	ExitAuthFailure = 32
+	ExitAPIError    = 33
 )
 
 // MarketSurgeError is the base error type for all marketsurge-agent errors.

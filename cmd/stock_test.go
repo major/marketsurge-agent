@@ -1,15 +1,18 @@
 package cmd
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
 
@@ -19,7 +22,7 @@ func TestStockGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "get", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "get", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -31,7 +34,7 @@ func TestStockGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newStockCmd(), c, "get", "MISSING")
+	_, err := executeCommandWithClient(t, newStockCmd(), c, "get", "MISSING")
 	require.Error(t, err)
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
@@ -43,7 +46,7 @@ func TestStockGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newStockCmd(), c, "get")
+	_, err := executeCommandWithClient(t, newStockCmd(), c, "get")
 	require.Error(t, err)
 }
 
@@ -53,7 +56,7 @@ func TestStockAnalyzeSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL")
+	output, err := executeStockAnalyze(t, c, "analyze", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -70,7 +73,7 @@ func TestStockAnalyzeTechnicalSignals(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL")
+	output, err := executeStockAnalyze(t, c, "analyze", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -111,7 +114,7 @@ func TestStockAnalyzeMultiSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL", "MSFT")
+	output, err := executeStockAnalyze(t, c, "analyze", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -129,7 +132,7 @@ func TestStockAnalyzePartialFailureWithCompactFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL", "MSFT")
+	output, err := executeStockAnalyze(t, c, "analyze", "--compact", "--flat", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -160,7 +163,7 @@ func TestStockAnalyzeTickersFlag(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--tickers", "AAPL, MSFT")
+	output, err := executeStockAnalyze(t, c, "analyze", "--tickers", "AAPL, MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -179,7 +182,7 @@ func TestStockAnalyzeCompactOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "AAPL")
+	output, err := executeStockAnalyze(t, c, "analyze", "--compact", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -197,7 +200,7 @@ func TestStockAnalyzeFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--flat", "AAPL")
+	output, err := executeStockAnalyze(t, c, "analyze", "--flat", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -217,7 +220,7 @@ func TestStockAnalyzeCompactFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL")
+	output, err := executeStockAnalyze(t, c, "analyze", "--compact", "--flat", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -233,7 +236,7 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--summary", "AAPL", "MSFT")
+	output, err := executeStockAnalyze(t, c, "analyze", "--summary", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -268,13 +271,66 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 	assert.Equal(t, "summary", meta["mode"])
 }
 
+func TestStockAnalyzeStructTags(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeFor[StockAnalyzeOptions]()
+	tests := []struct {
+		field    string
+		flag     string
+		short    string
+		descr    string
+		hasShort bool
+	}{
+		{field: "Tickers", flag: "tickers", short: "t", descr: "Additional stock symbols to analyze", hasShort: true},
+		{field: "Compact", flag: "compact", descr: "Use compact output format"},
+		{field: "Flat", flag: "flat", descr: "Use flat output format"},
+		{field: "Summary", flag: "summary", descr: "Include summary statistics"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			f, ok := typ.FieldByName(tt.field)
+			require.True(t, ok, "field %s should exist", tt.field)
+			assert.Equal(t, tt.flag, f.Tag.Get("flag"), "flag tag")
+			assert.Equal(t, tt.descr, f.Tag.Get("flagdescr"), "flagdescr tag")
+			if tt.hasShort {
+				assert.Equal(t, tt.short, f.Tag.Get("flagshort"), "flagshort tag")
+			}
+		})
+	}
+}
+
+func TestStockAnalyzeMergeSymbols(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		tickers []string
+		args    []string
+		want    []string
+	}{
+		{name: "positional only", args: []string{"AAPL"}, want: []string{"AAPL"}},
+		{name: "tickers only", tickers: []string{"MSFT"}, want: []string{"MSFT"}},
+		{name: "both merged", tickers: []string{"MSFT"}, args: []string{"AAPL"}, want: []string{"AAPL", "MSFT"}},
+		{name: "deduplicates", tickers: []string{"AAPL"}, args: []string{"AAPL"}, want: []string{"AAPL"}},
+		{name: "trims whitespace", tickers: []string{" MSFT "}, args: []string{" AAPL "}, want: []string{"AAPL", "MSFT"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &StockAnalyzeOptions{Tickers: tt.tickers}
+			got := opts.MergeSymbols(tt.args)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestStockAnalyzeMissingSymbol(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(`{}`)
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze")
+	output, err := executeStockAnalyze(t, c, "analyze")
 	require.Error(t, err)
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
@@ -287,9 +343,29 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "MISSING")
+	output, err := executeStockAnalyze(t, c, "analyze", "MISSING")
 	require.Error(t, err)
 	assert.Empty(t, output)
+}
+
+// executeStockAnalyze creates a stock command tree, injects the client into subcommand
+// contexts, and executes with the given args. structcli.Bind sets a scope context on the
+// analyze subcommand, which prevents cobra's parent-to-child context propagation. This
+// helper layers the client onto each subcommand's existing context so both the structcli
+// scope and the test client are available during RunE.
+func executeStockAnalyze(t *testing.T, c *client.Client, args ...string) (string, error) {
+	t.Helper()
+	cmd := newStockCmd()
+	ctx := ContextWithClient(context.Background(), c)
+	cmd.SetContext(ctx)
+	for _, child := range cmd.Commands() {
+		childCtx := child.Context()
+		if childCtx == nil {
+			childCtx = ctx
+		}
+		child.SetContext(ContextWithClient(childCtx, c))
+	}
+	return executeCommand(t, cmd, args...)
 }
 
 func stockAnalyzePartialServer(t *testing.T) *httptest.Server {

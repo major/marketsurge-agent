@@ -131,6 +131,22 @@ Typed string enums are registered with structcli so flag validation and schema g
 
 **Optional enum fields**: fields with no `default:` struct tag must stay `string` type. structcli rejects an empty string for a registered enum during unmarshal, before `Validate()` can return a typed `ValidationError`. Only use typed enum fields when a non-empty default is always present.
 
+### Schema fidelity for LLM agents
+
+LLM agents should prefer the full command tree schema:
+
+```bash
+marketsurge-agent --jsonschema=tree
+```
+
+Schema tags should make command selection and flag filling obvious:
+- Use `flaggroup:` for logical groups such as `Date Range`, `Output Format`, `Pagination`, and `Filtering & Projection`
+- Use `flagdescr:` to document conditional requirements and examples, especially when a flag is only required for one mode
+- Keep conditional and domain-specific requirements in `Validate()` when they need the CLI's JSON error envelope and MarketSurge exit codes
+- Do not mark chart history date fields or catalog ID fields with `flagrequired`, because their requirements depend on other flags
+
+The schema should describe enough for agents to choose flags without scraping prose help, while runtime validation remains the source of truth for mutually exclusive and conditional rules.
+
 ## Conventions
 
 ### Code style

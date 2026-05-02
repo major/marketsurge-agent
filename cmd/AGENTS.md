@@ -132,9 +132,11 @@ Fields with no `default:` struct tag must stay `string` type. structcli rejects 
 ## Adding a new command
 
 1. Create `cmd/<group>.go` with constructor function and init()
-2. Define an options struct with `flag:`, `flagdescr:`, and `default:` struct tags
+2. Define an options struct with `flag:`, `flagdescr:`, `flaggroup:`, and `default:` struct tags
 3. Call `structcli.Bind(cmd, opts)` in the constructor (replaces manual flag registration)
 4. Add client method in `internal/client/<group>.go`
 5. Add GraphQL query in `queries/<operation>.graphql`
 6. Add model structs in `internal/models/` if needed
 7. Add tests in `cmd/<group>_test.go`
+
+Use `flaggroup:` on every non-trivial flag so `--jsonschema=tree` and MCP tool metadata are useful to LLM agents. Prefer `Validate()` over `flagrequired:"true"` for conditional requirements or domain errors that must preserve the JSON error envelope and MarketSurge exit codes.

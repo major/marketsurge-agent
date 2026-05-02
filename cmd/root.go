@@ -32,8 +32,8 @@ var clientKey = clientKeyType{}
 
 // RootOptions holds persistent flag values for the root command.
 type RootOptions struct {
-	CookieDB string `flag:"cookie-db" flagdescr:"Path to Firefox cookie database file" flagenv:"true"`
-	Verbose  bool   `flag:"verbose" flagshort:"v" flagdescr:"Enable verbose logging" flagenv:"true"`
+	CookieDB string `flag:"cookie-db" flaggroup:"Authentication & Logging" flagdescr:"Path to Firefox cookies.sqlite file; omit to auto-discover Firefox profiles" flagenv:"true"`
+	Verbose  bool   `flag:"verbose" flagshort:"v" flaggroup:"Authentication & Logging" flagdescr:"Enable verbose logging for auth and API requests" flagenv:"true"`
 }
 
 // rootOpts is the package-level instance of RootOptions, initialized by init().

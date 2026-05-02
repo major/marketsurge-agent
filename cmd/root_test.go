@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,6 +25,31 @@ func TestRootJSONSchema(t *testing.T) {
 	assert.Contains(t, schema, `"MARKETSURGE_AGENT_COOKIE_DB"`)
 	assert.Contains(t, schema, `"MARKETSURGE_AGENT_VERBOSE"`)
 	assert.Contains(t, schema, `"x-structcli-config-flag": "config"`)
+}
+
+func TestRootOptionsStructTags(t *testing.T) {
+	t.Parallel()
+
+	typ := reflect.TypeFor[RootOptions]()
+	tests := []struct {
+		field string
+		flag  string
+		group string
+		descr string
+	}{
+		{field: "CookieDB", flag: "cookie-db", group: "Authentication & Logging", descr: "Path to Firefox cookies.sqlite file; omit to auto-discover Firefox profiles"},
+		{field: "Verbose", flag: "verbose", group: "Authentication & Logging", descr: "Enable verbose logging for auth and API requests"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			f, ok := typ.FieldByName(tt.field)
+			require.True(t, ok, "field %s should exist", tt.field)
+			assert.Equal(t, tt.flag, f.Tag.Get("flag"), "flag tag")
+			assert.Equal(t, tt.group, f.Tag.Get("flaggroup"), "flaggroup tag")
+			assert.Equal(t, tt.descr, f.Tag.Get("flagdescr"), "flagdescr tag")
+			assert.Equal(t, "true", f.Tag.Get("flagenv"), "flagenv tag")
+		})
+	}
 }
 
 func TestRootDebugOptions(t *testing.T) {

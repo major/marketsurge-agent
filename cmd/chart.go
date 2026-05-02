@@ -36,8 +36,8 @@ downstream renderer understands the format.`,
 
 // ChartMarkupsOptions holds flags for the chart markups command.
 type ChartMarkupsOptions struct {
-	Frequency models.Frequency     `flag:"frequency" flagdescr:"Chart frequency: DAILY or WEEKLY" default:"DAILY"`
-	SortDir   models.SortDirection `flag:"sort-dir" flagdescr:"Sort direction: ASC or DESC" default:"ASC"`
+	Frequency models.Frequency     `flag:"frequency" flaggroup:"Options" flagdescr:"Chart candle frequency for markup lookup (DAILY or WEEKLY)" default:"DAILY"`
+	SortDir   models.SortDirection `flag:"sort-dir" flaggroup:"Options" flagdescr:"Sort direction for markup annotations (ASC or DESC)" default:"ASC"`
 }
 
 func newChartMarkupsCmd() *cobra.Command {
@@ -83,11 +83,11 @@ const defaultExchangeName = "NYSE"
 // Lookback stays string (not models.Lookback) because it is optional with no default;
 // structcli's enum decoder rejects empty string for registered enums.
 type ChartHistoryOptions struct {
-	StartDate string        `flag:"start-date" flagdescr:"Start date (YYYY-MM-DD), mutually exclusive with --lookback"`
-	EndDate   string        `flag:"end-date" flagdescr:"End date (YYYY-MM-DD), mutually exclusive with --lookback"`
-	Lookback  string        `flag:"lookback" flagdescr:"Lookback period: 1W, 1M, 3M, 6M, 1Y, YTD"`
-	Period    models.Period `flag:"period" flagdescr:"Data period: daily or weekly" default:"daily"`
-	Benchmark string        `flag:"benchmark" flagdescr:"Benchmark symbol for relative strength"`
+	StartDate string        `flag:"start-date" flaggroup:"Date Range" flagdescr:"Start date in YYYY-MM-DD format; requires --end-date and is mutually exclusive with --lookback"`
+	EndDate   string        `flag:"end-date" flaggroup:"Date Range" flagdescr:"End date in YYYY-MM-DD format; requires --start-date and is mutually exclusive with --lookback"`
+	Lookback  string        `flag:"lookback" flaggroup:"Date Range" flagdescr:"Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date"`
+	Period    models.Period `flag:"period" flaggroup:"Options" flagdescr:"Data period granularity (daily or weekly)" default:"daily"`
+	Benchmark string        `flag:"benchmark" flaggroup:"Options" flagdescr:"Benchmark symbol for relative strength comparison"`
 }
 
 // Validate checks mutual exclusion and required-field constraints for chart history flags.

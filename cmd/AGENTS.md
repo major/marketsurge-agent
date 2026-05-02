@@ -6,7 +6,6 @@ Cobra command tree for marketsurge-agent.
 
 - `root.go` - Root command, PersistentPreRunE (auth), PersistentPostRunE (cleanup), Execute()
 - `symbol.go` - Shared symbol-fetcher pattern (newSymbolCmd)
-- `docs.go` - Doc generation command
 - `stock.go` - stock get + stock analyze
 - `fundamental.go` - fundamental get
 - `ownership.go` - ownership get
@@ -58,28 +57,23 @@ func TestFundamentalGet(t *testing.T) {
 }
 ```
 
-### Option struct pattern (structcli bridge)
+### Option struct pattern (structcli)
 
-Commands use option structs to encapsulate flags and validation logic. This pattern bridges the gap between Cobra's flag system and the upcoming structcli migration.
+Commands use option structs with structcli struct tags to encapsulate flags and validation logic.
 
 **Canonical 4-step pattern:**
 
 1. Constructor creates `opts := &XxxOptions{}` before the command
-2. `opts.BindFlags(cmd)` registers flags via `StringVar`, `IntVar`, etc. (called after command creation)
-3. RunE calls `opts.FromCommand(cmd)` if pointer fields exist, then `opts.Validate()` if validation exists
-4. RunE accesses `opts.Field` instead of `cmd.Flags().GetXxx()`
+2. `structcli.Bind(cmd, opts)` registers flags from struct tags (called after command creation)
+3. RunE calls `opts.FromCommand(cmd)` if pointer fields exist, then `opts.Validate(ctx)` if validation exists
+4. RunE accesses `opts.Field` directly (structcli populates fields before RunE runs)
 
 **Simplest example (ChartMarkupsOptions):**
 
 ```go
 type ChartMarkupsOptions struct {
-    Frequency string
-    SortDir   string
-}
-
-func (o *ChartMarkupsOptions) BindFlags(cmd *cobra.Command) {
-    cmd.Flags().StringVar(&o.Frequency, "frequency", "DAILY", "Chart frequency: DAILY or WEEKLY")
-    cmd.Flags().StringVar(&o.SortDir, "sort-dir", "ASC", "Sort direction: ASC or DESC")
+    Frequency models.Frequency    `flag:"frequency" default:"DAILY" flagdescr:"Chart frequency"`
+    SortDir   models.SortDirection `flag:"sort-dir" default:"ASC" flagdescr:"Sort direction"`
 }
 
 func newChartMarkupsCmd() *cobra.Command {
@@ -90,29 +84,29 @@ func newChartMarkupsCmd() *cobra.Command {
         RunE: func(cmd *cobra.Command, args []string) error {
             symbol := args[0]
             c := ClientFromContext(cmd.Context())
-            data, err := c.GetChartMarkups(cmd.Context(), symbol, opts.Frequency, opts.SortDir)
+            data, err := c.GetChartMarkups(cmd.Context(), symbol, string(opts.Frequency), string(opts.SortDir))
             if err != nil {
                 return err
             }
             return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
         },
     }
-    opts.BindFlags(cmd)
+    structcli.Bind(cmd, opts)
     return cmd
 }
 ```
 
 **Methods by command:**
 
-- `BindFlags()` only: ChartMarkupsOptions, StockAnalyzeOptions, CatalogListOptions, RootOptions
-- `BindFlags()` + `Validate()`: ChartHistoryOptions
-- `BindFlags()` + `Validate()` + transformation method: ChartHistoryOptions (also has `ResolveDates()`)
-- `BindFlags()` + `FromCommand()` + `Validate()` + helper method: CatalogRunOptions (also has `Filters()`)
-- `BindFlags()` + transformation method: StockAnalyzeOptions (also has `MergeSymbols()`)
+- `structcli.Bind()` only: ChartMarkupsOptions, StockAnalyzeOptions, CatalogListOptions, RootOptions
+- `structcli.Bind()` + `Validate(ctx) []error`: ChartHistoryOptions
+- `structcli.Bind()` + `Validate(ctx) []error` + transformation method: ChartHistoryOptions (also has `ResolveDates()`)
+- `structcli.Bind()` + `FromCommand()` + `Validate(ctx) []error` + helper method: CatalogRunOptions (also has `Filters()`)
+- `structcli.Bind()` + transformation method: StockAnalyzeOptions (also has `MergeSymbols()`)
 
 **Pointer fields and FromCommand():**
 
-Only CatalogRunOptions uses pointer fields (`MinComposite *int`, `MinRS *int`) to distinguish "not set" from "set to zero". These require `FromCommand(cmd)` to detect `Changed()` and populate the pointers:
+Only CatalogRunOptions uses pointer fields (`MinComposite *int`, `MinRS *int`) to distinguish "not set" from "set to zero". structcli cannot handle `*int` natively, so these flags are registered manually after `structcli.Bind()` and `FromCommand(cmd)` detects `Changed()` to populate the pointers:
 
 ```go
 func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
@@ -125,15 +119,16 @@ func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
 
 This is the only place where `cmd.Flags().GetXxx()` is acceptable in RunE.
 
-**Structcli migration path:**
+**Optional enum fields:**
 
-When migrating to structcli, struct fields become `flag:"name"` tagged, `BindFlags()` is replaced by `structcli.Bind()`, and `Validate()` signature changes to `Validate(ctx context.Context) []error`. The RunE logic remains the same: call `FromCommand()` if needed, then `Validate()`, then use `opts.Field` directly.
+Fields with no `default:` struct tag must stay `string` type. structcli rejects an empty string for a registered enum during unmarshal, before `Validate()` can return a typed `ValidationError`. Only use typed enum fields when a non-empty default is always present (e.g., `Frequency`, `SortDir`, `Period`). Fields like `Lookback` stay `string` with manual validation.
 
 ## Adding a new command
 
 1. Create `cmd/<group>.go` with constructor function and init()
-2. Add client method in `internal/client/<group>.go`
-3. Add GraphQL query in `queries/<operation>.graphql`
-4. Add model structs in `internal/models/` if needed
-5. Add tests in `cmd/<group>_test.go`
-6. Update skill files in `skills/marketsurge-agent/`
+2. Define an options struct with `flag:`, `flagdescr:`, and `default:` struct tags
+3. Call `structcli.Bind(cmd, opts)` in the constructor (replaces manual flag registration)
+4. Add client method in `internal/client/<group>.go`
+5. Add GraphQL query in `queries/<operation>.graphql`
+6. Add model structs in `internal/models/` if needed
+7. Add tests in `cmd/<group>_test.go`

@@ -58,6 +58,77 @@ func TestFundamentalGet(t *testing.T) {
 }
 ```
 
+### Option struct pattern (structcli bridge)
+
+Commands use option structs to encapsulate flags and validation logic. This pattern bridges the gap between Cobra's flag system and the upcoming structcli migration.
+
+**Canonical 4-step pattern:**
+
+1. Constructor creates `opts := &XxxOptions{}` before the command
+2. `opts.BindFlags(cmd)` registers flags via `StringVar`, `IntVar`, etc. (called after command creation)
+3. RunE calls `opts.FromCommand(cmd)` if pointer fields exist, then `opts.Validate()` if validation exists
+4. RunE accesses `opts.Field` instead of `cmd.Flags().GetXxx()`
+
+**Simplest example (ChartMarkupsOptions):**
+
+```go
+type ChartMarkupsOptions struct {
+    Frequency string
+    SortDir   string
+}
+
+func (o *ChartMarkupsOptions) BindFlags(cmd *cobra.Command) {
+    cmd.Flags().StringVar(&o.Frequency, "frequency", "DAILY", "Chart frequency: DAILY or WEEKLY")
+    cmd.Flags().StringVar(&o.SortDir, "sort-dir", "ASC", "Sort direction: ASC or DESC")
+}
+
+func newChartMarkupsCmd() *cobra.Command {
+    opts := &ChartMarkupsOptions{}
+    cmd := &cobra.Command{
+        Use:   "markups <symbol>",
+        Short: "Get chart markup data for a symbol",
+        RunE: func(cmd *cobra.Command, args []string) error {
+            symbol := args[0]
+            c := ClientFromContext(cmd.Context())
+            data, err := c.GetChartMarkups(cmd.Context(), symbol, opts.Frequency, opts.SortDir)
+            if err != nil {
+                return err
+            }
+            return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
+        },
+    }
+    opts.BindFlags(cmd)
+    return cmd
+}
+```
+
+**Methods by command:**
+
+- `BindFlags()` only: ChartMarkupsOptions, StockAnalyzeOptions, CatalogListOptions, RootOptions
+- `BindFlags()` + `Validate()`: ChartHistoryOptions
+- `BindFlags()` + `Validate()` + transformation method: ChartHistoryOptions (also has `ResolveDates()`)
+- `BindFlags()` + `FromCommand()` + `Validate()` + helper method: CatalogRunOptions (also has `Filters()`)
+- `BindFlags()` + transformation method: StockAnalyzeOptions (also has `MergeSymbols()`)
+
+**Pointer fields and FromCommand():**
+
+Only CatalogRunOptions uses pointer fields (`MinComposite *int`, `MinRS *int`) to distinguish "not set" from "set to zero". These require `FromCommand(cmd)` to detect `Changed()` and populate the pointers:
+
+```go
+func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
+    if cmd.Flags().Changed("min-composite") {
+        v, _ := cmd.Flags().GetInt("min-composite")
+        o.MinComposite = &v
+    }
+}
+```
+
+This is the only place where `cmd.Flags().GetXxx()` is acceptable in RunE.
+
+**Structcli migration path:**
+
+When migrating to structcli, struct fields become `flag:"name"` tagged, `BindFlags()` is replaced by `structcli.Bind()`, and `Validate()` signature changes to `Validate(ctx context.Context) []error`. The RunE logic remains the same: call `FromCommand()` if needed, then `Validate()`, then use `opts.Field` directly.
+
 ## Adding a new command
 
 1. Create `cmd/<group>.go` with constructor function and init()

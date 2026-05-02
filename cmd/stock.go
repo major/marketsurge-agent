@@ -101,7 +101,7 @@ interesting symbols without --summary for detail.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbols := opts.MergeSymbols(args)
 			if len(symbols) == 0 {
-				return mserrors.NewValidationError("at least one symbol required", nil)
+				return mserrors.NewValidationError("missing symbols: pass positional symbols like stock analyze AAPL MSFT or use --tickers AAPL,MSFT", nil)
 			}
 
 			ctx := cmd.Context()

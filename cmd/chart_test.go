@@ -134,7 +134,7 @@ func TestChartHistoryMutualExclusion(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "cannot use both")
+	assert.Contains(t, err.Error(), "conflicting date flags: use either --lookback 3M or --start-date 2024-01-01 --end-date 2024-04-21, not both")
 }
 
 func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
@@ -148,7 +148,7 @@ func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "either")
+	assert.Contains(t, err.Error(), "missing date range: provide either --lookback 3M or both --start-date 2024-01-01 --end-date 2024-04-21")
 }
 
 func TestChartHistoryPartialExplicitDates(t *testing.T) {
@@ -163,7 +163,22 @@ func TestChartHistoryPartialExplicitDates(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "both --start-date and --end-date")
+	assert.Contains(t, err.Error(), "missing --end-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21")
+}
+
+func TestChartHistoryEndDateWithoutStartDate(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(`{}`)
+	defer server.Close()
+	c := testClient(t, server)
+
+	_, err := executeChartCmd(t, c,
+		"history", "--end-date", "2024-06-30", "AAPL")
+	require.Error(t, err)
+
+	var verr *mserrors.ValidationError
+	assert.ErrorAs(t, err, &verr)
+	assert.Contains(t, err.Error(), "missing --start-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21")
 }
 
 func TestChartHistoryInvalidLookback(t *testing.T) {
@@ -178,7 +193,7 @@ func TestChartHistoryInvalidLookback(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "invalid lookback")
+	assert.Contains(t, err.Error(), "invalid --lookback value \"2W\": use one of 1W, 1M, 3M, 6M, 1Y, YTD")
 }
 
 func TestResolveLookback(t *testing.T) {
@@ -229,17 +244,22 @@ func TestChartHistoryOptionsValidate(t *testing.T) {
 		{
 			name:    "both explicit dates and lookback",
 			opts:    ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30", Lookback: "3M"},
-			wantErr: "cannot use both",
+			wantErr: "conflicting date flags: use either --lookback 3M or --start-date 2024-01-01 --end-date 2024-04-21, not both",
 		},
 		{
 			name:    "neither dates nor lookback",
 			opts:    ChartHistoryOptions{},
-			wantErr: "either",
+			wantErr: "missing date range: provide either --lookback 3M or both --start-date 2024-01-01 --end-date 2024-04-21",
 		},
 		{
 			name:    "only start-date without end-date",
 			opts:    ChartHistoryOptions{StartDate: "2024-01-01"},
-			wantErr: "both --start-date and --end-date",
+			wantErr: "missing --end-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21",
+		},
+		{
+			name:    "only end-date without start-date",
+			opts:    ChartHistoryOptions{EndDate: "2024-04-21"},
+			wantErr: "missing --start-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21",
 		},
 		{
 			name: "valid explicit dates",
@@ -252,7 +272,7 @@ func TestChartHistoryOptionsValidate(t *testing.T) {
 		{
 			name:    "invalid lookback value",
 			opts:    ChartHistoryOptions{Lookback: "2W"},
-			wantErr: "invalid lookback",
+			wantErr: "invalid --lookback value \"2W\": use one of 1W, 1M, 3M, 6M, 1Y, YTD",
 		},
 	}
 
@@ -264,7 +284,7 @@ func TestChartHistoryOptionsValidate(t *testing.T) {
 				require.Len(t, errs, 1)
 				var verr *mserrors.ValidationError
 				assert.ErrorAs(t, errs[0], &verr)
-				assert.Contains(t, errs[0].Error(), tt.wantErr)
+				assert.Equal(t, tt.wantErr, errs[0].Error())
 			} else {
 				assert.Empty(t, errs)
 			}

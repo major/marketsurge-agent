@@ -81,7 +81,12 @@ var validLookbacks = map[string]bool{
 }
 
 // defaultExchangeName is used for daily chart queries.
-const defaultExchangeName = "NYSE"
+const (
+	defaultExchangeName       = "NYSE"
+	chartLookbackExample      = "--lookback 3M"
+	chartExplicitRangeExample = "--start-date 2024-01-01 --end-date 2024-04-21"
+	validLookbackValues       = "1W, 1M, 3M, 6M, 1Y, YTD"
+)
 
 // ChartHistoryOptions holds flags for the chart history command.
 // Lookback stays string (not models.Lookback) because it is optional with no default;
@@ -102,20 +107,25 @@ func (o *ChartHistoryOptions) Validate(_ context.Context) []error {
 
 	if hasExplicit && hasLookback {
 		return []error{mserrors.NewValidationError(
-			"cannot use both --start-date/--end-date and --lookback", nil,
+			"conflicting date flags: use either "+chartLookbackExample+" or "+chartExplicitRangeExample+", not both", nil,
 		)}
 	}
 
 	if !hasExplicit && !hasLookback {
 		return []error{mserrors.NewValidationError(
-			"either --start-date and --end-date or --lookback is required", nil,
+			"missing date range: provide either "+chartLookbackExample+" or both "+chartExplicitRangeExample, nil,
 		)}
 	}
 
 	if hasExplicit {
-		if o.StartDate == "" || o.EndDate == "" {
+		if o.StartDate == "" {
 			return []error{mserrors.NewValidationError(
-				"both --start-date and --end-date are required when using explicit dates", nil,
+				"missing --start-date: explicit date ranges require both "+chartExplicitRangeExample, nil,
+			)}
+		}
+		if o.EndDate == "" {
+			return []error{mserrors.NewValidationError(
+				"missing --end-date: explicit date ranges require both "+chartExplicitRangeExample, nil,
 			)}
 		}
 		return nil
@@ -123,7 +133,7 @@ func (o *ChartHistoryOptions) Validate(_ context.Context) []error {
 
 	if !validLookbacks[o.Lookback] {
 		return []error{mserrors.NewValidationError(
-			"invalid lookback value: must be one of 1W, 1M, 3M, 6M, 1Y, YTD", nil,
+			"invalid --lookback value \""+o.Lookback+"\": use one of "+validLookbackValues, nil,
 		)}
 	}
 

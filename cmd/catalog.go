@@ -4,6 +4,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -21,6 +22,7 @@ import (
 const (
 	defaultCatalogRunLimit       = 50
 	structcliFlagGroupAnnotation = "leodido/structcli/flag-groups"
+	validCatalogKindList         = "watchlist, screen, report, coach_screen"
 )
 
 var watchlistFieldAliases = map[string]string{
@@ -144,32 +146,34 @@ func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
 // Validate checks that the catalog run options are consistent and complete.
 func (o *CatalogRunOptions) Validate(_ context.Context) []error {
 	if o.Kind == "" {
-		return []error{mserrors.NewValidationError("kind is required", nil)}
+		return []error{mserrors.NewValidationError("missing --kind: use --kind watchlist --watchlist-id 12345, --kind report --report-id 67890, or --kind coach_screen --coach-screen-id ID", nil)}
 	}
 
 	kind, err := parseCatalogKind(string(o.Kind))
 	if err != nil {
-		return []error{err}
+		return []error{mserrors.NewValidationError(
+			fmt.Sprintf("invalid --kind %q for catalog run: use one of watchlist, report, coach_screen; screen is list-only", o.Kind), nil,
+		)}
 	}
 	if kind == nil {
-		return []error{mserrors.NewValidationError("kind is required", nil)}
+		return []error{mserrors.NewValidationError("missing --kind: use --kind watchlist --watchlist-id 12345, --kind report --report-id 67890, or --kind coach_screen --coach-screen-id ID", nil)}
 	}
 	if *kind == models.CatalogKindScreen {
-		return []error{mserrors.NewValidationError("screens cannot be run directly, use catalog list to view them", nil)}
+		return []error{mserrors.NewValidationError("invalid --kind screen for catalog run: screens are list-only; use catalog list --kind screen", nil)}
 	}
 
 	switch *kind {
 	case models.CatalogKindReport:
 		if o.ReportID == 0 {
-			return []error{mserrors.NewValidationError("report-id is required when kind=report", nil)}
+			return []error{mserrors.NewValidationError("missing --report-id: --kind report requires --report-id 67890", nil)}
 		}
 	case models.CatalogKindWatchlist:
 		if o.WatchlistID == 0 {
-			return []error{mserrors.NewValidationError("watchlist-id is required when kind=watchlist", nil)}
+			return []error{mserrors.NewValidationError("missing --watchlist-id: --kind watchlist requires --watchlist-id 12345", nil)}
 		}
 	case models.CatalogKindCoachScreen:
 		if o.CoachScreenID == "" {
-			return []error{mserrors.NewValidationError("coach-screen-id is required when kind=coach_screen", nil)}
+			return []error{mserrors.NewValidationError("missing --coach-screen-id: --kind coach_screen requires --coach-screen-id ID", nil)}
 		}
 	}
 
@@ -288,7 +292,7 @@ func runCatalogEntries(ctx context.Context, c *client.Client, opts *CatalogRunOp
 		rows := paginateSlice(result.Rows, opts.Limit, opts.Offset)
 		return rows, len(result.Rows), nil
 	default:
-		return nil, 0, mserrors.NewValidationError("kind must be one of: watchlist, screen, report, coach_screen", nil)
+		return nil, 0, mserrors.NewValidationError("invalid --kind: use one of watchlist, report, coach_screen for catalog run; screen is list-only", nil)
 	}
 }
 
@@ -470,7 +474,7 @@ func parseCatalogKind(value string) (*models.CatalogKind, error) {
 
 	kind, ok := validCatalogKinds[value]
 	if !ok {
-		return nil, mserrors.NewValidationError("kind must be one of: watchlist, screen, report, coach_screen", nil)
+		return nil, mserrors.NewValidationError(fmt.Sprintf("invalid --kind %q: use one of %s", value, validCatalogKindList), nil)
 	}
 
 	return &kind, nil

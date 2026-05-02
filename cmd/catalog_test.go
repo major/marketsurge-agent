@@ -139,7 +139,7 @@ func TestCatalogListInvalidKind(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "kind must be one of")
+	assert.Equal(t, "invalid --kind \"invalid\": use one of watchlist, screen, report, coach_screen", err.Error())
 }
 
 func TestCatalogRunReportDispatch(t *testing.T) {
@@ -211,7 +211,7 @@ func TestCatalogRunMissingKind(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "kind is required")
+	assert.Contains(t, err.Error(), "missing --kind: use --kind watchlist --watchlist-id 12345, --kind report --report-id 67890, or --kind coach_screen --coach-screen-id ID")
 }
 
 func TestCatalogRunScreenKindValidation(t *testing.T) {
@@ -224,7 +224,7 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "screens cannot be run directly")
+	assert.Contains(t, err.Error(), "invalid --kind screen for catalog run: screens are list-only; use catalog list --kind screen")
 }
 
 func TestCatalogRunMissingIDForKind(t *testing.T) {
@@ -237,9 +237,9 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 		args    []string
 		message string
 	}{
-		{name: "report", args: []string{"run", "--kind", "report"}, message: "report-id is required when kind=report"},
-		{name: "watchlist", args: []string{"run", "--kind", "watchlist"}, message: "watchlist-id is required when kind=watchlist"},
-		{name: "coach_screen", args: []string{"run", "--kind", "coach_screen"}, message: "coach-screen-id is required when kind=coach_screen"},
+		{name: "report", args: []string{"run", "--kind", "report"}, message: "missing --report-id: --kind report requires --report-id 67890"},
+		{name: "watchlist", args: []string{"run", "--kind", "watchlist"}, message: "missing --watchlist-id: --kind watchlist requires --watchlist-id 12345"},
+		{name: "coach_screen", args: []string{"run", "--kind", "coach_screen"}, message: "missing --coach-screen-id: --kind coach_screen requires --coach-screen-id ID"},
 	}
 
 	for _, tt := range tests {
@@ -651,22 +651,22 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 		{
 			name:    "missing kind",
 			opts:    CatalogRunOptions{},
-			wantErr: "kind is required",
+			wantErr: "missing --kind: use --kind watchlist --watchlist-id 12345, --kind report --report-id 67890, or --kind coach_screen --coach-screen-id ID",
 		},
 		{
 			name:    "invalid kind",
 			opts:    CatalogRunOptions{Kind: "bogus"},
-			wantErr: "kind must be one of",
+			wantErr: "invalid --kind \"bogus\" for catalog run: use one of watchlist, report, coach_screen; screen is list-only",
 		},
 		{
 			name:    "screen kind rejected",
 			opts:    CatalogRunOptions{Kind: "screen"},
-			wantErr: "screens cannot be run directly",
+			wantErr: "invalid --kind screen for catalog run: screens are list-only; use catalog list --kind screen",
 		},
 		{
 			name:    "report without report-id",
 			opts:    CatalogRunOptions{Kind: "report"},
-			wantErr: "report-id is required when kind=report",
+			wantErr: "missing --report-id: --kind report requires --report-id 67890",
 		},
 		{
 			name: "report with report-id",
@@ -675,7 +675,7 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 		{
 			name:    "watchlist without watchlist-id",
 			opts:    CatalogRunOptions{Kind: "watchlist"},
-			wantErr: "watchlist-id is required when kind=watchlist",
+			wantErr: "missing --watchlist-id: --kind watchlist requires --watchlist-id 12345",
 		},
 		{
 			name: "watchlist with watchlist-id",
@@ -684,7 +684,7 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 		{
 			name:    "coach_screen without coach-screen-id",
 			opts:    CatalogRunOptions{Kind: "coach_screen"},
-			wantErr: "coach-screen-id is required when kind=coach_screen",
+			wantErr: "missing --coach-screen-id: --kind coach_screen requires --coach-screen-id ID",
 		},
 		{
 			name: "coach_screen with coach-screen-id",
@@ -704,7 +704,7 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 				require.Error(t, err)
 				var verr *mserrors.ValidationError
 				assert.ErrorAs(t, err, &verr)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Equal(t, tt.wantErr, err.Error())
 			}
 		})
 	}

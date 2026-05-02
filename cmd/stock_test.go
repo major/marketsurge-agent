@@ -435,6 +435,7 @@ func TestStockAnalyzeMissingSymbol(t *testing.T) {
 	require.Error(t, err)
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
+	assert.Equal(t, "missing symbols: pass positional symbols like stock analyze AAPL MSFT or use --tickers AAPL,MSFT", err.Error())
 	assert.Empty(t, output)
 }
 

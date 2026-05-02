@@ -3,7 +3,16 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/major/marketsurge-agent/internal/client"
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"github.com/major/marketsurge-agent/internal/models"
+	"github.com/major/marketsurge-agent/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -11,11 +20,349 @@ func init() { rootCmd.AddCommand(newStockCmd()) }
 
 func newStockCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stock",
-		Short: "Get stock data",
+		Use:           "stock",
+		Short:         "Get stock data",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	cmd.AddCommand(newSymbolCmd("get", "Get stock data for a symbol", func(ctx context.Context, symbol string) (any, error) {
 		return ClientFromContext(ctx).GetStock(ctx, symbol)
 	}))
+	cmd.AddCommand(newStockAnalyzeCmd())
 	return cmd
+}
+
+// AnalysisResult holds the combined stock, fundamental, and ownership data for a single symbol.
+type AnalysisResult struct {
+	Symbol      string                  `json:"symbol"`
+	Stock       *models.StockData       `json:"stock,omitempty"`
+	Fundamental *models.FundamentalData `json:"fundamentals,omitempty"`
+	Ownership   *models.OwnershipData   `json:"ownership,omitempty"`
+	Errors      []string                `json:"errors,omitempty"`
+}
+
+func newStockAnalyzeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "analyze [symbol...]",
+		Short: "Analyze one or more stock symbols",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			symbols := analyzeSymbols(cmd, args)
+			if len(symbols) == 0 {
+				return mserrors.NewValidationError("at least one symbol required", nil)
+			}
+
+			ctx := cmd.Context()
+			c := ClientFromContext(ctx)
+			results := make([]AnalysisResult, len(symbols))
+			allErrors := make([]string, 0)
+			var mu sync.Mutex
+
+			var wg sync.WaitGroup
+			for i, symbol := range symbols {
+				wg.Go(func() {
+					result := analyzeSymbol(ctx, c, symbol)
+					results[i] = result
+					if len(result.Errors) > 0 {
+						mu.Lock()
+						allErrors = append(allErrors, result.Errors...)
+						mu.Unlock()
+					}
+				})
+			}
+			wg.Wait()
+
+			if !analysisHasData(results) {
+				return fmt.Errorf("analysis failed for all symbols: %v", allErrors)
+			}
+
+			compact, err := cmd.Flags().GetBool("compact")
+			if err != nil {
+				return fmt.Errorf("read compact flag: %w", err)
+			}
+			flat, err := cmd.Flags().GetBool("flat")
+			if err != nil {
+				return fmt.Errorf("read flat flag: %w", err)
+			}
+			summary, err := cmd.Flags().GetBool("summary")
+			if err != nil {
+				return fmt.Errorf("read summary flag: %w", err)
+			}
+
+			data, err := transformAnalysisOutput(results, compact, flat, summary)
+			if err != nil {
+				return fmt.Errorf("transform analysis output: %w", err)
+			}
+
+			metadata := analyzeMetadata(symbols)
+			if summary {
+				metadata["mode"] = "summary"
+			}
+			if len(allErrors) > 0 {
+				return output.WritePartial(cmd.OutOrStdout(), data, allErrors, metadata)
+			}
+			return output.WriteSuccess(cmd.OutOrStdout(), data, metadata)
+		},
+	}
+	cmd.Flags().StringSlice("tickers", []string{}, "Additional ticker symbols to analyze")
+	cmd.Flags().Bool("compact", false, "Remove formatted string fields from analysis data")
+	cmd.Flags().Bool("flat", false, "Flatten each analysis result for token-efficient agent parsing")
+	cmd.Flags().Bool("summary", false, "Return compact screening fields for ranking multi-symbol candidates")
+	return cmd
+}
+
+func analyzeSymbols(cmd *cobra.Command, args []string) []string {
+	tickers, err := cmd.Flags().GetStringSlice("tickers")
+	if err != nil {
+		tickers = nil
+	}
+
+	symbols := make([]string, 0, len(args)+len(tickers))
+	seen := make(map[string]struct{}, len(args)+len(tickers))
+	addSymbol := func(symbol string) {
+		trimmed := strings.TrimSpace(symbol)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		symbols = append(symbols, trimmed)
+	}
+
+	for _, symbol := range args {
+		addSymbol(symbol)
+	}
+	for _, symbol := range tickers {
+		addSymbol(symbol)
+	}
+	return symbols
+}
+
+func analyzeSymbol(ctx context.Context, c *client.Client, symbol string) AnalysisResult {
+	result := AnalysisResult{Symbol: symbol}
+	var mu sync.Mutex
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		stock, err := c.GetStock(ctx, symbol)
+		mu.Lock()
+		defer mu.Unlock()
+		result.Stock = stock
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: stock: %s", symbol, err))
+		}
+	})
+	wg.Go(func() {
+		fundamental, err := c.GetFundamentals(ctx, symbol)
+		mu.Lock()
+		defer mu.Unlock()
+		result.Fundamental = fundamental
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: fundamentals: %s", symbol, err))
+		}
+	})
+	wg.Go(func() {
+		ownership, err := c.GetOwnership(ctx, symbol)
+		mu.Lock()
+		defer mu.Unlock()
+		result.Ownership = ownership
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: ownership: %s", symbol, err))
+		}
+	})
+	wg.Wait()
+	return result
+}
+
+func analysisHasData(results []AnalysisResult) bool {
+	for _, result := range results {
+		if result.Stock != nil || result.Fundamental != nil || result.Ownership != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func analyzeMetadata(symbols []string) map[string]any {
+	if len(symbols) == 1 {
+		return output.SymbolMeta(symbols[0])
+	}
+	return map[string]any{
+		"symbols":   symbols,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+func transformAnalysisOutput(results []AnalysisResult, compact, flat, summary bool) (any, error) {
+	transformed := make([]any, 0, len(results))
+	for _, result := range results {
+		if summary {
+			transformed = append(transformed, analysisSummaryMap(result))
+			continue
+		}
+
+		data, err := analysisResultMap(result)
+		if err != nil {
+			return nil, err
+		}
+		if compact {
+			data = removeFormattedFields(data).(map[string]any)
+		}
+		if flat {
+			data = flattenAnalysisMap(data)
+		}
+		transformed = append(transformed, data)
+	}
+
+	if len(transformed) == 1 {
+		return transformed[0], nil
+	}
+	return transformed, nil
+}
+
+func analysisSummaryMap(result AnalysisResult) map[string]any {
+	data := map[string]any{"symbol": result.Symbol}
+	if result.Stock == nil {
+		return data
+	}
+
+	addRatingSummary(data, result.Stock.Ratings)
+	addSignalSummary(data, result.Stock.Signals)
+	addBaseSummary(data, result.Stock.BasePattern)
+	addScreeningMetrics(data, result.Stock)
+	return data
+}
+
+func addRatingSummary(data map[string]any, ratings *models.Ratings) {
+	if ratings == nil {
+		return
+	}
+	addPtrValue(data, "composite", ratings.Composite)
+	addPtrValue(data, "eps", ratings.EPS)
+	addPtrValue(data, "rs", ratings.RS)
+	addPtrValue(data, "ad", ratings.AD)
+	addPtrValue(data, "smr", ratings.SMR)
+}
+
+func addSignalSummary(data map[string]any, signals *models.Signals) {
+	if signals == nil {
+		return
+	}
+	addPtrValue(data, "blue_dot", signals.BlueDot)
+	addPtrValue(data, "ant_signal", signals.AntSignal)
+}
+
+func addBaseSummary(data map[string]any, base *models.BasePattern) {
+	if base == nil {
+		return
+	}
+	addPtrValue(data, "base_type", base.PatternType)
+	addPtrValue(data, "base_stage", base.BaseStage)
+	addPtrValue(data, "pivot", base.PivotPrice)
+	addPtrValue(data, "base_depth_percent", base.BaseDepthPercent)
+}
+
+func addScreeningMetrics(data map[string]any, stock *models.StockData) {
+	if stock.Company != nil {
+		addPtrValue(data, "industry_group_rs", stock.Company.IndustryGroupRS)
+	}
+	if stock.Pricing != nil {
+		addPtrValue(data, "up_down_volume", stock.Pricing.UpDownVolumeRatio)
+		addPtrValue(data, "atr_percent", stock.Pricing.ATRPercent21D)
+		addPtrValue(data, "avg_dollar_volume", stock.Pricing.AvgDollarVolume50D)
+	}
+	if stock.Ownership != nil {
+		addPtrValue(data, "funds_float_percent", stock.Ownership.FundsFloatPct)
+	}
+}
+
+func addPtrValue[T any](data map[string]any, key string, value *T) {
+	if value != nil {
+		data[key] = *value
+	}
+}
+
+func analysisResultMap(result AnalysisResult) (map[string]any, error) {
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("marshal analysis result: %w", err)
+	}
+
+	var resultMap map[string]any
+	if err := json.Unmarshal(data, &resultMap); err != nil {
+		return nil, fmt.Errorf("unmarshal analysis result: %w", err)
+	}
+	return resultMap, nil
+}
+
+func removeFormattedFields(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		cleaned := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			if isFormattedField(key) {
+				continue
+			}
+			cleaned[key] = removeFormattedFields(nested)
+		}
+		return cleaned
+	case []any:
+		cleaned := make([]any, 0, len(typed))
+		for _, nested := range typed {
+			cleaned = append(cleaned, removeFormattedFields(nested))
+		}
+		return cleaned
+	default:
+		return value
+	}
+}
+
+func isFormattedField(key string) bool {
+	return strings.HasSuffix(key, "_formatted") || strings.HasPrefix(key, "formatted_")
+}
+
+func flattenAnalysisMap(data map[string]any) map[string]any {
+	flat := map[string]any{}
+	if symbol, ok := data["symbol"]; ok {
+		flat["symbol"] = symbol
+	}
+
+	for key, value := range data {
+		switch key {
+		case "symbol":
+			continue
+		case "stock":
+			flattenValue(flat, "", value)
+		default:
+			flattenValue(flat, key, value)
+		}
+	}
+	return flat
+}
+
+func flattenValue(flat map[string]any, prefix string, value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			flattenValue(flat, joinFlatKey(prefix, key), nested)
+		}
+	case []any:
+		if len(typed) > 0 {
+			flat[prefix] = typed
+		}
+	case nil:
+		return
+	default:
+		if prefix != "" {
+			flat[prefix] = typed
+		}
+	}
+}
+
+func joinFlatKey(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "_" + key
 }

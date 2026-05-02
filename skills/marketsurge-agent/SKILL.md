@@ -32,14 +32,14 @@ This is the entry point. Command details are split by domain:
 MarketSurge requires a valid JWT. The CLI resolves credentials in this order (first non-empty wins):
 
 1. `--jwt` flag
-2. `MARKETSURGE_TOKEN` env var
+2. `MARKETSURGE_JWT` env var
 3. `--cookie-db` path to a Firefox `cookies.sqlite` file
 4. Auto-discovery from local Firefox profiles
 
 For automation, set the env var:
 
 ```bash
-export MARKETSURGE_TOKEN="your-jwt-here"
+export MARKETSURGE_JWT="your-jwt-here"
 ```
 
 ## Output
@@ -90,3 +90,9 @@ Access results via `.data`. Check `.metadata` for context (symbol, mode, symbols
 - **Compact mode**: `stock analyze --compact` strips duplicate formatted string fields (e.g., `market_cap_formatted`) while keeping raw numeric values.
 - **Flat mode**: `stock analyze --flat` flattens nested objects into single-level keys (e.g., `stock.pricing.market_cap` becomes `pricing_market_cap`).
 - **Batch tickers**: `stock analyze --tickers AAPL,NVDA,TSLA` accepts comma-separated symbols. Positional symbols and `--tickers` can be combined.
+
+## Utility commands
+
+- `marketsurge-agent completion bash|zsh|fish|powershell` generates shell completion scripts for the specified shell.
+- `marketsurge-agent docs [--output ./docs]` generates markdown documentation for all commands.
+- `marketsurge-agent --version` prints the version string.

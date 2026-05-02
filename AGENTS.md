@@ -87,7 +87,12 @@ structcli.Bind(rootCmd, rootOpts)
 structcli.Setup(rootCmd,
     structcli.WithAppName("marketsurge-agent"),
     structcli.WithConfig(config.Options{ValidateKeys: true}),
-    structcli.WithJSONSchema(),
+    structcli.WithJSONSchema(jsonschema.Options{
+        SchemaOpts: []jsonschema.Opt{
+            jsonschema.WithFullTree(),
+            jsonschema.WithEnumInDescription(),
+        },
+    }),
     structcli.WithFlagErrors(),
     structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
     structcli.WithDebug(debug.Options{Exit: true}),
@@ -102,7 +107,8 @@ structcli.Setup(rootCmd,
 Key behaviors:
 - `WithAppName("marketsurge-agent")` sets the structcli env prefix to `MARKETSURGE_AGENT` and propagates the app name to config/debug helpers
 - `WithConfig()` adds the persistent `--config` flag, auto-loads config before structcli unmarshals options, and honors `MARKETSURGE_AGENT_CONFIG`
-- `--jsonschema` prints a machine-readable JSON schema for all flags and exits without auth
+- `--jsonschema` prints the full command tree JSON schema and exits without auth
+- `--jsonschema=tree` remains supported and returns the same full-tree schema for scripts that already request it
 - `--mcp` runs a stdio Model Context Protocol server; `initialize` and `tools/list` discovery do not require auth, while `tools/call` for API commands uses the normal Firefox cookie auth chain; shell completion subcommands are excluded from the MCP tool list
 - `--debug-options` prints resolved flag values and exits (requires `Exit: true` in debug options)
 - `env-vars` and `config-keys` are built-in help topics (e.g., `marketsurge-agent help env-vars`)
@@ -133,15 +139,18 @@ Typed string enums are registered with structcli so flag validation and schema g
 
 ### Schema fidelity for LLM agents
 
-LLM agents should prefer the full command tree schema:
+LLM agents should use the full command tree schema:
 
 ```bash
 marketsurge-agent --jsonschema=tree
 ```
 
+Bare `--jsonschema` returns the same full-tree JSON array by default. The explicit `=tree` form is kept for compatibility with scripts and prompts that already request it.
+
 Schema tags should make command selection and flag filling obvious:
 - Use `flaggroup:` for logical groups such as `Date Range`, `Output Format`, `Pagination`, and `Filtering & Projection`
 - Use `flagdescr:` to document conditional requirements and examples, especially when a flag is only required for one mode
+- Registered enum values appear in both machine-readable `enum` arrays and the preserved `{value1,value2}` text in descriptions because the root setup enables `jsonschema.WithEnumInDescription()`
 - Keep conditional and domain-specific requirements in `Validate()` when they need the CLI's JSON error envelope and MarketSurge exit codes
 - Do not mark chart history date fields or catalog ID fields with `flagrequired`, because their requirements depend on other flags
 

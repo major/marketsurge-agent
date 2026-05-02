@@ -15,6 +15,7 @@ import (
 	"github.com/leodido/structcli/config"
 	"github.com/leodido/structcli/debug"
 	"github.com/leodido/structcli/helptopics"
+	"github.com/leodido/structcli/jsonschema"
 	structclimcp "github.com/leodido/structcli/mcp"
 	"github.com/spf13/cobra"
 
@@ -110,7 +111,12 @@ func init() {
 	if err := structcli.Setup(rootCmd,
 		structcli.WithAppName("marketsurge-agent"),
 		structcli.WithConfig(config.Options{ValidateKeys: true}),
-		structcli.WithJSONSchema(),
+		structcli.WithJSONSchema(jsonschema.Options{
+			SchemaOpts: []jsonschema.Opt{
+				jsonschema.WithFullTree(),
+				jsonschema.WithEnumInDescription(),
+			},
+		}),
 		structcli.WithFlagErrors(),
 		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
 		structcli.WithDebug(debug.Options{Exit: true}),

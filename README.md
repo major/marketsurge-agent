@@ -140,10 +140,10 @@ Errors follow the same pattern:
 # Generate shell completion (bash, zsh, fish, powershell)
 marketsurge-agent completion zsh > ~/.zsh/completions/_marketsurge-agent
 
-# Print machine-readable JSON schema for the current command
+# Print the full command tree JSON schema for LLM tool definitions
 marketsurge-agent --jsonschema
 
-# Print the full command tree schema for LLM tool definitions
+# Explicit full-tree mode, kept for scripts that already request it
 marketsurge-agent --jsonschema=tree
 
 # Run as an MCP server over stdio for agent tool discovery and calls
@@ -187,12 +187,14 @@ marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact --flat
 
 ### Schema discovery
 
-`--jsonschema` prints a machine-readable JSON schema for the current command and exits without making any API calls. For LLM tool definitions, prefer `--jsonschema=tree` so the agent sees every subcommand plus flag groups, enum values, defaults, environment bindings, and descriptions in one response:
+`--jsonschema` prints a machine-readable JSON schema for the full command tree and exits without making any API calls. Agents see every subcommand plus flag groups, enum values, defaults, environment bindings, and descriptions in one response. `--jsonschema=tree` remains supported and returns the same full-tree contract for scripts that already request it:
 
 ```bash
 marketsurge-agent --jsonschema
 marketsurge-agent --jsonschema=tree
 ```
+
+The schema is a JSON array. Each entry is one command schema with `title`, `description`, `properties`, `x-structcli-groups`, `x-structcli-env-prefix`, and `x-structcli-config-flag` metadata. Enum flags expose both machine-readable `enum` arrays and the original enum tokens in their descriptions, for example `{DAILY,WEEKLY}` or `{daily,weekly}`.
 
 Required and conditional inputs are documented in flag descriptions. Some rules are intentionally validated by the command instead of structcli tags so errors keep the normal JSON envelope and MarketSurge exit codes, for example `chart history` requires either `--lookback` or `--start-date/--end-date`, and `catalog run` requires the ID flag that matches `--kind`.
 

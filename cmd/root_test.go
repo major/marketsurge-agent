@@ -19,12 +19,81 @@ func TestRootJSONSchema(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 
-	schema := string(output)
-	assert.True(t, strings.Contains(schema, `"$schema"`) || strings.Contains(schema, `"properties"`))
-	assert.Contains(t, schema, `"x-structcli-env-prefix": "MARKETSURGE_AGENT"`)
-	assert.Contains(t, schema, `"MARKETSURGE_AGENT_COOKIE_DB"`)
-	assert.Contains(t, schema, `"MARKETSURGE_AGENT_VERBOSE"`)
-	assert.Contains(t, schema, `"x-structcli-config-flag": "config"`)
+	schemas := parseJSONSchemas(t, output)
+	require.Greater(t, len(schemas), 1, "bare --jsonschema should return the full command tree")
+
+	rootSchema := schemaByTitle(t, schemas, "marketsurge-agent")
+	assert.Contains(t, rootSchema, `"x-structcli-env-prefix": "MARKETSURGE_AGENT"`)
+	assert.Contains(t, rootSchema, `"MARKETSURGE_AGENT_COOKIE_DB"`)
+	assert.Contains(t, rootSchema, `"MARKETSURGE_AGENT_VERBOSE"`)
+	assert.Contains(t, rootSchema, `"x-structcli-config-flag": "config"`)
+
+	schemaByTitle(t, schemas, "marketsurge-agent stock analyze")
+	schemaByTitle(t, schemas, "marketsurge-agent chart history")
+	schemaByTitle(t, schemas, "marketsurge-agent catalog run")
+}
+
+func TestRootJSONSchemaTreeMatchesDefault(t *testing.T) {
+	defaultCmd := rootExecCommand(t, "--jsonschema")
+	defaultOutput, err := defaultCmd.CombinedOutput()
+	require.NoError(t, err, string(defaultOutput))
+
+	treeCmd := rootExecCommand(t, "--jsonschema=tree")
+	treeOutput, err := treeCmd.CombinedOutput()
+	require.NoError(t, err, string(treeOutput))
+
+	assert.JSONEq(t, string(defaultOutput), string(treeOutput))
+}
+
+func TestRootJSONSchemaIncludesEnumDescriptions(t *testing.T) {
+	cmd := rootExecCommand(t, "--jsonschema")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+
+	schemas := parseJSONSchemas(t, output)
+	chartMarkups := schemaMapByTitle(t, schemas, "marketsurge-agent chart markups")
+	frequency := schemaProperty(t, chartMarkups, "frequency")
+	assert.Equal(t, []any{"DAILY", "WEEKLY"}, frequency["enum"])
+	assert.Contains(t, frequency["description"], "Chart candle frequency for markup lookup")
+	assert.Contains(t, frequency["description"], "{DAILY,WEEKLY}")
+	sortDir := schemaProperty(t, chartMarkups, "sort-dir")
+	assert.Equal(t, []any{"ASC", "DESC"}, sortDir["enum"])
+	assert.Contains(t, sortDir["description"], "Sort direction for markup annotations")
+	assert.Contains(t, sortDir["description"], "{ASC,DESC}")
+
+	chartHistory := schemaMapByTitle(t, schemas, "marketsurge-agent chart history")
+	lookback := schemaProperty(t, chartHistory, "lookback")
+	assert.Contains(t, lookback["description"], "Relative lookback period")
+	assert.Contains(t, lookback["description"], "1W, 1M, 3M, 6M, 1Y, YTD")
+	period := schemaProperty(t, chartHistory, "period")
+	assert.Equal(t, []any{"daily", "weekly"}, period["enum"])
+	assert.Contains(t, period["description"], "Data period granularity")
+	assert.Contains(t, period["description"], "{daily,weekly}")
+	assert.Equal(t, "daily", period["default"])
+}
+
+func TestRootJSONSchemaIncludesAgentMetadata(t *testing.T) {
+	cmd := rootExecCommand(t, "--jsonschema")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+
+	schemas := parseJSONSchemas(t, output)
+	stockAnalyze := schemaByTitle(t, schemas, "marketsurge-agent stock analyze")
+	assert.Contains(t, stockAnalyze, "one or more")
+	assert.Contains(t, stockAnalyze, `"x-structcli-group": "Input"`)
+	assert.Contains(t, stockAnalyze, `"x-structcli-group": "Output Format"`)
+	assert.Contains(t, stockAnalyze, "symbols to analyze")
+
+	catalogRun := schemaByTitle(t, schemas, "marketsurge-agent catalog run")
+	assert.Contains(t, catalogRun, `"x-structcli-group": "Catalog Selection"`)
+	assert.Contains(t, catalogRun, `"x-structcli-group": "Kind-Specific IDs"`)
+	assert.Contains(t, catalogRun, "required when kind=report")
+	assert.Contains(t, catalogRun, "required when kind=watchlist")
+	catalogRunSchema := schemaMapByTitle(t, schemas, "marketsurge-agent catalog run")
+	kind := schemaProperty(t, catalogRunSchema, "kind")
+	assert.Contains(t, kind["description"], "Required catalog kind to run")
+	assert.Contains(t, kind["description"], "watchlist, report, coach_screen")
+	assert.Contains(t, kind["description"], "screens are list-only")
 }
 
 func TestRootOptionsStructTags(t *testing.T) {
@@ -258,4 +327,44 @@ func decodeMCPResponses(t *testing.T, output []byte) []mcpResponse {
 		responses = append(responses, response)
 	}
 	return responses
+}
+
+func parseJSONSchemas(t *testing.T, output []byte) []map[string]any {
+	t.Helper()
+
+	var schemas []map[string]any
+	require.NoError(t, json.Unmarshal(output, &schemas), string(output))
+	require.NotEmpty(t, schemas)
+	return schemas
+}
+
+func schemaByTitle(t *testing.T, schemas []map[string]any, title string) string {
+	t.Helper()
+
+	schema := schemaMapByTitle(t, schemas, title)
+	encoded, err := json.MarshalIndent(schema, "", "  ")
+	require.NoError(t, err)
+	return string(encoded)
+}
+
+func schemaMapByTitle(t *testing.T, schemas []map[string]any, title string) map[string]any {
+	t.Helper()
+
+	for _, schema := range schemas {
+		if schema["title"] == title {
+			return schema
+		}
+	}
+	require.Failf(t, "schema title not found", "missing %q", title)
+	return nil
+}
+
+func schemaProperty(t *testing.T, schema map[string]any, name string) map[string]any {
+	t.Helper()
+
+	properties, ok := schema["properties"].(map[string]any)
+	require.True(t, ok, "schema should have properties")
+	property, ok := properties[name].(map[string]any)
+	require.True(t, ok, "schema should have property %q", name)
+	return property
 }

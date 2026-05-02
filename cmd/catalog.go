@@ -86,44 +86,114 @@ func newCatalogCmd() *cobra.Command {
 	return cmd
 }
 
+// CatalogRunOptions holds flags for the catalog run command.
+type CatalogRunOptions struct {
+	Kind          string
+	ReportID      int
+	WatchlistID   int64
+	CoachScreenID string
+	Limit         int
+	Offset        int
+	Fields        []string
+	MinComposite  *int
+	MinRS         *int
+	ExcludeSPACs  bool
+}
+
+// BindFlags registers catalog run flags on the given command.
+func (o *CatalogRunOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.Kind, "kind", "", "Catalog kind (required): report, watchlist, or coach_screen")
+	cmd.Flags().IntVar(&o.ReportID, "report-id", 0, "Report ID (required when --kind=report)")
+	cmd.Flags().Int64Var(&o.WatchlistID, "watchlist-id", 0, "Watchlist ID (required when --kind=watchlist)")
+	cmd.Flags().StringVar(&o.CoachScreenID, "coach-screen-id", "", "Coach screen ID (required when --kind=coach_screen)")
+	cmd.Flags().IntVar(&o.Limit, "limit", defaultCatalogRunLimit, "Maximum number of entries to return")
+	cmd.Flags().IntVar(&o.Offset, "offset", 0, "Starting offset for pagination")
+	cmd.Flags().StringSliceVar(&o.Fields, "fields", []string{}, "Optional fields to include in each entry")
+	cmd.Flags().BoolVar(&o.ExcludeSPACs, "exclude-spacs", false, "Exclude SPAC/blank-check entries")
+	cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter")
+	cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter")
+}
+
+// FromCommand populates pointer fields that require cobra's Changed() detection.
+func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
+	if cmd.Flags().Changed("min-composite") {
+		v, _ := cmd.Flags().GetInt("min-composite")
+		o.MinComposite = &v
+	}
+	if cmd.Flags().Changed("min-rs") {
+		v, _ := cmd.Flags().GetInt("min-rs")
+		o.MinRS = &v
+	}
+}
+
+// Validate checks that the catalog run options are consistent and complete.
+func (o *CatalogRunOptions) Validate() error {
+	if o.Kind == "" {
+		return mserrors.NewValidationError("kind is required", nil)
+	}
+
+	kind, err := parseCatalogKind(o.Kind)
+	if err != nil {
+		return err
+	}
+	if kind == nil {
+		return mserrors.NewValidationError("kind is required", nil)
+	}
+	if *kind == models.CatalogKindScreen {
+		return mserrors.NewValidationError("screens cannot be run directly, use catalog list to view them", nil)
+	}
+
+	switch *kind {
+	case models.CatalogKindReport:
+		if o.ReportID == 0 {
+			return mserrors.NewValidationError("report-id is required when kind=report", nil)
+		}
+	case models.CatalogKindWatchlist:
+		if o.WatchlistID == 0 {
+			return mserrors.NewValidationError("watchlist-id is required when kind=watchlist", nil)
+		}
+	case models.CatalogKindCoachScreen:
+		if o.CoachScreenID == "" {
+			return mserrors.NewValidationError("coach-screen-id is required when kind=coach_screen", nil)
+		}
+	}
+
+	return nil
+}
+
+// Filters returns the filter configuration derived from the options.
+func (o *CatalogRunOptions) Filters() catalogRunFilters {
+	return catalogRunFilters{
+		MinComposite: o.MinComposite,
+		MinRS:        o.MinRS,
+		ExcludeSPACs: o.ExcludeSPACs,
+	}
+}
+
 func newCatalogRunCmd() *cobra.Command {
+	opts := &CatalogRunOptions{}
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a catalog report, watchlist, or coach screen",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kind, err := validateCatalogRunKind(cmd)
-			if err != nil {
+			opts.FromCommand(cmd)
+
+			if err := opts.Validate(); err != nil {
 				return err
 			}
 
-			entries, total, err := runCatalogEntries(cmd.Context(), ClientFromContext(cmd.Context()), cmd, kind)
-			if err != nil {
-				return err
-			}
+			kind, _ := parseCatalogKind(opts.Kind)
 
-			limit, err := cmd.Flags().GetInt("limit")
-			if err != nil {
-				return err
-			}
-			offset, err := cmd.Flags().GetInt("offset")
+			entries, total, err := runCatalogEntries(cmd.Context(), ClientFromContext(cmd.Context()), opts, *kind)
 			if err != nil {
 				return err
 			}
 
 			data := map[string]any{"entries": entries}
-			return output.WriteSuccess(cmd.OutOrStdout(), data, output.CatalogMeta(string(kind), total, limit, offset))
+			return output.WriteSuccess(cmd.OutOrStdout(), data, output.CatalogMeta(string(*kind), total, opts.Limit, opts.Offset))
 		},
 	}
-	cmd.Flags().String("kind", "", "Catalog kind (required): report, watchlist, or coach_screen")
-	cmd.Flags().Int("report-id", 0, "Report ID (required when --kind=report)")
-	cmd.Flags().Int64("watchlist-id", 0, "Watchlist ID (required when --kind=watchlist)")
-	cmd.Flags().String("coach-screen-id", "", "Coach screen ID (required when --kind=coach_screen)")
-	cmd.Flags().Int("limit", defaultCatalogRunLimit, "Maximum number of entries to return")
-	cmd.Flags().Int("offset", 0, "Starting offset for pagination")
-	cmd.Flags().StringSlice("fields", []string{}, "Optional fields to include in each entry")
-	cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter")
-	cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter")
-	cmd.Flags().Bool("exclude-spacs", false, "Exclude SPAC/blank-check entries")
+	opts.BindFlags(cmd)
 	return cmd
 }
 
@@ -133,119 +203,37 @@ type catalogRunFilters struct {
 	ExcludeSPACs bool
 }
 
-func validateCatalogRunKind(cmd *cobra.Command) (models.CatalogKind, error) {
-	value, err := cmd.Flags().GetString("kind")
-	if err != nil {
-		return "", err
-	}
-	if value == "" {
-		return "", mserrors.NewValidationError("kind is required", nil)
-	}
-
-	kind, err := parseCatalogKind(value)
-	if err != nil {
-		return "", err
-	}
-	if kind == nil {
-		return "", mserrors.NewValidationError("kind is required", nil)
-	}
-	if *kind == models.CatalogKindScreen {
-		return "", mserrors.NewValidationError("screens cannot be run directly, use catalog list to view them", nil)
-	}
-
-	return *kind, nil
-}
-
-func optionalIntFlag(cmd *cobra.Command, name string) *int {
-	if !cmd.Flags().Changed(name) {
-		return nil
-	}
-	v, _ := cmd.Flags().GetInt(name)
-	return &v
-}
-
-func runCatalogEntries(ctx context.Context, c *client.Client, cmd *cobra.Command, kind models.CatalogKind) (result any, total int, err error) {
-	filters, err := catalogRunFiltersFromFlags(cmd)
-	if err != nil {
-		return nil, 0, err
-	}
-	limit, err := cmd.Flags().GetInt("limit")
-	if err != nil {
-		return nil, 0, err
-	}
-	offset, err := cmd.Flags().GetInt("offset")
-	if err != nil {
-		return nil, 0, err
-	}
-	fields, err := cmd.Flags().GetStringSlice("fields")
-	if err != nil {
-		return nil, 0, err
-	}
+func runCatalogEntries(ctx context.Context, c *client.Client, opts *CatalogRunOptions, kind models.CatalogKind) (result any, total int, err error) {
+	filters := opts.Filters()
 
 	switch kind {
 	case models.CatalogKindReport:
-		reportID, err := cmd.Flags().GetInt("report-id")
-		if err != nil {
-			return nil, 0, err
-		}
-		if reportID == 0 {
-			return nil, 0, mserrors.NewValidationError("report-id is required when kind=report", nil)
-		}
-
-		result, err := c.RunReport(ctx, reportID)
+		result, err := c.RunReport(ctx, opts.ReportID)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		entries := applyCatalogRunFilters(result.Entries, filters)
-		return projectWatchlistEntries(paginateSlice(entries, limit, offset), fields), len(entries), nil
+		return projectWatchlistEntries(paginateSlice(entries, opts.Limit, opts.Offset), opts.Fields), len(entries), nil
 	case models.CatalogKindWatchlist:
-		watchlistID, err := cmd.Flags().GetInt64("watchlist-id")
-		if err != nil {
-			return nil, 0, err
-		}
-		if watchlistID == 0 {
-			return nil, 0, mserrors.NewValidationError("watchlist-id is required when kind=watchlist", nil)
-		}
-
-		result, err := c.RunWatchlist(ctx, watchlistID)
+		result, err := c.RunWatchlist(ctx, opts.WatchlistID)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		entries := applyCatalogRunFilters(result.Entries, filters)
-		return projectWatchlistEntries(paginateSlice(entries, limit, offset), fields), len(entries), nil
+		return projectWatchlistEntries(paginateSlice(entries, opts.Limit, opts.Offset), opts.Fields), len(entries), nil
 	case models.CatalogKindCoachScreen:
-		coachScreenID, err := cmd.Flags().GetString("coach-screen-id")
-		if err != nil {
-			return nil, 0, err
-		}
-		if coachScreenID == "" {
-			return nil, 0, mserrors.NewValidationError("coach-screen-id is required when kind=coach_screen", nil)
-		}
-
-		result, err := c.RunCoachScreen(ctx, coachScreenID)
+		result, err := c.RunCoachScreen(ctx, opts.CoachScreenID)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		rows := paginateSlice(result.Rows, limit, offset)
+		rows := paginateSlice(result.Rows, opts.Limit, opts.Offset)
 		return rows, len(result.Rows), nil
 	default:
 		return nil, 0, mserrors.NewValidationError("kind must be one of: watchlist, screen, report, coach_screen", nil)
 	}
-}
-
-func catalogRunFiltersFromFlags(cmd *cobra.Command) (catalogRunFilters, error) {
-	excludeSPACs, err := cmd.Flags().GetBool("exclude-spacs")
-	if err != nil {
-		return catalogRunFilters{}, err
-	}
-	return catalogRunFilters{
-		MinComposite: optionalIntFlag(cmd, "min-composite"),
-		MinRS:        optionalIntFlag(cmd, "min-rs"),
-		ExcludeSPACs: excludeSPACs,
-	}, nil
 }
 
 func applyCatalogRunFilters(entries []models.WatchlistEntry, filters catalogRunFilters) []models.WatchlistEntry {
@@ -354,17 +342,23 @@ func normalizeWatchlistField(field string) (string, bool) {
 	return "", false
 }
 
+// CatalogListOptions holds flags for the catalog list command.
+type CatalogListOptions struct {
+	Kind string
+}
+
+// BindFlags registers catalog list flags on the given command.
+func (o *CatalogListOptions) BindFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.Kind, "kind", "", "Catalog kind (required): report, watchlist, coach_screen, screen")
+}
+
 func newCatalogListCmd() *cobra.Command {
+	opts := &CatalogListOptions{}
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List catalog entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kindStr, err := cmd.Flags().GetString("kind")
-			if err != nil {
-				return err
-			}
-
-			kind, err := parseCatalogKind(kindStr)
+			kind, err := parseCatalogKind(opts.Kind)
 			if err != nil {
 				return err
 			}
@@ -376,14 +370,14 @@ func newCatalogListCmd() *cobra.Command {
 			}
 
 			data := map[string]any{"entries": catalog.Entries}
-			meta := output.CatalogMeta(kindStr, len(catalog.Entries), 0, 0)
+			meta := output.CatalogMeta(opts.Kind, len(catalog.Entries), 0, 0)
 			if len(catalog.Errors) > 0 {
 				return output.WritePartial(cmd.OutOrStdout(), data, catalog.Errors, meta)
 			}
 			return output.WriteSuccess(cmd.OutOrStdout(), data, meta)
 		},
 	}
-	cmd.Flags().String("kind", "", "Catalog kind (required): report, watchlist, coach_screen, screen")
+	opts.BindFlags(cmd)
 	return cmd
 }
 

@@ -2,11 +2,14 @@
 package cmd
 
 import (
+	"context"
 	"time"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/internal/output"
 )
 
@@ -33,14 +36,8 @@ downstream renderer understands the format.`,
 
 // ChartMarkupsOptions holds flags for the chart markups command.
 type ChartMarkupsOptions struct {
-	Frequency string
-	SortDir   string
-}
-
-// BindFlags registers chart markups flags and binds them to struct fields.
-func (o *ChartMarkupsOptions) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.Frequency, "frequency", "DAILY", "Chart frequency: DAILY or WEEKLY")
-	cmd.Flags().StringVar(&o.SortDir, "sort-dir", "ASC", "Sort direction: ASC or DESC")
+	Frequency models.Frequency     `flag:"frequency" flagdescr:"Chart frequency: DAILY or WEEKLY" default:"DAILY"`
+	SortDir   models.SortDirection `flag:"sort-dir" flagdescr:"Sort direction: ASC or DESC" default:"ASC"`
 }
 
 func newChartMarkupsCmd() *cobra.Command {
@@ -61,14 +58,16 @@ a downstream MarketSurge-specific renderer understands the format.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbol := args[0]
 			c := ClientFromContext(cmd.Context())
-			data, err := c.GetChartMarkups(cmd.Context(), symbol, opts.Frequency, opts.SortDir)
+			data, err := c.GetChartMarkups(cmd.Context(), symbol, string(opts.Frequency), string(opts.SortDir))
 			if err != nil {
 				return err
 			}
 			return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
 		},
 	}
-	opts.BindFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
@@ -81,53 +80,46 @@ var validLookbacks = map[string]bool{
 const defaultExchangeName = "NYSE"
 
 // ChartHistoryOptions holds flags for the chart history command.
+// Lookback stays string (not models.Lookback) because it is optional with no default;
+// structcli's enum decoder rejects empty string for registered enums.
 type ChartHistoryOptions struct {
-	StartDate string
-	EndDate   string
-	Lookback  string
-	Period    string
-	Benchmark string
-}
-
-// BindFlags registers chart history flags and binds them to struct fields.
-func (o *ChartHistoryOptions) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.StartDate, "start-date", "", "Start date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&o.EndDate, "end-date", "", "End date (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&o.Lookback, "lookback", "", "Relative lookback period: 1W, 1M, 3M, 6M, 1Y, YTD")
-	cmd.Flags().StringVar(&o.Period, "period", "daily", "Chart period: daily or weekly")
-	cmd.Flags().StringVar(&o.Benchmark, "benchmark", "", "Benchmark symbol for relative strength (e.g. 0S&P5)")
+	StartDate string        `flag:"start-date" flagdescr:"Start date (YYYY-MM-DD), mutually exclusive with --lookback"`
+	EndDate   string        `flag:"end-date" flagdescr:"End date (YYYY-MM-DD), mutually exclusive with --lookback"`
+	Lookback  string        `flag:"lookback" flagdescr:"Lookback period: 1W, 1M, 3M, 6M, 1Y, YTD"`
+	Period    models.Period `flag:"period" flagdescr:"Data period: daily or weekly" default:"daily"`
+	Benchmark string        `flag:"benchmark" flagdescr:"Benchmark symbol for relative strength"`
 }
 
 // Validate checks mutual exclusion and required-field constraints for chart history flags.
-func (o *ChartHistoryOptions) Validate() error {
+func (o *ChartHistoryOptions) Validate(_ context.Context) []error {
 	hasExplicit := o.StartDate != "" || o.EndDate != ""
 	hasLookback := o.Lookback != ""
 
 	if hasExplicit && hasLookback {
-		return mserrors.NewValidationError(
+		return []error{mserrors.NewValidationError(
 			"cannot use both --start-date/--end-date and --lookback", nil,
-		)
+		)}
 	}
 
 	if !hasExplicit && !hasLookback {
-		return mserrors.NewValidationError(
+		return []error{mserrors.NewValidationError(
 			"either --start-date and --end-date or --lookback is required", nil,
-		)
+		)}
 	}
 
 	if hasExplicit {
 		if o.StartDate == "" || o.EndDate == "" {
-			return mserrors.NewValidationError(
+			return []error{mserrors.NewValidationError(
 				"both --start-date and --end-date are required when using explicit dates", nil,
-			)
+			)}
 		}
 		return nil
 	}
 
 	if !validLookbacks[o.Lookback] {
-		return mserrors.NewValidationError(
+		return []error{mserrors.NewValidationError(
 			"invalid lookback value: must be one of 1W, 1M, 3M, 6M, 1Y, YTD", nil,
-		)
+		)}
 	}
 
 	return nil
@@ -168,12 +160,12 @@ market state, and optional benchmark candles.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbol := args[0]
 
-			if err := opts.Validate(); err != nil {
-				return err
+			if errs := opts.Validate(cmd.Context()); errs != nil {
+				return errs[0]
 			}
 
 			startDate, endDate := opts.ResolveDates(time.Now().UTC())
-			graphqlPeriod, daily := mapPeriod(opts.Period)
+			graphqlPeriod, daily := mapPeriod(string(opts.Period))
 
 			exchangeName := ""
 			if daily {
@@ -188,7 +180,9 @@ market state, and optional benchmark candles.`,
 			return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
 		},
 	}
-	opts.BindFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

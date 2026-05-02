@@ -16,6 +16,15 @@ func newChartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chart",
 		Short: "Chart data commands",
+		Long: `Chart commands retrieve OHLCV price candles, benchmark comparison
+series, and user-saved chart annotations.
+
+Use "chart history" for price history with daily or weekly candles
+and optional benchmark series for relative strength calculations.
+
+Use "chart markups" for user-saved annotations and drawings. Markup
+data is opaque serialized chart data; do not parse it unless a
+downstream renderer understands the format.`,
 	}
 	cmd.AddCommand(newChartMarkupsCmd())
 	cmd.AddCommand(newChartHistoryCmd())
@@ -39,7 +48,16 @@ func newChartMarkupsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "markups <symbol>",
 		Short: "Get chart markup data for a symbol",
-		Args:  cobra.ExactArgs(1),
+		Long: `Fetches user-saved annotations and drawings for a symbol.
+
+Flags:
+
+  --frequency DAILY|WEEKLY   Default: DAILY
+  --sort-dir ASC|DESC        Default: ASC
+
+Markup data is opaque serialized chart data. Do not parse it unless
+a downstream MarketSurge-specific renderer understands the format.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbol := args[0]
 			c := ClientFromContext(cmd.Context())
@@ -129,7 +147,24 @@ func newChartHistoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "history <symbol>",
 		Short: "Get chart history for a symbol",
-		Args:  cobra.ExactArgs(1),
+		Long: `Fetches price history for a symbol. Exactly one date mode is required:
+
+  Date mode           Example
+  ---------           -------
+  Relative lookback   chart history AAPL --lookback 3M
+                      Valid: 1W, 1M, 3M, 6M, 1Y, YTD
+  Explicit range      chart history AAPL --start-date 2024-01-01 --end-date 2024-04-21
+                      Both dates required
+
+Other flags:
+
+  --period daily|weekly    Defaults to daily; weekly maps to P1W
+  --benchmark 0S&P5       Includes benchmark_time_series for relative
+                           strength calculations
+
+Output: time_series.data_points with OHLCV fields, quote, exchange,
+market state, and optional benchmark candles.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbol := args[0]
 

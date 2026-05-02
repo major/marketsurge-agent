@@ -80,6 +80,15 @@ func newCatalogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "catalog",
 		Short: "Catalog commands",
+		Long: `Catalog commands discover and run MarketSurge watchlists, screens,
+reports, and coach screens.
+
+Workflow:
+
+  1. Run "catalog list" to discover entries and their IDs
+  2. Run a returned ID with "catalog run" using the matching kind and ID flag
+  3. Page and project results before deeper analysis
+  4. Feed selected tickers into "stock analyze --summary" or "stock analyze"`,
 	}
 	cmd.AddCommand(newCatalogListCmd())
 	cmd.AddCommand(newCatalogRunCmd())
@@ -175,6 +184,29 @@ func newCatalogRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a catalog report, watchlist, or coach screen",
+		Long: `Runs a catalog entry and returns its contents.
+
+Required by kind:
+
+  Kind           Required flag          Runnable
+  ----           -------------          --------
+  watchlist      --watchlist-id         Yes
+  report         --report-id            Yes
+  coach_screen   --coach-screen-id      Yes
+  screen         (none)                 No, list only
+
+Useful flags:
+
+  --limit, --offset   Page large lists (default limit: 50)
+  --fields            Project columns: symbol, price, composite_rating,
+                      eps_rating, rs_rating, acc_dis_rating, smr_rating,
+                      industry_name, market_cap, volume_dollar_avg_50d
+  --min-composite     Minimum composite rating filter
+  --min-rs            Minimum RS rating filter
+  --exclude-spacs     Exclude SPAC/blank-check entries
+
+Coach screen rows are paginated, but field projection and filters do
+not behave like report or watchlist rows.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.FromCommand(cmd)
 
@@ -357,6 +389,14 @@ func newCatalogListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List catalog entries",
+		Long: `Lists catalog entries. The --kind flag is optional.
+
+Valid --kind values: watchlist, screen, report, coach_screen.
+
+Omit --kind to aggregate all sources. Partial source failures can
+still return entries from working sources.
+
+Output: entries[] with name, kind, description, and the relevant ID field.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kind, err := parseCatalogKind(opts.Kind)
 			if err != nil {

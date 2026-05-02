@@ -20,8 +20,25 @@ func init() { rootCmd.AddCommand(newStockCmd()) }
 
 func newStockCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "stock",
-		Short:         "Get stock data",
+		Use:   "stock",
+		Short: "Get stock data",
+		Long: `Stock commands retrieve current MarketSurge ratings, price context,
+base patterns, and signal flags.
+
+  Need                             Command
+  ----                             -------
+  One-symbol quote/ratings/base    stock get AAPL
+  Complete research packet         stock analyze AAPL
+  Compare many candidates          stock analyze --summary AAPL NVDA TSLA
+  Batch from a generated list      stock analyze --tickers AAPL,NVDA --compact
+  Parser wants one-level keys      stock analyze AAPL --flat
+
+Use "stock get" for targeted current stock data when fundamentals and
+ownership are not needed. Output focus: ratings, price, valuation ratios,
+risk metrics, short interest, base_pattern, and signals (blue dot, ant).
+
+Use "stock analyze" for the complete research packet including stock,
+fundamentals, and ownership data fetched concurrently.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -87,6 +104,22 @@ func newStockAnalyzeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "analyze [symbol...]",
 		Short: "Analyze one or more stock symbols",
+		Long: `Fetches stock, fundamentals, and ownership concurrently for one or more
+symbols. Accepts positional symbols and --tickers comma-separated symbols
+together. Multi-symbol requests are concurrent and can return partial
+results when only some symbols or subresources fail.
+
+Flags:
+
+  --summary   Compact screening keys: symbol, composite, eps, rs, ad, smr,
+              blue_dot, ant_signal, base_type, base_stage, pivot,
+              base_depth_percent, industry_group_rs, up_down_volume,
+              atr_percent, avg_dollar_volume, funds_float_percent
+  --compact   Removes duplicate formatted string fields, keeps raw values
+  --flat      Flattens nested analysis fields inside the JSON envelope
+
+Start with "stock analyze --summary" for candidate ranking, then rerun
+interesting symbols without --summary for detail.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbols := opts.MergeSymbols(args)
 			if len(symbols) == 0 {

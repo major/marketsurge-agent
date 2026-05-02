@@ -16,18 +16,40 @@ go install github.com/major/marketsurge-agent/cmd/marketsurge-agent@latest
 
 ## Authentication
 
-MarketSurge requires a valid JWT. The CLI resolves credentials in this order:
+MarketSurge requires an active browser session. The CLI exchanges Firefox cookies for the API JWT automatically. Cookie databases resolve in this order:
 
-1. `--jwt` flag
-2. `MARKETSURGE_JWT` environment variable
-3. `--cookie-db` path to a Firefox `cookies.sqlite` file
-4. Auto-discovery from local Firefox profiles
+1. `--cookie-db` path to a Firefox `cookies.sqlite` file
+2. Auto-discovery from local Firefox profiles
 
-The simplest approach for automation:
+Sign into MarketSurge in Firefox before running API commands. For automation, point the CLI at the Firefox cookie database used by that logged-in profile:
 
 ```bash
-export MARKETSURGE_JWT="your-jwt-here"
+marketsurge-agent --cookie-db "$HOME/.mozilla/firefox/profile/cookies.sqlite" stock get AAPL
 ```
+
+Non-secret root options can also come from structcli-managed environment variables:
+
+```bash
+export MARKETSURGE_AGENT_COOKIE_DB="$HOME/.mozilla/firefox/profile/cookies.sqlite"
+export MARKETSURGE_AGENT_VERBOSE=true
+```
+
+## Configuration file
+
+Config files can provide non-secret root options such as `cookie-db` and `verbose`:
+
+```yaml
+cookie-db: /home/alice/.mozilla/firefox/profile/cookies.sqlite
+verbose: false
+```
+
+Use `--config` to load a specific file:
+
+```bash
+marketsurge-agent --config ~/.config/marketsurge-agent/config.yaml stock get AAPL
+```
+
+Without `--config`, structcli searches its default config locations for `config.yaml`, `config.json`, or `config.toml`, including `/etc/marketsurge-agent`, an executable-adjacent `.marketsurge-agent` directory, and `$HOME/.marketsurge-agent`. Set `MARKETSURGE_AGENT_CONFIG` to point at a config file from the environment. For root options managed by structcli, precedence is CLI flag, environment variable, config file, then default.
 
 ## Usage
 
@@ -124,6 +146,9 @@ marketsurge-agent help env-vars
 # List all supported config file keys
 marketsurge-agent help config-keys
 
+# Load config from a specific file
+marketsurge-agent --config ~/.config/marketsurge-agent/config.yaml --debug-options
+
 # Print resolved flag values for debugging
 marketsurge-agent --debug-options
 
@@ -185,7 +210,7 @@ cmd/
   symbol.go              Shared symbol-fetcher pattern
   <group>.go             One file per command group
 internal/
-  auth/                  JWT resolution (4-tier chain)
+  auth/                  Cookie-based JWT exchange
   client/                GraphQL client + API methods
   constants/             API endpoints, column names
   cookies/               Firefox cookie extraction

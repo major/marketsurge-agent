@@ -13,7 +13,7 @@ cmd/
   symbol.go                      Shared symbol-fetcher pattern
   <group>.go                     One file per command group (stock, chart, etc.)
 internal/
-  auth/                          JWT resolution (4-tier chain)
+  auth/                          Cookie-based JWT exchange
   client/                        GraphQL client + domain methods
   constants/                     API endpoints, columns, report IDs
   cookies/                       Firefox cookie extraction
@@ -26,7 +26,7 @@ queries/                         Embedded .graphql files (go:embed)
 ### Request flow
 
 1. `main.go` calls `cmd.Execute()` which runs the root cobra command
-2. `PersistentPreRunE` resolves JWT via the auth chain, injects `client.Client` into context
+2. `PersistentPreRunE` exchanges Firefox cookies for a JWT, injects `client.Client` into context
 3. Command `RunE` retrieves client via `ClientFromContext(cmd.Context())`, validates args, calls client method
 4. Client loads embedded `.graphql` query, executes HTTP POST to GraphQL endpoint
 5. Response parsed into typed model, wrapped in JSON envelope via `output.WriteSuccess`
@@ -34,14 +34,12 @@ queries/                         Embedded .graphql files (go:embed)
 
 ### Auth chain (`internal/auth/chain.go`)
 
-Four-tier JWT precedence, first non-empty wins:
+Cookie database precedence:
 
-1. `--jwt` CLI flag
-2. `MARKETSURGE_JWT` env var
-3. `--cookie-db` explicit path to Firefox cookie DB
-4. Firefox profile auto-discovery
+1. `--cookie-db` explicit path to Firefox cookie DB
+2. Firefox profile auto-discovery
 
-The JWT is exchanged at `investors.com` using the DylanToken constant, then used for GraphQL requests at `dowjones.io`.
+Cookies are exchanged at `investors.com` using the DylanToken constant, then the resulting JWT is used for GraphQL requests at `dowjones.io`. The CLI does not accept JWT injection through arguments, environment variables, or config files.
 
 ### Error hierarchy (`internal/errors/errors.go`)
 
@@ -87,19 +85,27 @@ Root setup in `init()`:
 ```go
 structcli.Bind(rootCmd, rootOpts)
 structcli.Setup(rootCmd,
+    structcli.WithAppName("marketsurge-agent"),
+    structcli.WithConfig(),
     structcli.WithJSONSchema(),
     structcli.WithFlagErrors(),
     structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
-    structcli.WithDebug(debug.Options{AppName: "marketsurge-agent", Exit: true}),
+    structcli.WithDebug(debug.Options{Exit: true}),
 )
 ```
 
 Key behaviors:
+- `WithAppName("marketsurge-agent")` sets the structcli env prefix to `MARKETSURGE_AGENT` and propagates the app name to config/debug helpers
+- `WithConfig()` adds the persistent `--config` flag, auto-loads config before structcli unmarshals options, and honors `MARKETSURGE_AGENT_CONFIG`
 - `--jsonschema` prints a machine-readable JSON schema for all flags and exits without auth
 - `--debug-options` prints resolved flag values and exits (requires `Exit: true` in debug options)
 - `env-vars` and `config-keys` are built-in help topics (e.g., `marketsurge-agent help env-vars`)
 - `structcli.ExecuteC(rootCmd)` replaces `rootCmd.Execute()` in `Execute()`
 - `rootCmd.TraverseChildren = true` is required for root-bound flags to work on subcommands
+
+Root options use structcli-managed configuration:
+- `--cookie-db` and `--verbose` use `flagenv:"true"`, so structcli binds them to `MARKETSURGE_AGENT_COOKIE_DB` and `MARKETSURGE_AGENT_VERBOSE`
+- Config files can set non-secret root keys such as `cookie-db` and `verbose`
 
 `isNonAPICommand()` skips auth for: `completion`, `help`, `env-vars`, `config-keys`.
 

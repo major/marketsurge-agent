@@ -62,17 +62,19 @@ func TestUnknownCommandReturnsError(t *testing.T) {
 	assert.Contains(t, strings.ToLower(string(out)), "unknown command")
 }
 
-// TestErrorOutputIsValidJSON runs a command with no valid auth
-// (HOME=/nonexistent, no JWT) and confirms the error output is a JSON
+// TestErrorOutputIsValidJSON runs a command with no valid Firefox profile
+// (HOME=/nonexistent) and confirms the error output is a JSON
 // envelope with an "error" key.
 func TestErrorOutputIsValidJSON(t *testing.T) {
 	cmd := exec.Command(testBinary, "stock", "get", "AAPL")
 
-	// Strip HOME and MARKETSURGE_JWT so the auth chain fails entirely.
+	// Strip home and structcli configuration inputs so browser-cookie auth fails
+	// even on developer machines with local marketsurge-agent settings.
 	var env []string
 	for _, e := range os.Environ() {
 		if strings.HasPrefix(e, "HOME=") ||
-			strings.HasPrefix(e, "MARKETSURGE_JWT=") {
+			strings.HasPrefix(e, "XDG_CONFIG_HOME=") ||
+			strings.HasPrefix(e, "MARKETSURGE_AGENT_") {
 			continue
 		}
 		env = append(env, e)

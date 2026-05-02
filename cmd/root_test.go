@@ -183,32 +183,83 @@ func TestRootMCPInitializeAndToolsList(t *testing.T) {
 
 	var listResult mcpToolsListResult
 	require.NoError(t, json.Unmarshal(responses[1].Result, &listResult))
-	toolNames := make([]string, 0, len(listResult.Tools))
-	for _, tool := range listResult.Tools {
-		toolNames = append(toolNames, tool.Name)
-	}
+	toolNames := mcpToolNames(listResult)
 	assert.ElementsMatch(t, []string{
-		"catalog-list",
-		"catalog-run",
-		"chart-history",
-		"chart-markups",
-		"fundamental-get",
-		"ownership-get",
-		"rs-history-get",
-		"stock-analyze",
-		"stock-get",
+		"catalog_list",
+		"catalog_run",
+		"chart_history",
+		"chart_markups",
+		"fundamental_get",
+		"ownership_get",
+		"rs-history_get",
+		"stock_analyze",
+		"stock_get",
 	}, toolNames)
-	assert.NotContains(t, toolNames, "completion-bash")
-	assert.NotContains(t, toolNames, "completion-fish")
-	assert.NotContains(t, toolNames, "completion-powershell")
-	assert.NotContains(t, toolNames, "completion-zsh")
+	assert.NotContains(t, toolNames, "completion_bash")
+	assert.NotContains(t, toolNames, "completion_fish")
+	assert.NotContains(t, toolNames, "completion_powershell")
+	assert.NotContains(t, toolNames, "completion_zsh")
+	assert.NotContains(t, toolNames, "stock")
+	assert.NotContains(t, toolNames, "chart")
+	assert.NotContains(t, toolNames, "catalog")
+	for _, tool := range listResult.Tools {
+		assert.NotEmpty(t, tool.Description, "tool %s should have a description", tool.Name)
+		require.NotEmpty(t, tool.InputSchema, "tool %s should expose an input schema", tool.Name)
+		var schema map[string]any
+		require.NoError(t, json.Unmarshal(tool.InputSchema, &schema), "tool %s input schema should be JSON", tool.Name)
+		assert.Equal(t, "object", schema["type"], "tool %s schema should be an object", tool.Name)
+		assert.Equal(t, "MARKETSURGE_AGENT", schema["x-structcli-env-prefix"], "tool %s schema should expose env metadata", tool.Name)
+		assert.Equal(t, "config", schema["x-structcli-config-flag"], "tool %s schema should expose config metadata", tool.Name)
+	}
 	assert.NotContains(t, string(output), "Firefox")
 	assert.NotContains(t, string(output), "cookie")
 }
 
+func TestRootMCPToolSchemasExposeFlagMetadata(t *testing.T) {
+	cmd := rootExecCommand(t, "--mcp")
+	cmd.Stdin = strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"test"}}}` + "\n" +
+			`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+	)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+
+	responses := decodeMCPResponses(t, output)
+	require.Len(t, responses, 2)
+
+	var listResult mcpToolsListResult
+	require.NoError(t, json.Unmarshal(responses[1].Result, &listResult))
+
+	stockAnalyze := mcpToolByName(t, listResult, "stock_analyze")
+	stockAnalyzeSchema := mcpInputSchema(t, stockAnalyze)
+	stockAnalyzeProps := schemaProperties(t, stockAnalyzeSchema)
+	assert.Contains(t, stockAnalyze.Description, "Fetches stock")
+	assert.Contains(t, stockAnalyzeProps, "tickers")
+	assert.Contains(t, stockAnalyzeProps, "compact")
+	assert.Equal(t, "Input", stockAnalyzeProps["tickers"].(map[string]any)["x-structcli-group"])
+
+	chartHistory := mcpToolByName(t, listResult, "chart_history")
+	chartHistorySchema := mcpInputSchema(t, chartHistory)
+	chartHistoryProps := schemaProperties(t, chartHistorySchema)
+	assert.Contains(t, chartHistory.Description, "Fetches price history")
+	assert.Contains(t, chartHistoryProps, "lookback")
+	assert.Contains(t, chartHistoryProps, "start-date")
+	assert.Contains(t, chartHistoryProps, "end-date")
+	assert.Equal(t, "Date Range", chartHistoryProps["lookback"].(map[string]any)["x-structcli-group"])
+
+	catalogRun := mcpToolByName(t, listResult, "catalog_run")
+	catalogRunSchema := mcpInputSchema(t, catalogRun)
+	catalogRunProps := schemaProperties(t, catalogRunSchema)
+	assert.Contains(t, catalogRun.Description, "Runs a catalog entry")
+	assert.Contains(t, catalogRunProps, "kind")
+	assert.Contains(t, catalogRunProps, "report-id")
+	assert.Contains(t, catalogRunProps, "watchlist-id")
+	assert.Equal(t, "Catalog Selection", catalogRunProps["kind"].(map[string]any)["x-structcli-group"])
+}
+
 func TestRootMCPToolsCallUsesAPIAuth(t *testing.T) {
 	cmd := rootExecCommand(t, "--mcp")
-	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"stock-analyze","arguments":{"tickers":"AAPL"}}}` + "\n")
+	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"stock_analyze","arguments":{"tickers":"AAPL"}}}` + "\n")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 
@@ -326,8 +377,55 @@ type mcpInitializeResult struct {
 
 type mcpToolsListResult struct {
 	Tools []struct {
-		Name string `json:"name"`
+		Name        string          `json:"name"`
+		Description string          `json:"description"`
+		InputSchema json.RawMessage `json:"inputSchema"`
 	} `json:"tools"`
+}
+
+func mcpToolNames(result mcpToolsListResult) []string {
+	toolNames := make([]string, 0, len(result.Tools))
+	for _, tool := range result.Tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+	return toolNames
+}
+
+func mcpToolByName(t *testing.T, result mcpToolsListResult, name string) struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"inputSchema"`
+} {
+	t.Helper()
+	for _, tool := range result.Tools {
+		if tool.Name == name {
+			return tool
+		}
+	}
+	require.Failf(t, "MCP tool not found", "tool %q not found in %v", name, mcpToolNames(result))
+	return struct {
+		Name        string          `json:"name"`
+		Description string          `json:"description"`
+		InputSchema json.RawMessage `json:"inputSchema"`
+	}{}
+}
+
+func mcpInputSchema(t *testing.T, tool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"inputSchema"`
+}) map[string]any {
+	t.Helper()
+	var schema map[string]any
+	require.NoError(t, json.Unmarshal(tool.InputSchema, &schema), "tool %s input schema should be JSON", tool.Name)
+	return schema
+}
+
+func schemaProperties(t *testing.T, schema map[string]any) map[string]any {
+	t.Helper()
+	props, ok := schema["properties"].(map[string]any)
+	require.True(t, ok, "schema should include object properties")
+	return props
 }
 
 type mcpToolCallResult struct {

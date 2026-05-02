@@ -26,6 +26,18 @@ func TestChartMarkupsSuccess(t *testing.T) {
 	assertSymbolMeta(t, result, "AAPL")
 }
 
+func TestChartMarkupsSymbolFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(chartMarkupsFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeChartCmd(t, c, "markups", "--symbol", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
+}
+
 func TestChartMarkupsWithFlags(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(chartMarkupsFixture())
@@ -70,6 +82,19 @@ func TestChartHistorySuccessWithLookback(t *testing.T) {
 		"history", "--lookback", "3M", "AAPL")
 	require.NoError(t, err)
 	parseJSONEnvelope(t, output)
+}
+
+func TestChartHistorySymbolFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(chartResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeChartCmd(t, c,
+		"history", "--symbol", "AAPL", "--lookback", "3M")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
 }
 
 func TestChartHistorySymbolNotFound(t *testing.T) {
@@ -278,6 +303,10 @@ func TestChartMarkupsStructTags(t *testing.T) {
 		value    string
 		wantType reflect.Type
 	}{
+		{"Symbol", "flag", "symbol", reflect.TypeFor[string]()},
+		{"Symbol", "flagshort", "s", reflect.TypeFor[string]()},
+		{"Symbol", "flaggroup", "Input", reflect.TypeFor[string]()},
+		{"Symbol", "flagdescr", "Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use", reflect.TypeFor[string]()},
 		{"Frequency", "flag", "frequency", reflect.TypeFor[models.Frequency]()},
 		{"Frequency", "flaggroup", "Options", reflect.TypeFor[models.Frequency]()},
 		{"Frequency", "flagdescr", "Chart candle frequency for markup lookup (DAILY or WEEKLY)", reflect.TypeFor[models.Frequency]()},
@@ -311,6 +340,10 @@ func TestChartHistoryStructTags(t *testing.T) {
 		value    string
 		wantType reflect.Type
 	}{
+		{"Symbol", "flag", "symbol", reflect.TypeFor[string]()},
+		{"Symbol", "flagshort", "s", reflect.TypeFor[string]()},
+		{"Symbol", "flaggroup", "Input", reflect.TypeFor[string]()},
+		{"Symbol", "flagdescr", "Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use", reflect.TypeFor[string]()},
 		{"StartDate", "flag", "start-date", reflect.TypeFor[string]()},
 		{"StartDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
 		{"StartDate", "flagdescr", "Start date in YYYY-MM-DD format; requires --end-date and is mutually exclusive with --lookback", reflect.TypeFor[string]()},
@@ -351,14 +384,6 @@ func TestChartHistoryStructTags(t *testing.T) {
 func executeChartCmd(t *testing.T, c *client.Client, args ...string) (string, error) {
 	t.Helper()
 	cmd := newChartCmd()
-	ctx := ContextWithClient(context.Background(), c)
-	cmd.SetContext(ctx)
-	for _, child := range cmd.Commands() {
-		childCtx := child.Context()
-		if childCtx == nil {
-			childCtx = ctx
-		}
-		child.SetContext(ContextWithClient(childCtx, c))
-	}
+	setClientContext(cmd, ContextWithClient(context.Background(), c), c)
 	return executeCommand(t, cmd, args...)
 }

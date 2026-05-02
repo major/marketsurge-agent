@@ -21,6 +21,18 @@ func TestOwnershipGetSuccess(t *testing.T) {
 	assertSymbolMeta(t, result, "AAPL")
 }
 
+func TestOwnershipGetSymbolFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(t, newOwnershipCmd(), c, "get", "--symbol", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
+}
+
 func TestOwnershipGetSymbolNotFound(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())

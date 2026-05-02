@@ -31,7 +31,7 @@ base patterns, and signal flags.
   One-symbol quote/ratings/base    stock get AAPL
   Complete research packet         stock analyze AAPL
   Compare many candidates          stock analyze --summary AAPL NVDA TSLA
-  Batch from a generated list      stock analyze --tickers AAPL,NVDA --compact
+  Batch from a generated list      stock analyze --symbols AAPL,NVDA --compact
   Parser wants one-level keys      stock analyze AAPL --flat
 
 Use "stock get" for targeted current stock data when fundamentals and
@@ -61,35 +61,16 @@ type AnalysisResult struct {
 
 // StockAnalyzeOptions holds the options for the stock analyze command.
 type StockAnalyzeOptions struct {
+	Symbols []string `flag:"symbols" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use"`
 	Tickers []string `flag:"tickers" flagshort:"t" flaggroup:"Input" flagdescr:"Additional stock symbols to analyze; accepts comma-separated or repeated values"`
 	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values"`
 	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys"`
 	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols"`
 }
 
-// MergeSymbols merges positional arguments with --tickers flag values, deduplicating and trimming whitespace.
+// MergeSymbols merges positional arguments with --symbols and --tickers flag values, deduplicating and trimming whitespace.
 func (o *StockAnalyzeOptions) MergeSymbols(args []string) []string {
-	symbols := make([]string, 0, len(args)+len(o.Tickers))
-	seen := make(map[string]struct{}, len(args)+len(o.Tickers))
-	addSymbol := func(symbol string) {
-		trimmed := strings.TrimSpace(symbol)
-		if trimmed == "" {
-			return
-		}
-		if _, ok := seen[trimmed]; ok {
-			return
-		}
-		seen[trimmed] = struct{}{}
-		symbols = append(symbols, trimmed)
-	}
-
-	for _, symbol := range args {
-		addSymbol(symbol)
-	}
-	for _, symbol := range o.Tickers {
-		addSymbol(symbol)
-	}
-	return symbols
+	return mergeSymbolInputs(args, o.Symbols, o.Tickers)
 }
 
 func newStockAnalyzeCmd() *cobra.Command {
@@ -98,8 +79,8 @@ func newStockAnalyzeCmd() *cobra.Command {
 		Use:   "analyze [symbol...]",
 		Short: "Analyze one or more stock symbols",
 		Long: `Fetches stock, fundamentals, and ownership concurrently for one or more
-symbols. Accepts positional symbols and --tickers comma-separated symbols
-together. Multi-symbol requests are concurrent and can return partial
+symbols. Accepts positional symbols, --symbols values, and backward-compatible
+--tickers values together. Multi-symbol requests are concurrent and can return partial
 results when only some symbols or subresources fail.
 
 Flags:

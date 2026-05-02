@@ -21,6 +21,18 @@ func TestFundamentalGetSuccess(t *testing.T) {
 	assertSymbolMeta(t, result, "AAPL")
 }
 
+func TestFundamentalGetSymbolFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(t, newFundamentalCmd(), c, "get", "--symbol", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
+}
+
 func TestFundamentalGetSymbolNotFound(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())

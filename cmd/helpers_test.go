@@ -39,8 +39,20 @@ func executeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, e
 // executeCommandWithClient runs a cobra command with a client injected into the context.
 func executeCommandWithClient(t *testing.T, cmd *cobra.Command, c *client.Client, args ...string) (string, error) {
 	t.Helper()
-	cmd.SetContext(ContextWithClient(context.Background(), c))
+	setClientContext(cmd, ContextWithClient(context.Background(), c), c)
 	return executeCommand(t, cmd, args...)
+}
+
+// setClientContext layers the test client onto every command context.
+func setClientContext(cmd *cobra.Command, fallback context.Context, c *client.Client) {
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = fallback
+	}
+	cmd.SetContext(ContextWithClient(ctx, c))
+	for _, child := range cmd.Commands() {
+		setClientContext(child, fallback, c)
+	}
 }
 
 // parseJSONEnvelope unmarshals output into a map and asserts it contains data and metadata keys.

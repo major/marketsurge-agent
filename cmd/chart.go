@@ -36,6 +36,7 @@ downstream renderer understands the format.`,
 
 // ChartMarkupsOptions holds flags for the chart markups command.
 type ChartMarkupsOptions struct {
+	Symbol    string               `flag:"symbol" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use"`
 	Frequency models.Frequency     `flag:"frequency" flaggroup:"Options" flagdescr:"Chart candle frequency for markup lookup (DAILY or WEEKLY)" default:"DAILY"`
 	SortDir   models.SortDirection `flag:"sort-dir" flaggroup:"Options" flagdescr:"Sort direction for markup annotations (ASC or DESC)" default:"ASC"`
 }
@@ -54,9 +55,12 @@ Flags:
 
 Markup data is opaque serialized chart data. Do not parse it unless
 a downstream MarketSurge-specific renderer understands the format.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			symbol := args[0]
+			symbol, err := resolveSingleSymbol(args, opts.Symbol)
+			if err != nil {
+				return err
+			}
 			c := ClientFromContext(cmd.Context())
 			data, err := c.GetChartMarkups(cmd.Context(), symbol, string(opts.Frequency), string(opts.SortDir))
 			if err != nil {
@@ -83,6 +87,7 @@ const defaultExchangeName = "NYSE"
 // Lookback stays string (not models.Lookback) because it is optional with no default;
 // structcli's enum decoder rejects empty string for registered enums.
 type ChartHistoryOptions struct {
+	Symbol    string        `flag:"symbol" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use"`
 	StartDate string        `flag:"start-date" flaggroup:"Date Range" flagdescr:"Start date in YYYY-MM-DD format; requires --end-date and is mutually exclusive with --lookback"`
 	EndDate   string        `flag:"end-date" flaggroup:"Date Range" flagdescr:"End date in YYYY-MM-DD format; requires --start-date and is mutually exclusive with --lookback"`
 	Lookback  string        `flag:"lookback" flaggroup:"Date Range" flagdescr:"Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date"`
@@ -156,9 +161,12 @@ Other flags:
 
 Output: time_series.data_points with OHLCV fields, quote, exchange,
 market state, and optional benchmark candles.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			symbol := args[0]
+			symbol, err := resolveSingleSymbol(args, opts.Symbol)
+			if err != nil {
+				return err
+			}
 
 			if errs := opts.Validate(cmd.Context()); errs != nil {
 				return errs[0]

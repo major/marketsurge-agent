@@ -46,6 +46,8 @@ The root command enables structcli's stdio MCP server with `structcli.WithMCP()`
 
 Shell completion subcommands are excluded from MCP tool discovery because they are not useful agent-callable API tools. Keep the MCP tool list focused on MarketSurge data commands.
 
+MCP argument conversion maps tool arguments to flags, not positional arguments. Any API command that requires stock symbols must expose those symbols through schema-visible structcli flags (`--symbol` for single-symbol commands, `--symbols` for multi-symbol commands) while preserving positional arguments for shell compatibility.
+
 ### Test pattern
 
 Tests call constructors directly (not package-level vars) and inject client via context:
@@ -78,6 +80,7 @@ Commands use option structs with structcli struct tags to encapsulate flags and 
 
 ```go
 type ChartMarkupsOptions struct {
+    Symbol    string               `flag:"symbol" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbol to fetch"`
     Frequency models.Frequency    `flag:"frequency" default:"DAILY" flagdescr:"Chart frequency"`
     SortDir   models.SortDirection `flag:"sort-dir" default:"ASC" flagdescr:"Sort direction"`
 }
@@ -87,8 +90,12 @@ func newChartMarkupsCmd() *cobra.Command {
     cmd := &cobra.Command{
         Use:   "markups <symbol>",
         Short: "Get chart markup data for a symbol",
+        Args:  cobra.ArbitraryArgs,
         RunE: func(cmd *cobra.Command, args []string) error {
-            symbol := args[0]
+            symbol, err := resolveSingleSymbol(args, opts.Symbol)
+            if err != nil {
+                return err
+            }
             c := ClientFromContext(cmd.Context())
             data, err := c.GetChartMarkups(cmd.Context(), symbol, string(opts.Frequency), string(opts.SortDir))
             if err != nil {
@@ -128,6 +135,12 @@ This is the only place where `cmd.Flags().GetXxx()` is acceptable in RunE.
 **Optional enum fields:**
 
 Fields with no `default:` struct tag must stay `string` type. structcli rejects an empty string for a registered enum during unmarshal, before `Validate()` can return a typed `ValidationError`. Only use typed enum fields when a non-empty default is always present (e.g., `Frequency`, `SortDir`, `Period`). Fields like `Lookback` stay `string` with manual validation.
+
+### Schema-visible symbol flags
+
+Use `newSymbolCmd()` for single-symbol commands. It exposes `--symbol/-s` through structcli and still accepts one positional `<symbol>` for shell users. Commands with their own option structs, such as `chart history` and `chart markups`, add a `Symbol string` field with the same `flag:"symbol"` tags and call `resolveSingleSymbol(args, opts.Symbol)`.
+
+Use `--symbols/-s` for multi-symbol commands. Merge positional symbols and flag values with `mergeSymbolInputs()` so repeated flags, comma-separated values, and positional arguments deduplicate consistently.
 
 ## Adding a new command
 

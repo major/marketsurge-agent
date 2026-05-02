@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/leodido/structcli"
 	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
@@ -60,18 +61,10 @@ type AnalysisResult struct {
 
 // StockAnalyzeOptions holds the options for the stock analyze command.
 type StockAnalyzeOptions struct {
-	Tickers []string
-	Compact bool
-	Flat    bool
-	Summary bool
-}
-
-// BindFlags registers the stock analyze command flags and binds them to the options struct.
-func (o *StockAnalyzeOptions) BindFlags(cmd *cobra.Command) {
-	cmd.Flags().StringSliceVar(&o.Tickers, "tickers", []string{}, "Additional ticker symbols to analyze")
-	cmd.Flags().BoolVar(&o.Compact, "compact", false, "Remove formatted string fields from analysis data")
-	cmd.Flags().BoolVar(&o.Flat, "flat", false, "Flatten each analysis result for token-efficient agent parsing")
-	cmd.Flags().BoolVar(&o.Summary, "summary", false, "Return compact screening fields for ranking multi-symbol candidates")
+	Tickers []string `flag:"tickers" flagshort:"t" flagdescr:"Additional stock symbols to analyze"`
+	Compact bool     `flag:"compact" flagdescr:"Use compact output format"`
+	Flat    bool     `flag:"flat" flagdescr:"Use flat output format"`
+	Summary bool     `flag:"summary" flagdescr:"Include summary statistics"`
 }
 
 // MergeSymbols merges positional arguments with --tickers flag values, deduplicating and trimming whitespace.
@@ -165,7 +158,9 @@ interesting symbols without --summary for detail.`,
 			return output.WriteSuccess(cmd.OutOrStdout(), data, metadata)
 		},
 	}
-	opts.BindFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

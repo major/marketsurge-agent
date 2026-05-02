@@ -162,7 +162,7 @@ func persistentPostRunE(cmd *cobra.Command, _ []string) error {
 func isNonAPICommand(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		switch c.Name() {
-		case "completion", "help", "docs":
+		case "completion", "help":
 			return true
 		}
 	}

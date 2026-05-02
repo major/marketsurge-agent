@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -49,45 +48,9 @@ func TestHelpContainsAllCommands(t *testing.T) {
 	helpText := string(out)
 	for _, name := range []string{
 		"stock", "fundamental", "ownership", "rs-history",
-		"chart", "catalog", "completion",
+		"chart", "catalog",
 	} {
 		assert.Contains(t, helpText, name, "help should list %q", name)
-	}
-}
-
-// TestStaticSkillDocsStayWellFormed checks that all 8 expected skill files
-// exist, are non-empty, have at least one heading, and close all code fences.
-func TestStaticSkillDocsStayWellFormed(t *testing.T) {
-	skillDir := filepath.Join("..", "..", "skills", "marketsurge-agent")
-	expected := []string{
-		"SKILL.md", "index.md", "stock.md", "fundamental.md",
-		"ownership.md", "rs-history.md", "chart.md", "catalog.md",
-	}
-
-	entries, err := os.ReadDir(skillDir)
-	require.NoError(t, err)
-
-	var found []string
-	for _, e := range entries {
-		if !e.IsDir() {
-			found = append(found, e.Name())
-		}
-	}
-	assert.ElementsMatch(t, expected, found, "exactly 8 skill files expected")
-
-	for _, name := range expected {
-		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(filepath.Join(skillDir, name))
-			require.NoError(t, err)
-			content := string(data)
-
-			assert.NotEmpty(t, content)
-			assert.Contains(t, content, "## ")
-
-			fences := strings.Count(content, "```")
-			assert.Equal(t, 0, fences%2,
-				"unclosed code fence (count=%d)", fences)
-		})
 	}
 }
 

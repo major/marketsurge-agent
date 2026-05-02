@@ -279,8 +279,12 @@ func TestChartMarkupsStructTags(t *testing.T) {
 		wantType reflect.Type
 	}{
 		{"Frequency", "flag", "frequency", reflect.TypeFor[models.Frequency]()},
+		{"Frequency", "flaggroup", "Options", reflect.TypeFor[models.Frequency]()},
+		{"Frequency", "flagdescr", "Chart candle frequency for markup lookup (DAILY or WEEKLY)", reflect.TypeFor[models.Frequency]()},
 		{"Frequency", "default", "DAILY", reflect.TypeFor[models.Frequency]()},
 		{"SortDir", "flag", "sort-dir", reflect.TypeFor[models.SortDirection]()},
+		{"SortDir", "flaggroup", "Options", reflect.TypeFor[models.SortDirection]()},
+		{"SortDir", "flagdescr", "Sort direction for markup annotations (ASC or DESC)", reflect.TypeFor[models.SortDirection]()},
 		{"SortDir", "default", "ASC", reflect.TypeFor[models.SortDirection]()},
 	}
 
@@ -308,11 +312,21 @@ func TestChartHistoryStructTags(t *testing.T) {
 		wantType reflect.Type
 	}{
 		{"StartDate", "flag", "start-date", reflect.TypeFor[string]()},
+		{"StartDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
+		{"StartDate", "flagdescr", "Start date in YYYY-MM-DD format; requires --end-date and is mutually exclusive with --lookback", reflect.TypeFor[string]()},
 		{"EndDate", "flag", "end-date", reflect.TypeFor[string]()},
+		{"EndDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
+		{"EndDate", "flagdescr", "End date in YYYY-MM-DD format; requires --start-date and is mutually exclusive with --lookback", reflect.TypeFor[string]()},
 		{"Lookback", "flag", "lookback", reflect.TypeFor[string]()},
+		{"Lookback", "flaggroup", "Date Range", reflect.TypeFor[string]()},
+		{"Lookback", "flagdescr", "Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date", reflect.TypeFor[string]()},
 		{"Period", "flag", "period", reflect.TypeFor[models.Period]()},
+		{"Period", "flaggroup", "Options", reflect.TypeFor[models.Period]()},
+		{"Period", "flagdescr", "Data period granularity (daily or weekly)", reflect.TypeFor[models.Period]()},
 		{"Period", "default", "daily", reflect.TypeFor[models.Period]()},
 		{"Benchmark", "flag", "benchmark", reflect.TypeFor[string]()},
+		{"Benchmark", "flaggroup", "Options", reflect.TypeFor[string]()},
+		{"Benchmark", "flagdescr", "Benchmark symbol for relative strength comparison", reflect.TypeFor[string]()},
 	}
 
 	rt := reflect.TypeFor[ChartHistoryOptions]()

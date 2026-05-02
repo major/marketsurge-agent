@@ -61,10 +61,10 @@ type AnalysisResult struct {
 
 // StockAnalyzeOptions holds the options for the stock analyze command.
 type StockAnalyzeOptions struct {
-	Tickers []string `flag:"tickers" flagshort:"t" flagdescr:"Additional stock symbols to analyze"`
-	Compact bool     `flag:"compact" flagdescr:"Use compact output format"`
-	Flat    bool     `flag:"flat" flagdescr:"Use flat output format"`
-	Summary bool     `flag:"summary" flagdescr:"Include summary statistics"`
+	Tickers []string `flag:"tickers" flagshort:"t" flaggroup:"Input" flagdescr:"Additional stock symbols to analyze; accepts comma-separated or repeated values"`
+	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values"`
+	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys"`
+	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols"`
 }
 
 // MergeSymbols merges positional arguments with --tickers flag values, deduplicating and trimming whitespace.

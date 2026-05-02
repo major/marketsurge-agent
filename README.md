@@ -137,8 +137,11 @@ Errors follow the same pattern:
 # Generate shell completion (bash, zsh, fish, powershell)
 marketsurge-agent completion zsh > ~/.zsh/completions/_marketsurge-agent
 
-# Print machine-readable JSON schema for all flags (useful for LLM tool definitions)
+# Print machine-readable JSON schema for the current command
 marketsurge-agent --jsonschema
+
+# Print the full command tree schema for LLM tool definitions
+marketsurge-agent --jsonschema=tree
 
 # Run as an MCP server over stdio for agent tool discovery and calls
 marketsurge-agent --mcp
@@ -180,11 +183,14 @@ marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
 
 ### Schema discovery
 
-`--jsonschema` prints a machine-readable JSON schema for all flags and exits without making any API calls. This is useful for generating tool definitions in LLM agent frameworks:
+`--jsonschema` prints a machine-readable JSON schema for the current command and exits without making any API calls. For LLM tool definitions, prefer `--jsonschema=tree` so the agent sees every subcommand plus flag groups, enum values, defaults, environment bindings, and descriptions in one response:
 
 ```bash
 marketsurge-agent --jsonschema
+marketsurge-agent --jsonschema=tree
 ```
+
+Required and conditional inputs are documented in flag descriptions. Some rules are intentionally validated by the command instead of structcli tags so errors keep the normal JSON envelope and MarketSurge exit codes, for example `chart history` requires either `--lookback` or `--start-date/--end-date`, and `catalog run` requires the ID flag that matches `--kind`.
 
 Each command also carries a detailed `--help` description covering inputs, outputs, and gotchas. The `env-vars` and `config-keys` help topics list every supported environment variable and config file key:
 

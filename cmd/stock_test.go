@@ -279,19 +279,21 @@ func TestStockAnalyzeStructTags(t *testing.T) {
 		field    string
 		flag     string
 		short    string
+		group    string
 		descr    string
 		hasShort bool
 	}{
-		{field: "Tickers", flag: "tickers", short: "t", descr: "Additional stock symbols to analyze", hasShort: true},
-		{field: "Compact", flag: "compact", descr: "Use compact output format"},
-		{field: "Flat", flag: "flat", descr: "Use flat output format"},
-		{field: "Summary", flag: "summary", descr: "Include summary statistics"},
+		{field: "Tickers", flag: "tickers", short: "t", group: "Input", descr: "Additional stock symbols to analyze; accepts comma-separated or repeated values", hasShort: true},
+		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values"},
+		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys"},
+		{field: "Summary", flag: "summary", group: "Output Format", descr: "Return compact screening objects for ranking many symbols"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.field, func(t *testing.T) {
 			f, ok := typ.FieldByName(tt.field)
 			require.True(t, ok, "field %s should exist", tt.field)
 			assert.Equal(t, tt.flag, f.Tag.Get("flag"), "flag tag")
+			assert.Equal(t, tt.group, f.Tag.Get("flaggroup"), "flaggroup tag")
 			assert.Equal(t, tt.descr, f.Tag.Get("flagdescr"), "flagdescr tag")
 			if tt.hasShort {
 				assert.Equal(t, tt.short, f.Tag.Get("flagshort"), "flagshort tag")

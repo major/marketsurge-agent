@@ -357,7 +357,8 @@ func TestCatalogListStructTags(t *testing.T) {
 	field, ok := typ.FieldByName("Kind")
 	require.True(t, ok, "Kind field should exist")
 	assert.Equal(t, "kind", field.Tag.Get("flag"))
-	assert.Equal(t, "Catalog kind: watchlist, report, coach_screen, screen", field.Tag.Get("flagdescr"))
+	assert.Equal(t, "Filtering", field.Tag.Get("flaggroup"))
+	assert.Equal(t, "Filter by catalog kind (watchlist, report, coach_screen, screen); omit to list all sources", field.Tag.Get("flagdescr"))
 }
 
 func TestCatalogRunStructTags(t *testing.T) {
@@ -367,17 +368,18 @@ func TestCatalogRunStructTags(t *testing.T) {
 	tests := []struct {
 		field        string
 		flag         string
+		group        string
 		descr        string
 		defaultValue string
 	}{
-		{field: "Kind", flag: "kind", descr: "Catalog kind to run: watchlist, report, coach_screen"},
-		{field: "ReportID", flag: "report-id", descr: "Report ID (required when kind=report)"},
-		{field: "WatchlistID", flag: "watchlist-id", descr: "Watchlist ID (required when kind=watchlist)"},
-		{field: "CoachScreenID", flag: "coach-screen-id", descr: "Coach screen ID (required when kind=coach_screen)"},
-		{field: "Limit", flag: "limit", descr: "Maximum number of results to return", defaultValue: "50"},
-		{field: "Offset", flag: "offset", descr: "Number of results to skip"},
-		{field: "Fields", flag: "fields", descr: "Fields to include in results"},
-		{field: "ExcludeSPACs", flag: "exclude-spacs", descr: "Exclude SPACs from results"},
+		{field: "Kind", flag: "kind", group: "Catalog Selection", descr: "Required catalog kind to run (watchlist, report, coach_screen); screens are list-only"},
+		{field: "ReportID", flag: "report-id", group: "Kind-Specific IDs", descr: "Report ID; required when kind=report (discover with catalog list --kind report)"},
+		{field: "WatchlistID", flag: "watchlist-id", group: "Kind-Specific IDs", descr: "Watchlist ID; required when kind=watchlist (discover with catalog list --kind watchlist)"},
+		{field: "CoachScreenID", flag: "coach-screen-id", group: "Kind-Specific IDs", descr: "Coach screen ID; required when kind=coach_screen (discover with catalog list --kind coach_screen)"},
+		{field: "Limit", flag: "limit", group: "Pagination", descr: "Maximum number of results to return", defaultValue: "50"},
+		{field: "Offset", flag: "offset", group: "Pagination", descr: "Number of results to skip for pagination"},
+		{field: "Fields", flag: "fields", group: "Filtering & Projection", descr: "Project specific result fields, such as symbol, price, composite_rating, eps_rating, rs_rating"},
+		{field: "ExcludeSPACs", flag: "exclude-spacs", group: "Filtering & Projection", descr: "Exclude SPAC/blank-check entries from results"},
 	}
 
 	for _, tt := range tests {
@@ -385,6 +387,7 @@ func TestCatalogRunStructTags(t *testing.T) {
 			f, ok := typ.FieldByName(tt.field)
 			require.True(t, ok, "field %s should exist", tt.field)
 			assert.Equal(t, tt.flag, f.Tag.Get("flag"))
+			assert.Equal(t, tt.group, f.Tag.Get("flaggroup"))
 			assert.Equal(t, tt.descr, f.Tag.Get("flagdescr"))
 			assert.Equal(t, tt.defaultValue, f.Tag.Get("default"))
 		})
@@ -395,6 +398,27 @@ func TestCatalogRunStructTags(t *testing.T) {
 			f, ok := typ.FieldByName(field)
 			require.True(t, ok, "field %s should exist", field)
 			assert.Empty(t, f.Tag.Get("flag"), "pointer field should stay untagged")
+		})
+	}
+}
+
+func TestCatalogRunManualFilterFlags(t *testing.T) {
+	t.Parallel()
+
+	cmd := newCatalogRunCmd()
+	tests := []struct {
+		name  string
+		descr string
+	}{
+		{name: "min-composite", descr: "Minimum composite rating for report/watchlist rows (0-99); omitted when unset"},
+		{name: "min-rs", descr: "Minimum RS rating for report/watchlist rows (0-99); omitted when unset"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flag := cmd.Flags().Lookup(tt.name)
+			require.NotNil(t, flag)
+			assert.Equal(t, tt.descr, flag.Usage)
+			assert.Equal(t, []string{"Filtering & Projection"}, flag.Annotations[structcliFlagGroupAnnotation])
 		})
 	}
 }
@@ -664,8 +688,8 @@ func TestCatalogRunOptionsFromCommand(t *testing.T) {
 		opts := &CatalogRunOptions{}
 		cmd := &cobra.Command{Use: "test"}
 		require.NoError(t, structcli.Bind(cmd, opts))
-		cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter (0-99)")
-		cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter (0-99)")
+		cmd.Flags().Int("min-composite", 0, "Minimum composite rating for report/watchlist rows (0-99); omitted when unset")
+		cmd.Flags().Int("min-rs", 0, "Minimum RS rating for report/watchlist rows (0-99); omitted when unset")
 
 		require.NoError(t, cmd.ParseFlags([]string{"--min-composite", "0"}))
 		opts.FromCommand(cmd)
@@ -680,8 +704,8 @@ func TestCatalogRunOptionsFromCommand(t *testing.T) {
 		opts := &CatalogRunOptions{}
 		cmd := &cobra.Command{Use: "test"}
 		require.NoError(t, structcli.Bind(cmd, opts))
-		cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter (0-99)")
-		cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter (0-99)")
+		cmd.Flags().Int("min-composite", 0, "Minimum composite rating for report/watchlist rows (0-99); omitted when unset")
+		cmd.Flags().Int("min-rs", 0, "Minimum RS rating for report/watchlist rows (0-99); omitted when unset")
 
 		require.NoError(t, cmd.ParseFlags([]string{}))
 		opts.FromCommand(cmd)

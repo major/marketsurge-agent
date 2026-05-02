@@ -18,7 +18,10 @@ import (
 	"github.com/major/marketsurge-agent/internal/output"
 )
 
-const defaultCatalogRunLimit = 50
+const (
+	defaultCatalogRunLimit       = 50
+	structcliFlagGroupAnnotation = "leodido/structcli/flag-groups"
+)
 
 var watchlistFieldAliases = map[string]string{
 	"symbol":                      "symbol",
@@ -101,16 +104,16 @@ Workflow:
 
 // CatalogRunOptions holds flags for the catalog run command.
 type CatalogRunOptions struct {
-	Kind          models.CatalogKind `flag:"kind" flagdescr:"Catalog kind to run: watchlist, report, coach_screen" flagcustom:"true"`
-	ReportID      int                `flag:"report-id" flagdescr:"Report ID (required when kind=report)"`
-	WatchlistID   int64              `flag:"watchlist-id" flagdescr:"Watchlist ID (required when kind=watchlist)"`
-	CoachScreenID string             `flag:"coach-screen-id" flagdescr:"Coach screen ID (required when kind=coach_screen)"`
-	Limit         int                `flag:"limit" flagdescr:"Maximum number of results to return" default:"50"`
-	Offset        int                `flag:"offset" flagdescr:"Number of results to skip"`
-	Fields        []string           `flag:"fields" flagdescr:"Fields to include in results"`
+	Kind          models.CatalogKind `flag:"kind" flaggroup:"Catalog Selection" flagdescr:"Required catalog kind to run (watchlist, report, coach_screen); screens are list-only" flagcustom:"true"`
+	ReportID      int                `flag:"report-id" flaggroup:"Kind-Specific IDs" flagdescr:"Report ID; required when kind=report (discover with catalog list --kind report)"`
+	WatchlistID   int64              `flag:"watchlist-id" flaggroup:"Kind-Specific IDs" flagdescr:"Watchlist ID; required when kind=watchlist (discover with catalog list --kind watchlist)"`
+	CoachScreenID string             `flag:"coach-screen-id" flaggroup:"Kind-Specific IDs" flagdescr:"Coach screen ID; required when kind=coach_screen (discover with catalog list --kind coach_screen)"`
+	Limit         int                `flag:"limit" flaggroup:"Pagination" flagdescr:"Maximum number of results to return" default:"50"`
+	Offset        int                `flag:"offset" flaggroup:"Pagination" flagdescr:"Number of results to skip for pagination"`
+	Fields        []string           `flag:"fields" flaggroup:"Filtering & Projection" flagdescr:"Project specific result fields, such as symbol, price, composite_rating, eps_rating, rs_rating"`
 	MinComposite  *int
 	MinRS         *int
-	ExcludeSPACs  bool `flag:"exclude-spacs" flagdescr:"Exclude SPACs from results"`
+	ExcludeSPACs  bool `flag:"exclude-spacs" flaggroup:"Filtering & Projection" flagdescr:"Exclude SPAC/blank-check entries from results"`
 }
 
 // DefineKind keeps catalog kind parsing in Validate so missing and invalid kind
@@ -204,8 +207,8 @@ Useful flags:
   --fields            Project columns: symbol, price, composite_rating,
                       eps_rating, rs_rating, acc_dis_rating, smr_rating,
                       industry_name, market_cap, volume_dollar_avg_50d
-  --min-composite     Minimum composite rating filter
-  --min-rs            Minimum RS rating filter
+  --min-composite     Minimum composite rating for report/watchlist rows
+  --min-rs            Minimum RS rating for report/watchlist rows
   --exclude-spacs     Exclude SPAC/blank-check entries
 
 Coach screen rows are paginated, but field projection and filters do
@@ -231,8 +234,13 @@ not behave like report or watchlist rows.`,
 	if err := structcli.Bind(cmd, opts); err != nil {
 		panic(err)
 	}
-	cmd.Flags().Int("min-composite", 0, "Minimum composite rating filter (0-99)")
-	cmd.Flags().Int("min-rs", 0, "Minimum RS rating filter (0-99)")
+	cmd.Flags().Int("min-composite", 0, "Minimum composite rating for report/watchlist rows (0-99); omitted when unset")
+	cmd.Flags().Int("min-rs", 0, "Minimum RS rating for report/watchlist rows (0-99); omitted when unset")
+	for _, name := range []string{"min-composite", "min-rs"} {
+		if err := cmd.Flags().SetAnnotation(name, structcliFlagGroupAnnotation, []string{"Filtering & Projection"}); err != nil {
+			panic(err)
+		}
+	}
 	return cmd
 }
 
@@ -383,7 +391,7 @@ func normalizeWatchlistField(field string) (string, bool) {
 
 // CatalogListOptions holds flags for the catalog list command.
 type CatalogListOptions struct {
-	Kind models.CatalogKind `flag:"kind" flagdescr:"Catalog kind: watchlist, report, coach_screen, screen" flagcustom:"true"`
+	Kind models.CatalogKind `flag:"kind" flaggroup:"Filtering" flagdescr:"Filter by catalog kind (watchlist, report, coach_screen, screen); omit to list all sources" flagcustom:"true"`
 }
 
 // DefineKind keeps catalog kind parsing in RunE so invalid list kinds continue

@@ -196,7 +196,7 @@ marketsurge-agent --jsonschema=tree
 
 The schema is a JSON array. Each entry is one command schema with `title`, `description`, `properties`, `x-structcli-groups`, `x-structcli-env-prefix`, and `x-structcli-config-flag` metadata. Enum flags expose both machine-readable `enum` arrays and the original enum tokens in their descriptions, for example `{DAILY,WEEKLY}` or `{daily,weekly}`.
 
-Required and conditional inputs are documented in flag descriptions. Some rules are intentionally validated by the command instead of structcli tags so errors keep the normal JSON envelope and MarketSurge exit codes, for example `chart history` requires either `--lookback` or `--start-date/--end-date`, and `catalog run` requires the ID flag that matches `--kind`.
+Required and conditional inputs are documented in flag descriptions with concrete examples. Some rules are intentionally validated by the command instead of structcli tags so errors keep the normal JSON envelope and MarketSurge exit codes, for example `chart history` requires either `--lookback` or `--start-date/--end-date`, and `catalog run` requires the ID flag that matches `--kind`. Complex command descriptions and flag descriptions include copyable valid invocation shapes so LLM agents can infer usable calls from schema output.
 
 Each command also carries a detailed `--help` description covering inputs, outputs, and gotchas. The `env-vars` and `config-keys` help topics list every supported environment variable and config file key:
 

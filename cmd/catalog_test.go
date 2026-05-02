@@ -372,13 +372,13 @@ func TestCatalogRunStructTags(t *testing.T) {
 		descr        string
 		defaultValue string
 	}{
-		{field: "Kind", flag: "kind", group: "Catalog Selection", descr: "Required catalog kind to run (watchlist, report, coach_screen); screens are list-only"},
-		{field: "ReportID", flag: "report-id", group: "Kind-Specific IDs", descr: "Report ID; required when kind=report (discover with catalog list --kind report)"},
-		{field: "WatchlistID", flag: "watchlist-id", group: "Kind-Specific IDs", descr: "Watchlist ID; required when kind=watchlist (discover with catalog list --kind watchlist)"},
-		{field: "CoachScreenID", flag: "coach-screen-id", group: "Kind-Specific IDs", descr: "Coach screen ID; required when kind=coach_screen (discover with catalog list --kind coach_screen)"},
+		{field: "Kind", flag: "kind", group: "Catalog Selection", descr: "Required catalog kind to run: watchlist uses --watchlist-id, report uses --report-id, coach_screen uses --coach-screen-id; screens are list-only. Example report: --kind report --report-id 124"},
+		{field: "ReportID", flag: "report-id", group: "Kind-Specific IDs", descr: "Report ID; required when kind=report. Example report run: --kind report --report-id 124"},
+		{field: "WatchlistID", flag: "watchlist-id", group: "Kind-Specific IDs", descr: "Watchlist ID; required when kind=watchlist. Example watchlist run: --kind watchlist --watchlist-id 99"},
+		{field: "CoachScreenID", flag: "coach-screen-id", group: "Kind-Specific IDs", descr: "Coach screen ID; required when kind=coach_screen. Example coach screen run: --kind coach_screen --coach-screen-id screen-1"},
 		{field: "Limit", flag: "limit", group: "Pagination", descr: "Maximum number of results to return", defaultValue: "50"},
 		{field: "Offset", flag: "offset", group: "Pagination", descr: "Number of results to skip for pagination"},
-		{field: "Fields", flag: "fields", group: "Filtering & Projection", descr: "Project specific result fields, such as symbol, price, composite_rating, eps_rating, rs_rating"},
+		{field: "Fields", flag: "fields", group: "Filtering & Projection", descr: "Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,price,composite_rating. Common fields: symbol, price, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d"},
 		{field: "ExcludeSPACs", flag: "exclude-spacs", group: "Filtering & Projection", descr: "Exclude SPAC/blank-check entries from results"},
 	}
 
@@ -410,8 +410,8 @@ func TestCatalogRunManualFilterFlags(t *testing.T) {
 		name  string
 		descr string
 	}{
-		{name: "min-composite", descr: "Minimum composite rating for report/watchlist rows (0-99); omitted when unset"},
-		{name: "min-rs", descr: "Minimum RS rating for report/watchlist rows (0-99); omitted when unset"},
+		{name: "min-composite", descr: "Minimum composite rating for report/watchlist rows (0-99); omitted when unset. Example: --min-composite 90"},
+		{name: "min-rs", descr: "Minimum RS rating for report/watchlist rows (0-99); omitted when unset. Example: --min-rs 80"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -419,6 +419,36 @@ func TestCatalogRunManualFilterFlags(t *testing.T) {
 			require.NotNil(t, flag)
 			assert.Equal(t, tt.descr, flag.Usage)
 			assert.Equal(t, []string{"Filtering & Projection"}, flag.Annotations[structcliFlagGroupAnnotation])
+		})
+	}
+}
+
+func TestCatalogRunExamples(t *testing.T) {
+	t.Parallel()
+
+	cmd := newCatalogRunCmd()
+	assert.Contains(t, cmd.Example, "marketsurge-agent catalog run --kind report --report-id 124")
+	assert.Contains(t, cmd.Example, "--kind watchlist --watchlist-id 99")
+	assert.Contains(t, cmd.Example, "--kind coach_screen --coach-screen-id screen-1")
+
+	typ := reflect.TypeFor[CatalogRunOptions]()
+	tests := []struct {
+		field string
+		want  string
+	}{
+		{field: "Kind", want: "watchlist uses --watchlist-id"},
+		{field: "Kind", want: "report uses --report-id"},
+		{field: "Kind", want: "coach_screen uses --coach-screen-id"},
+		{field: "ReportID", want: "--kind report --report-id 124"},
+		{field: "WatchlistID", want: "--kind watchlist --watchlist-id 99"},
+		{field: "CoachScreenID", want: "--kind coach_screen --coach-screen-id screen-1"},
+		{field: "Fields", want: "--fields symbol,price,composite_rating"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.field+"/"+tt.want, func(t *testing.T) {
+			field, ok := typ.FieldByName(tt.field)
+			require.True(t, ok)
+			assert.Contains(t, field.Tag.Get("flagdescr"), tt.want)
 		})
 	}
 }

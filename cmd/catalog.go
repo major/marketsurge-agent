@@ -104,13 +104,13 @@ Workflow:
 
 // CatalogRunOptions holds flags for the catalog run command.
 type CatalogRunOptions struct {
-	Kind          models.CatalogKind `flag:"kind" flaggroup:"Catalog Selection" flagdescr:"Required catalog kind to run (watchlist, report, coach_screen); screens are list-only" flagcustom:"true"`
-	ReportID      int                `flag:"report-id" flaggroup:"Kind-Specific IDs" flagdescr:"Report ID; required when kind=report (discover with catalog list --kind report)"`
-	WatchlistID   int64              `flag:"watchlist-id" flaggroup:"Kind-Specific IDs" flagdescr:"Watchlist ID; required when kind=watchlist (discover with catalog list --kind watchlist)"`
-	CoachScreenID string             `flag:"coach-screen-id" flaggroup:"Kind-Specific IDs" flagdescr:"Coach screen ID; required when kind=coach_screen (discover with catalog list --kind coach_screen)"`
+	Kind          models.CatalogKind `flag:"kind" flaggroup:"Catalog Selection" flagdescr:"Required catalog kind to run: watchlist uses --watchlist-id, report uses --report-id, coach_screen uses --coach-screen-id; screens are list-only. Example report: --kind report --report-id 124" flagcustom:"true"`
+	ReportID      int                `flag:"report-id" flaggroup:"Kind-Specific IDs" flagdescr:"Report ID; required when kind=report. Example report run: --kind report --report-id 124"`
+	WatchlistID   int64              `flag:"watchlist-id" flaggroup:"Kind-Specific IDs" flagdescr:"Watchlist ID; required when kind=watchlist. Example watchlist run: --kind watchlist --watchlist-id 99"`
+	CoachScreenID string             `flag:"coach-screen-id" flaggroup:"Kind-Specific IDs" flagdescr:"Coach screen ID; required when kind=coach_screen. Example coach screen run: --kind coach_screen --coach-screen-id screen-1"`
 	Limit         int                `flag:"limit" flaggroup:"Pagination" flagdescr:"Maximum number of results to return" default:"50"`
 	Offset        int                `flag:"offset" flaggroup:"Pagination" flagdescr:"Number of results to skip for pagination"`
-	Fields        []string           `flag:"fields" flaggroup:"Filtering & Projection" flagdescr:"Project specific result fields, such as symbol, price, composite_rating, eps_rating, rs_rating"`
+	Fields        []string           `flag:"fields" flaggroup:"Filtering & Projection" flagdescr:"Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,price,composite_rating. Common fields: symbol, price, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d"`
 	MinComposite  *int
 	MinRS         *int
 	ExcludeSPACs  bool `flag:"exclude-spacs" flaggroup:"Filtering & Projection" flagdescr:"Exclude SPAC/blank-check entries from results"`
@@ -190,6 +190,9 @@ func newCatalogRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a catalog report, watchlist, or coach screen",
+		Example: `  marketsurge-agent catalog run --kind report --report-id 124 --fields symbol,price,composite_rating
+  marketsurge-agent catalog run --kind watchlist --watchlist-id 99 --limit 25 --exclude-spacs
+  marketsurge-agent catalog run --kind coach_screen --coach-screen-id screen-1 --limit 10`,
 		Long: `Runs a catalog entry and returns its contents.
 
 Required by kind:
@@ -200,6 +203,12 @@ Required by kind:
   report         --report-id            Yes
   coach_screen   --coach-screen-id      Yes
   screen         (none)                 No, list only
+
+Examples:
+
+  catalog run --kind report --report-id 124 --fields symbol,price,composite_rating
+  catalog run --kind watchlist --watchlist-id 99 --limit 25 --exclude-spacs
+  catalog run --kind coach_screen --coach-screen-id screen-1 --limit 10
 
 Useful flags:
 
@@ -234,8 +243,8 @@ not behave like report or watchlist rows.`,
 	if err := structcli.Bind(cmd, opts); err != nil {
 		panic(err)
 	}
-	cmd.Flags().Int("min-composite", 0, "Minimum composite rating for report/watchlist rows (0-99); omitted when unset")
-	cmd.Flags().Int("min-rs", 0, "Minimum RS rating for report/watchlist rows (0-99); omitted when unset")
+	cmd.Flags().Int("min-composite", 0, "Minimum composite rating for report/watchlist rows (0-99); omitted when unset. Example: --min-composite 90")
+	cmd.Flags().Int("min-rs", 0, "Minimum RS rating for report/watchlist rows (0-99); omitted when unset. Example: --min-rs 80")
 	for _, name := range []string{"min-composite", "min-rs"} {
 		if err := cmd.Flags().SetAnnotation(name, structcliFlagGroupAnnotation, []string{"Filtering & Projection"}); err != nil {
 			panic(err)

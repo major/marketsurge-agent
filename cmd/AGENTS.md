@@ -159,3 +159,9 @@ Use `--symbols/-s` for multi-symbol commands. Merge positional symbols and flag 
 7. Add tests in `cmd/<group>_test.go`
 
 Use `flaggroup:` on every non-trivial flag so `--jsonschema=tree` and MCP tool metadata are useful to LLM agents. Prefer `Validate()` over `flagrequired:"true"` for conditional requirements or domain errors that must preserve the JSON error envelope and MarketSurge exit codes.
+
+For complex modes, put copyable examples where schema generators can see them:
+
+- Put complete invocation examples in command `Long` descriptions for schema output; Cobra `Example` is useful for help/generation consumers but is not emitted by structcli's draft JSON Schema conversion.
+- Include short examples in `flagdescr` for conditional flags, for example date range pairs and `catalog run --kind` plus matching ID flag combinations.
+- Do not use presets just to document examples. Presets create real CLI alias flags, so reserve them for deliberate UX changes.

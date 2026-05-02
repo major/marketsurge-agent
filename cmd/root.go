@@ -131,8 +131,22 @@ func ContextWithClient(ctx context.Context, c *client.Client) context.Context {
 	return context.WithValue(ctx, clientKey, c)
 }
 
-func persistentPreRunE(cmd *cobra.Command, _ []string) error {
+func persistentPreRunE(cmd *cobra.Command, args []string) error {
 	if isNonAPICommand(cmd) {
+		return nil
+	}
+
+	// structcli intercepts --jsonschema before hooks run, but
+	// --debug-options prints during RunE and exits afterward.
+	// Skip auth so the debug output can complete cleanly.
+	if cmd.Root().Flags().Changed("debug-options") {
+		return nil
+	}
+
+	// With TraverseChildren enabled, unknown subcommands fall through
+	// to the root command as positional args. Skip auth so Execute()
+	// can detect and report them as "unknown command" errors.
+	if !cmd.HasParent() && len(args) > 0 {
 		return nil
 	}
 

@@ -10,6 +10,7 @@ lint:
 	golangci-lint run ./...
 
 docs: build
+	mkdir -p ./docs
 	./marketsurge-agent docs --output ./docs
 
 clean:

@@ -2,6 +2,8 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
@@ -16,6 +18,9 @@ func newDocsCmd() *cobra.Command {
 		Use:   "docs",
 		Short: "Generate markdown documentation for all commands",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := os.MkdirAll(outputDir, 0o750); err != nil {
+				return err
+			}
 			return doc.GenMarkdownTree(rootCmd, outputDir)
 		},
 	}

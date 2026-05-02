@@ -140,6 +140,9 @@ marketsurge-agent completion zsh > ~/.zsh/completions/_marketsurge-agent
 # Print machine-readable JSON schema for all flags (useful for LLM tool definitions)
 marketsurge-agent --jsonschema
 
+# Run as an MCP server over stdio for agent tool discovery and calls
+marketsurge-agent --mcp
+
 # List all supported environment variables
 marketsurge-agent help env-vars
 
@@ -189,6 +192,16 @@ Each command also carries a detailed `--help` description covering inputs, outpu
 marketsurge-agent help env-vars
 marketsurge-agent stock analyze --help
 ```
+
+### MCP server
+
+`--mcp` runs `marketsurge-agent` as a Model Context Protocol server over stdio. Agents can use MCP `initialize`, `tools/list`, and `tools/call` requests to discover and invoke CLI commands without scraping help output:
+
+```bash
+marketsurge-agent --mcp
+```
+
+MCP discovery does not require MarketSurge authentication. Tool calls that fetch MarketSurge data still use the same Firefox cookie authentication chain as normal CLI commands and return the same JSON envelopes.
 
 ## Development
 

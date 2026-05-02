@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,7 +40,69 @@ func TestRootHelpShowsConfigFlag(t *testing.T) {
 	help := string(output)
 	assert.Contains(t, help, "--config string")
 	assert.Contains(t, help, "config file")
+	assert.Contains(t, help, "--mcp")
 	assert.Contains(t, help, "Sign into MarketSurge in Firefox")
+}
+
+func TestRootMCPInitializeAndToolsList(t *testing.T) {
+	cmd := rootExecCommand(t, "--mcp")
+	cmd.Stdin = strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"test"}}}` + "\n" +
+			`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+	)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+
+	responses := decodeMCPResponses(t, output)
+	require.Len(t, responses, 2)
+
+	var initResult mcpInitializeResult
+	require.NoError(t, json.Unmarshal(responses[0].Result, &initResult))
+	assert.Equal(t, "marketsurge-agent", initResult.ServerInfo.Name)
+	assert.Equal(t, "dev", initResult.ServerInfo.Version)
+
+	var listResult mcpToolsListResult
+	require.NoError(t, json.Unmarshal(responses[1].Result, &listResult))
+	toolNames := make([]string, 0, len(listResult.Tools))
+	for _, tool := range listResult.Tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+	assert.ElementsMatch(t, []string{
+		"catalog-list",
+		"catalog-run",
+		"chart-history",
+		"chart-markups",
+		"fundamental-get",
+		"ownership-get",
+		"rs-history-get",
+		"stock-analyze",
+		"stock-get",
+	}, toolNames)
+	assert.NotContains(t, toolNames, "completion-bash")
+	assert.NotContains(t, toolNames, "completion-fish")
+	assert.NotContains(t, toolNames, "completion-powershell")
+	assert.NotContains(t, toolNames, "completion-zsh")
+	assert.NotContains(t, string(output), "Firefox")
+	assert.NotContains(t, string(output), "cookie")
+}
+
+func TestRootMCPToolsCallUsesAPIAuth(t *testing.T) {
+	cmd := rootExecCommand(t, "--mcp")
+	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"stock-analyze","arguments":{"tickers":"AAPL"}}}` + "\n")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+
+	responses := decodeMCPResponses(t, output)
+	require.Len(t, responses, 1)
+	require.Nil(t, responses[0].Error)
+
+	var callResult mcpToolCallResult
+	require.NoError(t, json.Unmarshal(responses[0].Result, &callResult))
+	assert.True(t, callResult.IsError)
+	require.Len(t, callResult.Content, 1)
+	assert.Contains(t, callResult.Content[0].Text, "no JWT available")
+	assert.Contains(t, callResult.Content[0].Text, "no Firefox profiles found")
+	assert.Contains(t, callResult.Content[0].Text, "marketsurge-agent stock analyze")
 }
 
 func TestRootConfigFileLoading(t *testing.T) {
@@ -126,4 +190,46 @@ func sanitizedRootCommandEnv() []string {
 		env = append(env, entry)
 	}
 	return env
+}
+
+type mcpResponse struct {
+	Result json.RawMessage `json:"result"`
+	Error  any             `json:"error"`
+}
+
+type mcpInitializeResult struct {
+	ServerInfo struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	} `json:"serverInfo"`
+}
+
+type mcpToolsListResult struct {
+	Tools []struct {
+		Name string `json:"name"`
+	} `json:"tools"`
+}
+
+type mcpToolCallResult struct {
+	Content []struct {
+		Text string `json:"text"`
+	} `json:"content"`
+	IsError bool `json:"isError"`
+}
+
+func decodeMCPResponses(t *testing.T, output []byte) []mcpResponse {
+	t.Helper()
+
+	dec := json.NewDecoder(strings.NewReader(string(output)))
+	responses := []mcpResponse{}
+	for {
+		var response mcpResponse
+		err := dec.Decode(&response)
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		responses = append(responses, response)
+	}
+	return responses
 }

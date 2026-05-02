@@ -15,7 +15,7 @@ func TestRSHistoryGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL")
+	output, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -28,7 +28,7 @@ func TestRSHistoryGetMultiSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL", "MSFT")
+	output, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -48,7 +48,7 @@ func TestRSHistoryGetMultiSymbolPartial(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL", "MISSING")
+	output, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get", "AAPL", "MISSING")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -68,7 +68,7 @@ func TestRSHistoryGetMultiSymbolPartialMissingMiddle(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "AAPL", "MISSING", "MSFT")
+	output, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get", "AAPL", "MISSING", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -96,7 +96,7 @@ func TestRSHistoryGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newRSHistoryCmd(), c, "get", "MISSING")
+	_, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get", "MISSING")
 	require.Error(t, err)
 
 	var snf *mserrors.SymbolNotFoundError
@@ -109,6 +109,6 @@ func TestRSHistoryGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newRSHistoryCmd(), c, "get")
+	_, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get")
 	require.Error(t, err)
 }

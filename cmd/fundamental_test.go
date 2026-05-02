@@ -15,7 +15,7 @@ func TestFundamentalGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newFundamentalCmd(), c, "get", "AAPL")
+	output, err := executeCommandWithClient(t, newFundamentalCmd(), c, "get", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -27,7 +27,7 @@ func TestFundamentalGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newFundamentalCmd(), c, "get", "MISSING")
+	_, err := executeCommandWithClient(t, newFundamentalCmd(), c, "get", "MISSING")
 	require.Error(t, err)
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
@@ -39,6 +39,6 @@ func TestFundamentalGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newFundamentalCmd(), c, "get")
+	_, err := executeCommandWithClient(t, newFundamentalCmd(), c, "get")
 	require.Error(t, err)
 }

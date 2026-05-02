@@ -15,7 +15,7 @@ func TestOwnershipGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newOwnershipCmd(), c, "get", "AAPL")
+	output, err := executeCommandWithClient(t, newOwnershipCmd(), c, "get", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -27,7 +27,7 @@ func TestOwnershipGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newOwnershipCmd(), c, "get", "MISSING")
+	_, err := executeCommandWithClient(t, newOwnershipCmd(), c, "get", "MISSING")
 	require.Error(t, err)
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
@@ -39,6 +39,6 @@ func TestOwnershipGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newOwnershipCmd(), c, "get")
+	_, err := executeCommandWithClient(t, newOwnershipCmd(), c, "get")
 	require.Error(t, err)
 }

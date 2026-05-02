@@ -19,7 +19,7 @@ func TestStockGetSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "get", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "get", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -31,7 +31,7 @@ func TestStockGetSymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newStockCmd(), c, "get", "MISSING")
+	_, err := executeCommandWithClient(t, newStockCmd(), c, "get", "MISSING")
 	require.Error(t, err)
 	var snf *mserrors.SymbolNotFoundError
 	assert.ErrorAs(t, err, &snf)
@@ -43,7 +43,7 @@ func TestStockGetMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newStockCmd(), c, "get")
+	_, err := executeCommandWithClient(t, newStockCmd(), c, "get")
 	require.Error(t, err)
 }
 
@@ -53,7 +53,7 @@ func TestStockAnalyzeSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -70,7 +70,7 @@ func TestStockAnalyzeTechnicalSignals(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -111,7 +111,7 @@ func TestStockAnalyzeMultiSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "AAPL", "MSFT")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -129,7 +129,7 @@ func TestStockAnalyzePartialFailureWithCompactFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL", "MSFT")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -160,7 +160,7 @@ func TestStockAnalyzeTickersFlag(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--tickers", "AAPL, MSFT")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "--tickers", "AAPL, MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -179,7 +179,7 @@ func TestStockAnalyzeCompactOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "--compact", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -197,7 +197,7 @@ func TestStockAnalyzeFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--flat", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "--flat", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -217,7 +217,7 @@ func TestStockAnalyzeCompactFlatOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "--compact", "--flat", "AAPL")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -233,7 +233,7 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "--summary", "AAPL", "MSFT")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "--summary", "AAPL", "MSFT")
 	require.NoError(t, err)
 
 	result := parseJSONEnvelope(t, output)
@@ -274,7 +274,7 @@ func TestStockAnalyzeMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze")
 	require.Error(t, err)
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
@@ -287,7 +287,7 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newStockCmd(), c, "analyze", "MISSING")
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "analyze", "MISSING")
 	require.Error(t, err)
 	assert.Empty(t, output)
 }

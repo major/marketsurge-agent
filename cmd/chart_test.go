@@ -16,7 +16,7 @@ func TestChartMarkupsSuccess(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c, "markups", "AAPL")
+	output, err := executeCommandWithClient(t, newChartCmd(), c, "markups", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -28,7 +28,7 @@ func TestChartMarkupsWithFlags(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c, "markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL")
+	output, err := executeCommandWithClient(t, newChartCmd(), c, "markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL")
 	require.NoError(t, err)
 	parseJSONEnvelope(t, output)
 }
@@ -39,7 +39,7 @@ func TestChartMarkupsMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c, "markups")
+	_, err := executeCommandWithClient(t, newChartCmd(), c, "markups")
 	require.Error(t, err)
 }
 
@@ -49,9 +49,8 @@ func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL",
-	)
+	output, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL")
 	require.NoError(t, err)
 	result := parseJSONEnvelope(t, output)
 	assertSymbolMeta(t, result, "AAPL")
@@ -63,9 +62,8 @@ func TestChartHistorySuccessWithLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	output, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "3M", "AAPL",
-	)
+	output, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--lookback", "3M", "AAPL")
 	require.NoError(t, err)
 	parseJSONEnvelope(t, output)
 }
@@ -76,9 +74,8 @@ func TestChartHistorySymbolNotFound(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "1M", "MISSING",
-	)
+	_, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--lookback", "1M", "MISSING")
 	require.Error(t, err)
 
 	var snf *mserrors.SymbolNotFoundError
@@ -91,9 +88,8 @@ func TestChartHistoryMissingSymbol(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "1M",
-	)
+	_, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--lookback", "1M")
 	require.Error(t, err)
 }
 
@@ -103,9 +99,8 @@ func TestChartHistoryMutualExclusion(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL",
-	)
+	_, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -119,7 +114,7 @@ func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c, "history", "AAPL")
+	_, err := executeCommandWithClient(t, newChartCmd(), c, "history", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -133,9 +128,8 @@ func TestChartHistoryPartialExplicitDates(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--start-date", "2024-01-01", "AAPL",
-	)
+	_, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--start-date", "2024-01-01", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -149,9 +143,8 @@ func TestChartHistoryInvalidLookback(t *testing.T) {
 	defer server.Close()
 	c := testClient(t, server)
 
-	_, err := executeCommandWithClient(newChartCmd(), c,
-		"history", "--lookback", "2W", "AAPL",
-	)
+	_, err := executeCommandWithClient(t, newChartCmd(), c,
+		"history", "--lookback", "2W", "AAPL")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError

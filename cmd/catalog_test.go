@@ -131,7 +131,7 @@ func TestCatalogListInvalidKind(t *testing.T) {
 	defer server.Close()
 
 	c := testClient(t, server)
-	_, err := executeCommandWithClient(newCatalogCmd(), c, "list", "--kind", "invalid")
+	_, err := executeCommandWithClient(t, newCatalogCmd(), c, "list", "--kind", "invalid")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -203,7 +203,7 @@ func TestCatalogRunMissingKind(t *testing.T) {
 	server := jsonServer(`{}`)
 	defer server.Close()
 
-	_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), "run")
+	_, err := executeCommandWithClient(t, newCatalogCmd(), testClient(t, server), "run")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -216,7 +216,7 @@ func TestCatalogRunScreenKindValidation(t *testing.T) {
 	server := jsonServer(`{}`)
 	defer server.Close()
 
-	_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), "run", "--kind", "screen")
+	_, err := executeCommandWithClient(t, newCatalogCmd(), testClient(t, server), "run", "--kind", "screen")
 	require.Error(t, err)
 
 	var verr *mserrors.ValidationError
@@ -242,7 +242,7 @@ func TestCatalogRunMissingIDForKind(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := executeCommandWithClient(newCatalogCmd(), testClient(t, server), tt.args...)
+			_, err := executeCommandWithClient(t, newCatalogCmd(), testClient(t, server), tt.args...)
 			require.Error(t, err)
 
 			var verr *mserrors.ValidationError
@@ -373,7 +373,7 @@ func runCatalogListCommand(t *testing.T, c *client.Client, args ...string) catal
 	t.Helper()
 
 	argv := append([]string{"list"}, args...)
-	output, err := executeCommandWithClient(newCatalogCmd(), c, argv...)
+	output, err := executeCommandWithClient(t, newCatalogCmd(), c, argv...)
 	require.NoError(t, err)
 
 	var envelope catalogListEnvelope
@@ -385,7 +385,7 @@ func runCatalogRunCommand(t *testing.T, c *client.Client, args ...string) catalo
 	t.Helper()
 
 	argv := append([]string{"run"}, args...)
-	output, err := executeCommandWithClient(newCatalogCmd(), c, argv...)
+	output, err := executeCommandWithClient(t, newCatalogCmd(), c, argv...)
 	require.NoError(t, err)
 
 	var envelope catalogRunEnvelope

@@ -54,6 +54,8 @@ The root command enables structcli JSON schema output with `jsonschema.WithFullT
 
 Enum-backed flags should keep typed enum fields when a non-empty default exists. The schema exposes those values through machine-readable `enum` arrays and keeps the `{value1,value2}` text in descriptions for prompt readability. Optional enum-like fields with no default, such as `ChartHistoryOptions.Lookback`, must stay `string` and document valid values in `flagdescr` so command validation can return domain `ValidationError` envelopes.
 
+MCP tool names use `_` as the structcli command-path separator, for example `stock_analyze`, `chart_history`, and `catalog_run`. Existing command segments keep their own spelling, so `rs-history get` becomes `rs-history_get`. Use full command paths in the MCP `Exclude` list, not generated tool names, so excludes keep working if the separator changes later. Keep `AllCommands` unset/false so only runnable leaf API commands are exposed.
+
 ### Test pattern
 
 Tests call constructors directly (not package-level vars) and inject client via context:

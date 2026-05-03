@@ -97,9 +97,15 @@ structcli.Setup(rootCmd,
     structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
     structcli.WithDebug(debug.Options{Exit: true}),
     structcli.WithMCP(mcp.Options{
-        Name:    "marketsurge-agent",
-        Version: version,
-        Exclude: []string{"completion-bash", "completion-fish", "completion-powershell", "completion-zsh"},
+        Name:      "marketsurge-agent",
+        Version:   version,
+        Separator: "_",
+        Exclude: []string{
+            "marketsurge-agent completion bash",
+            "marketsurge-agent completion fish",
+            "marketsurge-agent completion powershell",
+            "marketsurge-agent completion zsh",
+        },
     }),
 )
 ```
@@ -110,6 +116,8 @@ Key behaviors:
 - `--jsonschema` prints the full command tree JSON schema and exits without auth
 - `--jsonschema=tree` remains supported and returns the same full-tree schema for scripts that already request it
 - `--mcp` runs a stdio Model Context Protocol server; `initialize` and `tools/list` discovery do not require auth, while `tools/call` for API commands uses the normal Firefox cookie auth chain; shell completion subcommands are excluded from the MCP tool list
+- MCP tool names use `_` between command path segments, for example `stock_analyze`, `chart_history`, and `catalog_run`; command segments that already contain a dash keep it, for example `rs-history_get`
+- MCP exposes only runnable leaf API commands. Do not set `AllCommands: true` unless parent command tools become intentionally useful.
 - `--debug-options` prints resolved flag values and exits (requires `Exit: true` in debug options)
 - `env-vars` and `config-keys` are built-in help topics (e.g., `marketsurge-agent help env-vars`)
 - `structcli.ExecuteC(rootCmd)` replaces `rootCmd.Execute()` in `Execute()`

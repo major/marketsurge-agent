@@ -121,13 +121,14 @@ func init() {
 		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
 		structcli.WithDebug(debug.Options{Exit: true}),
 		structcli.WithMCP(structclimcp.Options{
-			Name:    "marketsurge-agent",
-			Version: version,
+			Name:      "marketsurge-agent",
+			Version:   version,
+			Separator: "_",
 			Exclude: []string{
-				"completion-bash",
-				"completion-fish",
-				"completion-powershell",
-				"completion-zsh",
+				"marketsurge-agent completion bash",
+				"marketsurge-agent completion fish",
+				"marketsurge-agent completion powershell",
+				"marketsurge-agent completion zsh",
 			},
 		}),
 	); err != nil {

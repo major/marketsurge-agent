@@ -215,6 +215,8 @@ marketsurge-agent --mcp
 
 MCP discovery does not require MarketSurge authentication. Tool calls that fetch MarketSurge data still use the same Firefox cookie authentication chain as normal CLI commands and return the same JSON envelopes.
 
+MCP tool names use underscores between command path segments, such as `stock_analyze`, `chart_history`, and `catalog_run`. Existing dashes inside a command segment remain, so `rs-history get` becomes `rs-history_get`. The tool list is limited to runnable MarketSurge data commands; shell completion and parent help commands are not exposed.
+
 ## Development
 
 Requires Go 1.26+.

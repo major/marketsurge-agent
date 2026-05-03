@@ -48,6 +48,12 @@ Shell completion subcommands are excluded from MCP tool discovery because they a
 
 MCP argument conversion maps tool arguments to flags, not positional arguments. Any API command that requires stock symbols must expose those symbols through schema-visible structcli flags (`--symbol` for single-symbol commands, `--symbols` for multi-symbol commands) while preserving positional arguments for shell compatibility.
 
+### JSON schema behavior
+
+The root command enables structcli JSON schema output with `jsonschema.WithFullTree()` and `jsonschema.WithEnumInDescription()`. Bare `--jsonschema` and explicit `--jsonschema=tree` both return the full command tree as a JSON array, which lets LLM agents discover every runnable command in one call.
+
+Enum-backed flags should keep typed enum fields when a non-empty default exists. The schema exposes those values through machine-readable `enum` arrays and keeps the `{value1,value2}` text in descriptions for prompt readability. Optional enum-like fields with no default, such as `ChartHistoryOptions.Lookback`, must stay `string` and document valid values in `flagdescr` so command validation can return domain `ValidationError` envelopes.
+
 ### Test pattern
 
 Tests call constructors directly (not package-level vars) and inject client via context:

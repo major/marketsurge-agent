@@ -72,7 +72,7 @@ func newRSHistoryGetCmd() *cobra.Command {
 				"timestamp": time.Now().UTC().Format(time.RFC3339),
 			}
 			if len(data) == 0 {
-				return fmt.Errorf("rs history failed for all symbols: %v", errs)
+				return mserrors.NewAPIError(fmt.Sprintf("rs history failed for all symbols: %v", errs), nil)
 			}
 			if len(errs) > 0 {
 				return output.WritePartial(cmd.OutOrStdout(), data, errs, meta)

@@ -311,6 +311,22 @@ func parseAdhocScreenResult(raw map[string]any) (*models.AdhocScreenResult, erro
 	return &models.AdhocScreenResult{Entries: parseWatchlistEntries(getNestedSlice(container, "responseValues")), ErrorValues: stringSlice(getNestedSlice(container, "errorValues"))}, nil
 }
 
+// extractColumns converts a row's column slice into a name-to-raw-value map.
+// Each column is expected to be a map[string]any with an "mdItem" sub-map
+// containing a "name" key and a top-level "value" key.
+func extractColumns(columns []any) map[string]any {
+	mapped := map[string]any{}
+	for _, column := range columns {
+		item, ok := column.(map[string]any)
+		if !ok {
+			continue
+		}
+		name := stringify(getNestedMap(item, "mdItem")["name"])
+		mapped[name] = item["value"]
+	}
+	return mapped
+}
+
 func parseWatchlistEntries(rows []any) []models.WatchlistEntry {
 	result := make([]models.WatchlistEntry, 0, len(rows))
 	for _, row := range rows {
@@ -318,15 +334,7 @@ func parseWatchlistEntries(rows []any) []models.WatchlistEntry {
 		if !ok {
 			continue
 		}
-		mapped := map[string]any{}
-		for _, column := range columns {
-			item, ok := column.(map[string]any)
-			if !ok {
-				continue
-			}
-			name := stringify(getNestedMap(item, "mdItem")["name"])
-			mapped[name] = item["value"]
-		}
+		mapped := extractColumns(columns)
 		result = append(result, models.WatchlistEntry{
 			Symbol:              stringPtr(mapped["Symbol"]),
 			CompanyName:         stringPtr(mapped["CompanyName"]),
@@ -364,13 +372,10 @@ func parseRows(rows []any) []map[string]*string {
 		if !ok {
 			continue
 		}
-		mapped := map[string]*string{}
-		for _, column := range columns {
-			item, ok := column.(map[string]any)
-			if !ok {
-				continue
-			}
-			mapped[stringify(getNestedMap(item, "mdItem")["name"])] = stringPtr(item["value"])
+		raw := extractColumns(columns)
+		mapped := make(map[string]*string, len(raw))
+		for k, v := range raw {
+			mapped[k] = stringPtr(v)
 		}
 		result = append(result, mapped)
 	}

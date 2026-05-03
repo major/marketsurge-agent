@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/internal/output"
 )
@@ -37,30 +39,36 @@ checking divergence or confirmation.`,
 }
 
 func newRSHistoryGetCmd() *cobra.Command {
-	return &cobra.Command{
+	opts := &RSHistoryGetOptions{}
+	cmd := &cobra.Command{
 		Use:   "get <symbol> [symbol...]",
 		Short: "Get RS rating history for one or more symbols",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			symbols := opts.ResolveSymbols(args)
+			if len(symbols) == 0 {
+				return mserrors.NewValidationError("at least one symbol is required; pass --symbols AAPL,MSFT or positional symbols", nil)
+			}
+
 			ctx := cmd.Context()
 			c := ClientFromContext(ctx)
 
-			if len(args) == 1 {
-				data, err := c.GetRSRatingHistory(ctx, args[0])
+			if len(symbols) == 1 {
+				data, err := c.GetRSRatingHistory(ctx, symbols[0])
 				if err != nil {
 					return err
 				}
-				return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(args[0]))
+				return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbols[0]))
 			}
 
-			histories, err := c.GetRSRatingHistories(ctx, args)
+			histories, err := c.GetRSRatingHistories(ctx, symbols)
 			if err != nil {
 				return err
 			}
 
-			data, errs := orderedRSHistoryData(args, histories)
+			data, errs := orderedRSHistoryData(symbols, histories)
 			meta := map[string]any{
-				"symbols":   args,
+				"symbols":   symbols,
 				"timestamp": time.Now().UTC().Format(time.RFC3339),
 			}
 			if len(data) == 0 {
@@ -72,6 +80,20 @@ func newRSHistoryGetCmd() *cobra.Command {
 			return output.WriteSuccess(cmd.OutOrStdout(), data, meta)
 		},
 	}
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+// RSHistoryGetOptions holds flags for the RS history get command.
+type RSHistoryGetOptions struct {
+	Symbols []string `flag:"symbols" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbols to fetch, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use"`
+}
+
+// ResolveSymbols merges positional arguments with --symbols values.
+func (o *RSHistoryGetOptions) ResolveSymbols(args []string) []string {
+	return mergeSymbolInputs(args, o.Symbols)
 }
 
 func orderedRSHistoryData(symbols []string, histories map[string]*models.RSRatingHistory) (data map[string]*models.RSRatingHistory, errs []string) {

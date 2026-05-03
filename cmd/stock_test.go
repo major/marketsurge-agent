@@ -28,6 +28,18 @@ func TestStockGetSuccess(t *testing.T) {
 	assertSymbolMeta(t, result, "AAPL")
 }
 
+func TestStockGetSymbolFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(t, newStockCmd(), c, "get", "--symbol", "AAPL")
+	require.NoError(t, err)
+	result := parseJSONEnvelope(t, output)
+	assertSymbolMeta(t, result, "AAPL")
+}
+
 func TestStockGetSymbolNotFound(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(emptyMarketDataFixture())
@@ -176,6 +188,25 @@ func TestStockAnalyzeTickersFlag(t *testing.T) {
 	assert.Equal(t, []any{"AAPL", "MSFT"}, symbols)
 }
 
+func TestStockAnalyzeSymbolsFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeStockAnalyze(t, c, "analyze", "--symbols", "AAPL, MSFT")
+	require.NoError(t, err)
+
+	result := parseJSONEnvelope(t, output)
+	data, ok := result["data"].([]any)
+	require.True(t, ok, "--symbols should return multi-symbol data as an array")
+	assert.Len(t, data, 2)
+
+	meta, _ := result["metadata"].(map[string]any)
+	symbols, _ := meta["symbols"].([]any)
+	assert.Equal(t, []any{"AAPL", "MSFT"}, symbols)
+}
+
 func TestStockAnalyzeCompactOutput(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(stockResponseFixture())
@@ -283,6 +314,7 @@ func TestStockAnalyzeStructTags(t *testing.T) {
 		descr    string
 		hasShort bool
 	}{
+		{field: "Symbols", flag: "symbols", short: "s", group: "Input", descr: "Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use", hasShort: true},
 		{field: "Tickers", flag: "tickers", short: "t", group: "Input", descr: "Additional stock symbols to analyze; accepts comma-separated or repeated values", hasShort: true},
 		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values"},
 		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys"},
@@ -307,23 +339,69 @@ func TestStockAnalyzeMergeSymbols(t *testing.T) {
 
 	tests := []struct {
 		name    string
+		symbols []string
 		tickers []string
 		args    []string
 		want    []string
 	}{
 		{name: "positional only", args: []string{"AAPL"}, want: []string{"AAPL"}},
+		{name: "symbols only", symbols: []string{"AAPL,MSFT"}, want: []string{"AAPL", "MSFT"}},
 		{name: "tickers only", tickers: []string{"MSFT"}, want: []string{"MSFT"}},
-		{name: "both merged", tickers: []string{"MSFT"}, args: []string{"AAPL"}, want: []string{"AAPL", "MSFT"}},
+		{name: "all merged", symbols: []string{"MSFT"}, tickers: []string{"NVDA"}, args: []string{"AAPL"}, want: []string{"AAPL", "MSFT", "NVDA"}},
 		{name: "deduplicates", tickers: []string{"AAPL"}, args: []string{"AAPL"}, want: []string{"AAPL"}},
 		{name: "trims whitespace", tickers: []string{" MSFT "}, args: []string{" AAPL "}, want: []string{"AAPL", "MSFT"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := &StockAnalyzeOptions{Tickers: tt.tickers}
+			opts := &StockAnalyzeOptions{Symbols: tt.symbols, Tickers: tt.tickers}
 			got := opts.MergeSymbols(tt.args)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestResolveSingleSymbol(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		symbolFlag string
+		want       string
+		wantErr    bool
+	}{
+		{name: "flag only", symbolFlag: "AAPL", want: "AAPL"},
+		{name: "positional only", args: []string{"MSFT"}, want: "MSFT"},
+		{name: "matching flag and positional", args: []string{"AAPL"}, symbolFlag: "AAPL", want: "AAPL"},
+		{name: "trims whitespace", args: []string{" MSFT "}, symbolFlag: "  ", want: "MSFT"},
+		{name: "missing symbol", wantErr: true},
+		{name: "conflicting flag and positional", args: []string{"MSFT"}, symbolFlag: "AAPL", wantErr: true},
+		{name: "too many positional", args: []string{"AAPL", "MSFT"}, wantErr: true},
+		{name: "empty flag and empty positional", args: []string{"  "}, symbolFlag: " ", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveSingleSymbol(tt.args, tt.symbolFlag)
+			if tt.wantErr {
+				require.Error(t, err)
+				var verr *mserrors.ValidationError
+				assert.ErrorAs(t, err, &verr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestMultiSymbolOptionsResolveSymbols(t *testing.T) {
+	t.Parallel()
+
+	opts := &MultiSymbolOptions{Symbols: []string{" MSFT,NVDA ", "AAPL"}}
+	got := opts.ResolveSymbols([]string{"AAPL", "TSLA"}, []string{"NVDA,AMD"})
+
+	assert.Equal(t, []string{"AAPL", "TSLA", "MSFT", "NVDA", "AMD"}, got)
 }
 
 func TestStockAnalyzeMissingSymbol(t *testing.T) {
@@ -358,15 +436,7 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 func executeStockAnalyze(t *testing.T, c *client.Client, args ...string) (string, error) {
 	t.Helper()
 	cmd := newStockCmd()
-	ctx := ContextWithClient(context.Background(), c)
-	cmd.SetContext(ctx)
-	for _, child := range cmd.Commands() {
-		childCtx := child.Context()
-		if childCtx == nil {
-			childCtx = ctx
-		}
-		child.SetContext(ContextWithClient(childCtx, c))
-	}
+	setClientContext(cmd, ContextWithClient(context.Background(), c), c)
 	return executeCommand(t, cmd, args...)
 }
 

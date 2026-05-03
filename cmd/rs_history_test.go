@@ -22,6 +22,22 @@ func TestRSHistoryGetSuccess(t *testing.T) {
 	assertSymbolMeta(t, result, "AAPL")
 }
 
+func TestRSHistoryGetSymbolsFlag(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(rsHistoryMultiResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get", "--symbols", "AAPL,MSFT")
+	require.NoError(t, err)
+
+	result := parseJSONEnvelope(t, output)
+	data, ok := result["data"].(map[string]any)
+	require.True(t, ok, "multi-symbol RS history should be keyed by symbol")
+	assert.Contains(t, data, "AAPL")
+	assert.Contains(t, data, "MSFT")
+}
+
 func TestRSHistoryGetMultiSymbol(t *testing.T) {
 	t.Parallel()
 	server := jsonServer(rsHistoryMultiResponseFixture())

@@ -57,11 +57,14 @@ Without `--config`, structcli searches its default config locations for `config.
 # Get stock data for a single symbol
 marketsurge-agent stock get AAPL
 
+# Equivalent schema-visible flag form for agents and MCP clients
+marketsurge-agent stock get --symbol AAPL
+
 # Analyze multiple symbols concurrently
 marketsurge-agent stock analyze AAPL MSFT NVDA GOOG
 
 # Analyze a comma-separated batch and remove formatted duplicate fields
-marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
+marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact
 
 # Return screening fields for ranking many candidates
 marketsurge-agent stock analyze --summary AAPL MSFT NVDA
@@ -79,7 +82,7 @@ marketsurge-agent ownership get AMZN
 marketsurge-agent rs-history get META NVDA
 
 # Chart price history (daily, last 3 months)
-marketsurge-agent chart history AAPL --lookback 3M
+marketsurge-agent chart history --symbol AAPL --lookback 3M
 
 # Chart markups and annotations
 marketsurge-agent chart markups AAPL
@@ -119,13 +122,13 @@ Errors follow the same pattern:
 
 | Command | Description |
 |---|---|
-| `stock get <symbol>` | Stock data (ratings, pricing, financials) |
-| `stock analyze [symbols...]` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, summary, and comma-separated batch modes |
-| `fundamental get <symbol>` | Fundamental analysis data |
-| `ownership get <symbol>` | Institutional ownership |
-| `rs-history get [symbols...]` | Relative strength rating history for one or more symbols |
-| `chart history <symbol>` | Price history (daily or weekly) |
-| `chart markups <symbol>` | Chart annotations and markups |
+| `stock get <symbol>` / `stock get --symbol SYMBOL` | Stock data (ratings, pricing, financials) |
+| `stock analyze [symbols...]` / `stock analyze --symbols SYMBOLS` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, summary, and comma-separated batch modes |
+| `fundamental get <symbol>` / `fundamental get --symbol SYMBOL` | Fundamental analysis data |
+| `ownership get <symbol>` / `ownership get --symbol SYMBOL` | Institutional ownership |
+| `rs-history get [symbols...]` / `rs-history get --symbols SYMBOLS` | Relative strength rating history for one or more symbols |
+| `chart history <symbol>` / `chart history --symbol SYMBOL` | Price history (daily or weekly) |
+| `chart markups <symbol>` / `chart markups --symbol SYMBOL` | Chart annotations and markups |
 | `catalog list` | List watchlists, screens, reports |
 | `catalog run` | Run a watchlist, coach screen, or report |
 | `completion <shell>` | Generate shell completion script (bash, zsh, fish, powershell) |
@@ -169,17 +172,18 @@ marketsurge-agent --version
 `stock analyze` supports output modes designed for AI agents and batch comparison workflows:
 
 ```bash
-marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact --flat
+marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact --flat
 ```
 
-- `--tickers AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--tickers`.
+- `--symbols AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--symbols`.
+- `--tickers AAPL,MSFT,NVDA` remains supported as a backward-compatible alias for `stock analyze`.
 - `--compact` removes duplicate formatted string fields such as `market_cap_formatted`, while keeping raw numeric values.
 - `--summary` returns one small screening object per symbol with rankings, signal flags, base details, liquidity, volatility, and ownership fields. Response metadata includes `mode: "summary"`.
 - `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
 `stock analyze` also includes MarketSurge technical context for chart-driven screening: `stock.base_pattern` summarizes the current base with pattern type, base stage, pivot price, base length, depth, and volume at pivot; `stock.signals` reports blue dot and ant signal flags when the API provides them.
 
-`rs-history get` accepts multiple symbols in one request. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
+`rs-history get` accepts multiple symbols in one request through positional arguments or `--symbols`. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
 
 ### Schema discovery
 

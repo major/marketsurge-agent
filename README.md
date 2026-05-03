@@ -224,6 +224,7 @@ Requires Go 1.26+.
 ```bash
 make build     # Build binary
 make test      # Run tests with race detector
+make smoke     # Run local live-data smoke tests against MarketSurge
 make lint      # Run golangci-lint (install: https://golangci-lint.run/welcome/install/)
 make clean     # Remove binary and build artifacts
 ```
@@ -254,6 +255,33 @@ go test -v -race ./...
 ```
 
 Tests use `httptest.NewServer` for HTTP mocking with no external mock libraries.
+
+### Local live smoke tests
+
+Smoke tests exercise every MarketSurge API leaf command against live data from your local machine. They are excluded from normal test runs and CI by the `smoke` build tag.
+
+Sign into MarketSurge in Firefox first, then run:
+
+```bash
+make smoke
+```
+
+For a specific Firefox profile, set the same cookie database environment variable used by the CLI:
+
+```bash
+export MARKETSURGE_AGENT_COOKIE_DB="$HOME/.mozilla/firefox/profile/cookies.sqlite"
+make smoke
+```
+
+`catalog run` needs an account-specific ID. Set one of these optional variables to include it; otherwise that subtest is skipped while the schema coverage check still ensures the command has a smoke case:
+
+```bash
+export MARKETSURGE_SMOKE_WATCHLIST_ID=12345
+export MARKETSURGE_SMOKE_REPORT_ID=67890
+export MARKETSURGE_SMOKE_COACH_SCREEN_ID=screen-1
+```
+
+The smoke suite validates exit status and JSON envelope shape, not exact live prices, counts, timestamps, or rankings.
 
 ### Releasing
 

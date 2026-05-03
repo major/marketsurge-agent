@@ -63,9 +63,9 @@ type AnalysisResult struct {
 type StockAnalyzeOptions struct {
 	Symbols []string `flag:"symbols" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use"`
 	Tickers []string `flag:"tickers" flagshort:"t" flaggroup:"Input" flagdescr:"Additional stock symbols to analyze; accepts comma-separated or repeated values"`
-	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values"`
-	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys"`
-	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols"`
+	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values; compatible with --summary and --flat. Example: stock analyze AAPL --compact"`
+	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --summary and --compact. Example: stock analyze AAPL --flat"`
+	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols; compatible with --compact and --flat. Example: stock analyze --summary AAPL MSFT NVDA"`
 }
 
 // MergeSymbols merges positional arguments with --symbols and --tickers flag values, deduplicating and trimming whitespace.
@@ -78,6 +78,10 @@ func newStockAnalyzeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "analyze [symbol...]",
 		Short: "Analyze one or more stock symbols",
+		Example: `  marketsurge-agent stock analyze AAPL
+  marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
+  marketsurge-agent stock analyze --summary AAPL MSFT NVDA
+  marketsurge-agent stock analyze AAPL --flat --compact`,
 		Long: `Fetches stock, fundamentals, and ownership concurrently for one or more
 symbols. Accepts positional symbols, --symbols values, and backward-compatible
 --tickers values together. Multi-symbol requests are concurrent and can return partial

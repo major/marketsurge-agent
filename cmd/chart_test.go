@@ -346,13 +346,13 @@ func TestChartHistoryStructTags(t *testing.T) {
 		{"Symbol", "flagdescr", "Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use", reflect.TypeFor[string]()},
 		{"StartDate", "flag", "start-date", reflect.TypeFor[string]()},
 		{"StartDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
-		{"StartDate", "flagdescr", "Start date in YYYY-MM-DD format; requires --end-date and is mutually exclusive with --lookback", reflect.TypeFor[string]()},
+		{"StartDate", "flagdescr", "Start date in YYYY-MM-DD format, for example 2024-01-01; must be paired with --end-date; mutually exclusive with --lookback. Example explicit range: --start-date 2024-01-01 --end-date 2024-06-30", reflect.TypeFor[string]()},
 		{"EndDate", "flag", "end-date", reflect.TypeFor[string]()},
 		{"EndDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
-		{"EndDate", "flagdescr", "End date in YYYY-MM-DD format; requires --start-date and is mutually exclusive with --lookback", reflect.TypeFor[string]()},
+		{"EndDate", "flagdescr", "End date in YYYY-MM-DD format, for example 2024-06-30; must be paired with --start-date; mutually exclusive with --lookback. Example explicit range: --start-date 2024-01-01 --end-date 2024-06-30", reflect.TypeFor[string]()},
 		{"Lookback", "flag", "lookback", reflect.TypeFor[string]()},
 		{"Lookback", "flaggroup", "Date Range", reflect.TypeFor[string]()},
-		{"Lookback", "flagdescr", "Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date", reflect.TypeFor[string]()},
+		{"Lookback", "flagdescr", "Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date. Example relative range: --lookback 3M", reflect.TypeFor[string]()},
 		{"Period", "flag", "period", reflect.TypeFor[models.Period]()},
 		{"Period", "flaggroup", "Options", reflect.TypeFor[models.Period]()},
 		{"Period", "flagdescr", "Data period granularity (daily or weekly)", reflect.TypeFor[models.Period]()},
@@ -372,6 +372,26 @@ func TestChartHistoryStructTags(t *testing.T) {
 			if tt.tag == "flag" {
 				assert.Equal(t, tt.wantType, f.Type, "field %s type mismatch", tt.field)
 			}
+		})
+	}
+}
+
+func TestChartHistoryExamples(t *testing.T) {
+	t.Parallel()
+
+	cmd := newChartHistoryCmd()
+	assert.Contains(t, cmd.Example, "marketsurge-agent chart history AAPL --lookback 3M")
+	assert.Contains(t, cmd.Example, "--start-date 2024-01-01 --end-date 2024-06-30")
+	assert.Contains(t, cmd.Example, "--period weekly --benchmark 0S&P5")
+
+	typ := reflect.TypeFor[ChartHistoryOptions]()
+	for _, fieldName := range []string{"StartDate", "EndDate", "Lookback"} {
+		t.Run(fieldName, func(t *testing.T) {
+			field, ok := typ.FieldByName(fieldName)
+			require.True(t, ok)
+			descr := field.Tag.Get("flagdescr")
+			assert.Contains(t, descr, "Example")
+			assert.Contains(t, descr, "--")
 		})
 	}
 }

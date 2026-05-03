@@ -88,9 +88,9 @@ const defaultExchangeName = "NYSE"
 // structcli's enum decoder rejects empty string for registered enums.
 type ChartHistoryOptions struct {
 	Symbol    string        `flag:"symbol" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use"`
-	StartDate string        `flag:"start-date" flaggroup:"Date Range" flagdescr:"Start date in YYYY-MM-DD format; requires --end-date and is mutually exclusive with --lookback"`
-	EndDate   string        `flag:"end-date" flaggroup:"Date Range" flagdescr:"End date in YYYY-MM-DD format; requires --start-date and is mutually exclusive with --lookback"`
-	Lookback  string        `flag:"lookback" flaggroup:"Date Range" flagdescr:"Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date"`
+	StartDate string        `flag:"start-date" flaggroup:"Date Range" flagdescr:"Start date in YYYY-MM-DD format, for example 2024-01-01; must be paired with --end-date; mutually exclusive with --lookback. Example explicit range: --start-date 2024-01-01 --end-date 2024-06-30"`
+	EndDate   string        `flag:"end-date" flaggroup:"Date Range" flagdescr:"End date in YYYY-MM-DD format, for example 2024-06-30; must be paired with --start-date; mutually exclusive with --lookback. Example explicit range: --start-date 2024-01-01 --end-date 2024-06-30"`
+	Lookback  string        `flag:"lookback" flaggroup:"Date Range" flagdescr:"Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date. Example relative range: --lookback 3M"`
 	Period    models.Period `flag:"period" flaggroup:"Options" flagdescr:"Data period granularity (daily or weekly)" default:"daily"`
 	Benchmark string        `flag:"benchmark" flaggroup:"Options" flagdescr:"Benchmark symbol for relative strength comparison"`
 }
@@ -144,6 +144,9 @@ func newChartHistoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "history <symbol>",
 		Short: "Get chart history for a symbol",
+		Example: `  marketsurge-agent chart history AAPL --lookback 3M
+  marketsurge-agent chart history AAPL --start-date 2024-01-01 --end-date 2024-06-30
+  marketsurge-agent chart history AAPL --lookback 1Y --period weekly --benchmark 0S&P5`,
 		Long: `Fetches price history for a symbol. Exactly one date mode is required:
 
   Date mode           Example

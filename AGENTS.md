@@ -149,8 +149,9 @@ Bare `--jsonschema` returns the same full-tree JSON array by default. The explic
 
 Schema tags should make command selection and flag filling obvious:
 - Use `flaggroup:` for logical groups such as `Date Range`, `Output Format`, `Pagination`, and `Filtering & Projection`
-- Use `flagdescr:` to document conditional requirements and examples, especially when a flag is only required for one mode
+- Use `flagdescr:` to document conditional requirements and concrete examples, especially when a flag is only required for one mode
 - Registered enum values appear in both machine-readable `enum` arrays and the preserved `{value1,value2}` text in descriptions because the root setup enables `jsonschema.WithEnumInDescription()`
+- Keep complete invocation examples in complex command `Long` descriptions and per-flag examples in `flagdescr`, because structcli's JSON Schema output carries those descriptions
 - Keep conditional and domain-specific requirements in `Validate()` when they need the CLI's JSON error envelope and MarketSurge exit codes
 - Do not mark chart history date fields or catalog ID fields with `flagrequired`, because their requirements depend on other flags
 

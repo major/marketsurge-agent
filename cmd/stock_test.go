@@ -316,9 +316,9 @@ func TestStockAnalyzeStructTags(t *testing.T) {
 	}{
 		{field: "Symbols", flag: "symbols", short: "s", group: "Input", descr: "Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use", hasShort: true},
 		{field: "Tickers", flag: "tickers", short: "t", group: "Input", descr: "Additional stock symbols to analyze; accepts comma-separated or repeated values", hasShort: true},
-		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values"},
-		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys"},
-		{field: "Summary", flag: "summary", group: "Output Format", descr: "Return compact screening objects for ranking many symbols"},
+		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values; compatible with --summary and --flat. Example: stock analyze AAPL --compact"},
+		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --summary and --compact. Example: stock analyze AAPL --flat"},
+		{field: "Summary", flag: "summary", group: "Output Format", descr: "Return compact screening objects for ranking many symbols; compatible with --compact and --flat. Example: stock analyze --summary AAPL MSFT NVDA"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.field, func(t *testing.T) {
@@ -402,6 +402,27 @@ func TestMultiSymbolOptionsResolveSymbols(t *testing.T) {
 	got := opts.ResolveSymbols([]string{"AAPL", "TSLA"}, []string{"NVDA,AMD"})
 
 	assert.Equal(t, []string{"AAPL", "TSLA", "MSFT", "NVDA", "AMD"}, got)
+}
+
+func TestStockAnalyzeExamples(t *testing.T) {
+	t.Parallel()
+
+	cmd := newStockAnalyzeCmd()
+	assert.Contains(t, cmd.Example, "marketsurge-agent stock analyze AAPL")
+	assert.Contains(t, cmd.Example, "--tickers AAPL,MSFT,NVDA --compact")
+	assert.Contains(t, cmd.Example, "--summary AAPL MSFT NVDA")
+	assert.Contains(t, cmd.Example, "--flat --compact")
+
+	typ := reflect.TypeFor[StockAnalyzeOptions]()
+	for _, fieldName := range []string{"Compact", "Flat", "Summary"} {
+		t.Run(fieldName, func(t *testing.T) {
+			field, ok := typ.FieldByName(fieldName)
+			require.True(t, ok)
+			descr := field.Tag.Get("flagdescr")
+			assert.Contains(t, descr, "compatible with")
+			assert.Contains(t, descr, "Example: stock analyze")
+		})
+	}
 }
 
 func TestStockAnalyzeMissingSymbol(t *testing.T) {

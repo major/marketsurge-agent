@@ -42,7 +42,7 @@ func firstMarketData(raw map[string]any, symbol string) (map[string]any, error) 
 
 	item, ok := marketData[0].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid marketData item for %q", symbol)
+		return nil, mserrors.NewAPIError(fmt.Sprintf("invalid marketData item for %q", symbol), nil)
 	}
 
 	return item, nil

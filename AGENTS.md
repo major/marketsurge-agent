@@ -213,9 +213,12 @@ Requires Go 1.26+.
 ```bash
 make build     # Build binary
 make test      # go test -v -race -coverprofile
+make smoke     # Local-only live API smoke tests with -tags=smoke
 make lint      # golangci-lint run
 make clean     # Remove binary + coverage
 ```
+
+Local smoke tests live in `cmd/smoke_test.go` behind `//go:build smoke` and run with `make smoke`. They execute curated live invocations for every API leaf command discovered by `--jsonschema`. They require a local Firefox MarketSurge session or `MARKETSURGE_AGENT_COOKIE_DB`; `catalog run` is included only when `MARKETSURGE_SMOKE_WATCHLIST_ID`, `MARKETSURGE_SMOKE_REPORT_ID`, or `MARKETSURGE_SMOKE_COACH_SCREEN_ID` is set.
 
 Linting uses [golangci-lint](https://golangci-lint.run/) v2 with config in `.golangci.yml`. The standard linter set is enabled plus `bodyclose`, `errorlint`, `gocritic`, `misspell`, `modernize`, `nolintlint`, `revive`, `unconvert`, and `unparam`.
 

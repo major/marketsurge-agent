@@ -73,6 +73,10 @@ func TestFundamentalGet(t *testing.T) {
 }
 ```
 
+### Local live smoke tests
+
+`smoke_test.go` is guarded by `//go:build smoke` and is local-only. Run it with `make smoke` or `go test -v -tags=smoke -run TestSmoke ./cmd`. It executes the CLI as a subprocess against live MarketSurge data, preserves the caller environment for Firefox cookie auth, and validates JSON envelope shape rather than exact live values. Keep smoke cases serial and do not use `t.Parallel()` because live API calls can hit rate limits. Add a smoke case whenever `--jsonschema` exposes a new API leaf command.
+
 ### Option struct pattern (structcli)
 
 Commands use option structs with structcli struct tags to encapsulate flags and validation logic.

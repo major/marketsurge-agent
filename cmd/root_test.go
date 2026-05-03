@@ -22,15 +22,15 @@ func TestRootJSONSchema(t *testing.T) {
 	schemas := parseJSONSchemas(t, output)
 	require.Greater(t, len(schemas), 1, "bare --jsonschema should return the full command tree")
 
-	rootSchema := schemaByTitle(t, schemas, "marketsurge-agent")
+	rootSchema := schemaJSONByTitle(t, schemas, "marketsurge-agent")
 	assert.Contains(t, rootSchema, `"x-structcli-env-prefix": "MARKETSURGE_AGENT"`)
 	assert.Contains(t, rootSchema, `"MARKETSURGE_AGENT_COOKIE_DB"`)
 	assert.Contains(t, rootSchema, `"MARKETSURGE_AGENT_VERBOSE"`)
 	assert.Contains(t, rootSchema, `"x-structcli-config-flag": "config"`)
 
-	schemaByTitle(t, schemas, "marketsurge-agent stock analyze")
-	schemaByTitle(t, schemas, "marketsurge-agent chart history")
-	schemaByTitle(t, schemas, "marketsurge-agent catalog run")
+	schemaMapByTitle(t, schemas, "marketsurge-agent stock analyze")
+	schemaMapByTitle(t, schemas, "marketsurge-agent chart history")
+	schemaMapByTitle(t, schemas, "marketsurge-agent catalog run")
 }
 
 func TestRootJSONSchemaTreeMatchesDefault(t *testing.T) {
@@ -78,13 +78,13 @@ func TestRootJSONSchemaIncludesAgentMetadata(t *testing.T) {
 	require.NoError(t, err, string(output))
 
 	schemas := parseJSONSchemas(t, output)
-	stockAnalyze := schemaByTitle(t, schemas, "marketsurge-agent stock analyze")
+	stockAnalyze := schemaJSONByTitle(t, schemas, "marketsurge-agent stock analyze")
 	assert.Contains(t, stockAnalyze, "one or more")
 	assert.Contains(t, stockAnalyze, `"x-structcli-group": "Input"`)
 	assert.Contains(t, stockAnalyze, `"x-structcli-group": "Output Format"`)
 	assert.Contains(t, stockAnalyze, "symbols to analyze")
 
-	catalogRun := schemaByTitle(t, schemas, "marketsurge-agent catalog run")
+	catalogRun := schemaJSONByTitle(t, schemas, "marketsurge-agent catalog run")
 	assert.Contains(t, catalogRun, `"x-structcli-group": "Catalog Selection"`)
 	assert.Contains(t, catalogRun, `"x-structcli-group": "Kind-Specific IDs"`)
 	assert.Contains(t, catalogRun, "required when kind=report")
@@ -92,7 +92,8 @@ func TestRootJSONSchemaIncludesAgentMetadata(t *testing.T) {
 	catalogRunSchema := schemaMapByTitle(t, schemas, "marketsurge-agent catalog run")
 	kind := schemaProperty(t, catalogRunSchema, "kind")
 	assert.Contains(t, kind["description"], "Required catalog kind to run")
-	assert.Contains(t, kind["description"], "watchlist, report, coach_screen")
+	assert.Contains(t, kind["description"], "watchlist uses --watchlist-id")
+	assert.Contains(t, kind["description"], "coach_screen uses --coach-screen-id")
 	assert.Contains(t, kind["description"], "screens are list-only")
 }
 
@@ -104,17 +105,17 @@ func TestRootJSONSchemaTreeIncludesComplexExamples(t *testing.T) {
 	var schemas []map[string]any
 	require.NoError(t, json.Unmarshal(output, &schemas))
 
-	chartHistory := schemaByTitle(t, schemas, "marketsurge-agent chart history")
+	chartHistory := schemaMapByTitle(t, schemas, "marketsurge-agent chart history")
 	assert.Contains(t, chartHistory["description"], "chart history AAPL --lookback 3M")
 	assert.Contains(t, schemaProperty(t, chartHistory, "start-date")["description"], "--start-date 2024-01-01 --end-date 2024-06-30")
 	assert.Contains(t, schemaProperty(t, chartHistory, "lookback")["description"], "--lookback 3M")
 
-	catalogRun := schemaByTitle(t, schemas, "marketsurge-agent catalog run")
+	catalogRun := schemaMapByTitle(t, schemas, "marketsurge-agent catalog run")
 	assert.Contains(t, catalogRun["description"], "catalog run --kind report --report-id")
 	assert.Contains(t, schemaProperty(t, catalogRun, "kind")["description"], "report uses --report-id")
 	assert.Contains(t, schemaProperty(t, catalogRun, "fields")["description"], "--fields symbol,price,composite_rating")
 
-	stockAnalyze := schemaByTitle(t, schemas, "marketsurge-agent stock analyze")
+	stockAnalyze := schemaMapByTitle(t, schemas, "marketsurge-agent stock analyze")
 	assert.Contains(t, stockAnalyze["description"], "stock analyze --summary")
 	assert.Contains(t, schemaProperty(t, stockAnalyze, "summary")["description"], "compatible with --compact and --flat")
 	assert.Contains(t, schemaProperty(t, stockAnalyze, "flat")["description"], "pricing_market_cap")
@@ -290,28 +291,6 @@ func rootExecCommand(t *testing.T, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func schemaByTitle(t *testing.T, schemas []map[string]any, title string) map[string]any {
-	t.Helper()
-
-	for _, schema := range schemas {
-		if schema["title"] == title {
-			return schema
-		}
-	}
-	require.Failf(t, "schema not found", "title %q not found", title)
-	return nil
-}
-
-func schemaProperty(t *testing.T, schema map[string]any, name string) map[string]any {
-	t.Helper()
-
-	properties, ok := schema["properties"].(map[string]any)
-	require.True(t, ok, "schema should have properties")
-	property, ok := properties[name].(map[string]any)
-	require.True(t, ok, "schema should have property %q", name)
-	return property
-}
-
 func userHomeDir(t *testing.T) string {
 	t.Helper()
 
@@ -384,7 +363,7 @@ func parseJSONSchemas(t *testing.T, output []byte) []map[string]any {
 	return schemas
 }
 
-func schemaByTitle(t *testing.T, schemas []map[string]any, title string) string {
+func schemaJSONByTitle(t *testing.T, schemas []map[string]any, title string) string {
 	t.Helper()
 
 	schema := schemaMapByTitle(t, schemas, title)

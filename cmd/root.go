@@ -212,14 +212,15 @@ func Execute() {
 	filter := &configStatusFilter{w: originalOut}
 	rootCmd.SetOut(filter)
 	executed, err := structcli.ExecuteC(rootCmd)
-	if flushErr := filter.Flush(); err == nil && flushErr != nil {
-		err = flushErr
-	}
-	rootCmd.SetOut(nil)
-
 	if err == nil && executed == rootCmd && len(rootCmd.Flags().Args()) > 0 {
 		err = fmt.Errorf("unknown command %q", rootCmd.Flags().Arg(0))
 	}
+	if err == nil {
+		if flushErr := filter.Flush(); flushErr != nil {
+			err = flushErr
+		}
+	}
+	rootCmd.SetOut(nil)
 	if err != nil {
 		_ = output.WriteError(rootCmd.OutOrStderr(), err)
 		var mserr interface{ ExitCode() int }

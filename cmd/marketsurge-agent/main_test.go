@@ -57,9 +57,37 @@ func TestHelpContainsAllCommands(t *testing.T) {
 // TestUnknownCommandReturnsError verifies that an unrecognized subcommand
 // produces a non-zero exit code and mentions "unknown command".
 func TestUnknownCommandReturnsError(t *testing.T) {
-	out, err := exec.Command(testBinary, "nonexistent").CombinedOutput()
+	cmd := exec.Command(testBinary, "nonexistent")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	require.Error(t, err, "unknown command should exit non-zero")
-	assert.Contains(t, strings.ToLower(string(out)), "unknown command")
+	assert.Contains(t, stdout.String(), "Usage:", "unknown commands still show root help on stdout")
+
+	envelope := parseErrorEnvelope(t, stderr.Bytes())
+	assert.Equal(t, "GENERAL_ERROR", envelope["code"])
+	assert.Contains(t, strings.ToLower(envelope["message"].(string)), "unknown command")
+}
+
+// TestUnknownFlagReturnsJSONError verifies cobra/structcli flag errors use the
+// same stderr JSON envelope as domain errors.
+func TestUnknownFlagReturnsJSONError(t *testing.T) {
+	cmd := exec.Command(testBinary, "--jwt", "not-supported")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	require.Error(t, err, "unknown flag should exit non-zero")
+	assert.Empty(t, stdout.String(), "errors should not be written to stdout")
+
+	envelope := parseErrorEnvelope(t, stderr.Bytes())
+	assert.Equal(t, "GENERAL_ERROR", envelope["code"])
+	assert.Contains(t, strings.ToLower(envelope["message"].(string)), "unknown flag")
 }
 
 // TestErrorOutputIsValidJSON runs a command with no valid Firefox profile
@@ -92,4 +120,13 @@ func TestErrorOutputIsValidJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal(stderr.Bytes(), &envelope),
 		"stderr should be valid JSON: %s", stderr.String())
 	assert.Contains(t, envelope, "error")
+}
+
+func parseErrorEnvelope(t *testing.T, payload []byte) map[string]any {
+	t.Helper()
+	var envelope map[string]any
+	require.NoError(t, json.Unmarshal(payload, &envelope), "stderr should be valid JSON: %s", string(payload))
+	errorBody, ok := envelope["error"].(map[string]any)
+	require.True(t, ok, "stderr JSON should include an error object: %s", string(payload))
+	return errorBody
 }

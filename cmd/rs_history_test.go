@@ -127,4 +127,8 @@ func TestRSHistoryGetMissingSymbol(t *testing.T) {
 
 	_, err := executeCommandWithClient(t, newRSHistoryCmd(), c, "get")
 	require.Error(t, err)
+
+	var verr *mserrors.ValidationError
+	assert.ErrorAs(t, err, &verr)
+	assert.Equal(t, "at least one symbol is required; pass --symbols AAPL,MSFT or positional symbols", err.Error())
 }

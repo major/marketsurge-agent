@@ -69,7 +69,56 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 	epsGrowth := firstMap(getNestedSlice(epsConsensus, "growthRate"))
 	salesGrowth := firstMap(getNestedSlice(salesConsensus, "growthRate"))
 	atr21d := firstMap(getNestedSlice(pricingEOD, "averageTrueRangePercent"))
-	patterns := buildPatterns(getNestedSlice(patternInfo, "patterns"))
+	patterns := buildSlice(getNestedSlice(patternInfo, "patterns"), func(item map[string]any) models.Pattern {
+		return models.Pattern{
+			ID:                               stringPtr(item["id"]),
+			PatternType:                      stringPtr(item["patternType"]),
+			Periodicity:                      stringPtr(item["periodicity"]),
+			BaseStage:                        stringPtr(item["baseStage"]),
+			BaseNumber:                       intPtr(item["baseNumber"]),
+			BaseStatus:                       stringPtr(item["baseStatus"]),
+			BaseLength:                       intPtr(item["baseLength"]),
+			BaseDepth:                        floatPtr(item["baseDepth"]),
+			BaseDepthFormatted:               formattedValue(item["baseDepth"]),
+			BaseStartDate:                    stringPtr(item["baseStartDate"]),
+			BaseEndDate:                      stringPtr(item["baseEndDate"]),
+			BaseBottomDate:                   stringPtr(item["baseBottomDate"]),
+			LeftSideHighDate:                 stringPtr(item["leftSideHighDate"]),
+			PivotPrice:                       floatPtr(item["pivotPrice"]),
+			PivotPriceFormatted:              formattedValue(item["pivotPrice"]),
+			PivotDate:                        stringPtr(item["pivotDate"]),
+			PivotPriceDate:                   stringPtr(item["pivotPriceDate"]),
+			AvgVolumeRatePctOnPivot:          floatPtr(item["avgVolumeRatePctOnPivot"]),
+			AvgVolumeRatePctOnPivotFormatted: formattedValue(item["avgVolumeRatePctOnPivot"]),
+			PricePctChangeOnPivot:            floatPtr(item["pricePctChangeOnPivot"]),
+			PricePctChangeOnPivotFormatted:   formattedValue(item["pricePctChangeOnPivot"]),
+		}
+	})
+
+	blueDotDailyItems := getNestedSlice(pricingEOD, "blueDotDailyEvents")
+	blueDotDailyDates := make([]string, 0, len(blueDotDailyItems))
+	for _, item := range blueDotDailyItems {
+		if v := stringPtr(item); v != nil {
+			blueDotDailyDates = append(blueDotDailyDates, *v)
+		}
+	}
+
+	blueDotWeeklyItems := getNestedSlice(pricingEOD, "blueDotWeeklyEvents")
+	blueDotWeeklyDates := make([]string, 0, len(blueDotWeeklyItems))
+	for _, item := range blueDotWeeklyItems {
+		if v := stringPtr(item); v != nil {
+			blueDotWeeklyDates = append(blueDotWeeklyDates, *v)
+		}
+	}
+
+	antItems := getNestedSlice(pricingEOD, "antEvents")
+	antDates := make([]string, 0, len(antItems))
+	for _, item := range antItems {
+		if v := stringPtr(item); v != nil {
+			antDates = append(antDates, *v)
+		}
+	}
+
 	pricing := &models.Pricing{
 		MarketCap:                            floatPtr(pricingEOD["marketCapitalization"]),
 		MarketCapFormatted:                   formattedValue(pricingEOD["marketCapitalization"]),
@@ -79,9 +128,9 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 		UpDownVolumeRatioFormatted:           formattedValue(pricingEOD["upDownVolumeRatio"]),
 		ATRPercent21D:                        floatPtr(atr21d),
 		ATRPercent21DFormatted:               formattedValue(atr21d),
-		BlueDotDailyDates:                    buildStringValues(getNestedSlice(pricingEOD, "blueDotDailyEvents")),
-		BlueDotWeeklyDates:                   buildStringValues(getNestedSlice(pricingEOD, "blueDotWeeklyEvents")),
-		AntDates:                             buildStringValues(getNestedSlice(pricingEOD, "antEvents")),
+		BlueDotDailyDates:                    blueDotDailyDates,
+		BlueDotWeeklyDates:                   blueDotWeeklyDates,
+		AntDates:                             antDates,
 		DividendYield:                        floatPtr(pricingIntraday["yield"]),
 		DividendYieldFormatted:               formattedValue(pricingIntraday["yield"]),
 		PriceToCashFlowRatio:                 floatPtr(pricingIntraday["priceToCashFlowRatio"]),
@@ -170,27 +219,75 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 			NewCEODate:                   stringPtr(fundamentals["newCEODate"]),
 		},
 		QuarterlyFinancials: &models.QuarterlyFinancials{
-			ReportedEarnings: buildQuarterlyReported(getNestedSlice(epsConsensus, "reportedEarnings")),
-			ReportedSales:    buildQuarterlyReported(getNestedSlice(salesConsensus, "reportedSales")),
-			EPSEstimates:     buildQuarterlyEstimates(getNestedSlice(financials, "estimates", "epsEstimates")),
-			SalesEstimates:   buildQuarterlyEstimates(getNestedSlice(financials, "estimates", "salesEstimates")),
-			ProfitMargins:    buildQuarterlyProfitMargins(getNestedSlice(financials, "profitMarginValues")),
+			ReportedEarnings: buildSlice(getNestedSlice(epsConsensus, "reportedEarnings"), func(item map[string]any) models.QuarterlyReportedPeriod {
+				return models.QuarterlyReportedPeriod{
+					Value:           floatPtr(item["value"]),
+					PctChangeYoY:    floatPtr(item["percentChangeYOY"]),
+					PeriodOffset:    stringify(item["periodOffset"]),
+					PeriodEndDate:   stringPtr(item["periodEndDate"]),
+					EffectiveDate:   stringPtr(item["effectiveDate"]),
+					PercentSurprise: floatPtr(item["percentSurprise"]),
+					SurpriseAmount:  floatPtr(item["surpriseAmount"]),
+					QuarterNumber:   intPtr(item["quarterNumber"]),
+					FiscalYear:      intPtr(item["fiscalYear"]),
+					Period:          stringPtr(item["period"]),
+				}
+			}),
+			ReportedSales: buildSlice(getNestedSlice(salesConsensus, "reportedSales"), func(item map[string]any) models.QuarterlyReportedPeriod {
+				return models.QuarterlyReportedPeriod{
+					Value:           floatPtr(item["value"]),
+					PctChangeYoY:    floatPtr(item["percentChangeYOY"]),
+					PeriodOffset:    stringify(item["periodOffset"]),
+					PeriodEndDate:   stringPtr(item["periodEndDate"]),
+					EffectiveDate:   stringPtr(item["effectiveDate"]),
+					PercentSurprise: floatPtr(item["percentSurprise"]),
+					SurpriseAmount:  floatPtr(item["surpriseAmount"]),
+					QuarterNumber:   intPtr(item["quarterNumber"]),
+					FiscalYear:      intPtr(item["fiscalYear"]),
+					Period:          stringPtr(item["period"]),
+				}
+			}),
+			EPSEstimates: buildSlice(getNestedSlice(financials, "estimates", "epsEstimates"), func(item map[string]any) models.QuarterlyEstimate {
+				return models.QuarterlyEstimate{
+					Value:             floatPtr(item["value"]),
+					PctChangeYoY:      floatPtr(item["percentChangeYOY"]),
+					PeriodEndDate:     stringPtr(item["periodEndDate"]),
+					EffectiveDate:     stringPtr(item["effectiveDate"]),
+					RevisionDirection: stringPtr(item["revisionDirection"]),
+					EstimateType:      stringPtr(item["type"]),
+				}
+			}),
+			SalesEstimates: buildSlice(getNestedSlice(financials, "estimates", "salesEstimates"), func(item map[string]any) models.QuarterlyEstimate {
+				return models.QuarterlyEstimate{
+					Value:             floatPtr(item["value"]),
+					PctChangeYoY:      floatPtr(item["percentChangeYOY"]),
+					PeriodEndDate:     stringPtr(item["periodEndDate"]),
+					EffectiveDate:     stringPtr(item["effectiveDate"]),
+					RevisionDirection: stringPtr(item["revisionDirection"]),
+					EstimateType:      stringPtr(item["type"]),
+				}
+			}),
+			ProfitMargins: buildSlice(getNestedSlice(financials, "profitMarginValues"), func(item map[string]any) models.QuarterlyProfitMargin {
+				return models.QuarterlyProfitMargin{
+					PeriodOffset:   stringify(item["periodOffset"]),
+					PeriodEndDate:  stringPtr(item["periodEndDate"]),
+					PreTaxMargin:   floatPtr(item["preTaxMargin"]),
+					AfterTaxMargin: floatPtr(item["afterTaxMargin"]),
+					GrossMargin:    floatPtr(item["grossMargin"]),
+					ReturnOnEquity: floatPtr(item["returnOnEquity"]),
+				}
+			}),
 		},
-		Patterns:   patterns,
-		TightAreas: buildTightAreas(getNestedSlice(patternInfo, "tightAreas")),
+		Patterns: patterns,
+		TightAreas: buildSlice(getNestedSlice(patternInfo, "tightAreas"), func(item map[string]any) models.TightArea {
+			return models.TightArea{
+				PatternID: intPtr(item["patternID"]),
+				StartDate: stringPtr(item["startDate"]),
+				EndDate:   stringPtr(item["endDate"]),
+				Length:    intPtr(item["length"]),
+			}
+		}),
 	}, nil
-}
-
-func buildStringValues(items []any) []string {
-	values := make([]string, 0, len(items))
-	for _, item := range items {
-		value := stringPtr(item)
-		if value == nil {
-			continue
-		}
-		values = append(values, *value)
-	}
-	return values
 }
 
 func buildSignals(pricing *models.Pricing) *models.Signals {
@@ -256,86 +353,4 @@ func dateValue(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func buildPatterns(items []any) []models.Pattern {
-	return buildSlice(items, func(item map[string]any) models.Pattern {
-		return models.Pattern{
-			ID:                               stringPtr(item["id"]),
-			PatternType:                      stringPtr(item["patternType"]),
-			Periodicity:                      stringPtr(item["periodicity"]),
-			BaseStage:                        stringPtr(item["baseStage"]),
-			BaseNumber:                       intPtr(item["baseNumber"]),
-			BaseStatus:                       stringPtr(item["baseStatus"]),
-			BaseLength:                       intPtr(item["baseLength"]),
-			BaseDepth:                        floatPtr(item["baseDepth"]),
-			BaseDepthFormatted:               formattedValue(item["baseDepth"]),
-			BaseStartDate:                    stringPtr(item["baseStartDate"]),
-			BaseEndDate:                      stringPtr(item["baseEndDate"]),
-			BaseBottomDate:                   stringPtr(item["baseBottomDate"]),
-			LeftSideHighDate:                 stringPtr(item["leftSideHighDate"]),
-			PivotPrice:                       floatPtr(item["pivotPrice"]),
-			PivotPriceFormatted:              formattedValue(item["pivotPrice"]),
-			PivotDate:                        stringPtr(item["pivotDate"]),
-			PivotPriceDate:                   stringPtr(item["pivotPriceDate"]),
-			AvgVolumeRatePctOnPivot:          floatPtr(item["avgVolumeRatePctOnPivot"]),
-			AvgVolumeRatePctOnPivotFormatted: formattedValue(item["avgVolumeRatePctOnPivot"]),
-			PricePctChangeOnPivot:            floatPtr(item["pricePctChangeOnPivot"]),
-			PricePctChangeOnPivotFormatted:   formattedValue(item["pricePctChangeOnPivot"]),
-		}
-	})
-}
-
-func buildTightAreas(items []any) []models.TightArea {
-	return buildSlice(items, func(item map[string]any) models.TightArea {
-		return models.TightArea{
-			PatternID: intPtr(item["patternID"]),
-			StartDate: stringPtr(item["startDate"]),
-			EndDate:   stringPtr(item["endDate"]),
-			Length:    intPtr(item["length"]),
-		}
-	})
-}
-
-func buildQuarterlyReported(items []any) []models.QuarterlyReportedPeriod {
-	return buildSlice(items, func(item map[string]any) models.QuarterlyReportedPeriod {
-		return models.QuarterlyReportedPeriod{
-			Value:           floatPtr(item["value"]),
-			PctChangeYoY:    floatPtr(item["percentChangeYOY"]),
-			PeriodOffset:    stringify(item["periodOffset"]),
-			PeriodEndDate:   stringPtr(item["periodEndDate"]),
-			EffectiveDate:   stringPtr(item["effectiveDate"]),
-			PercentSurprise: floatPtr(item["percentSurprise"]),
-			SurpriseAmount:  floatPtr(item["surpriseAmount"]),
-			QuarterNumber:   intPtr(item["quarterNumber"]),
-			FiscalYear:      intPtr(item["fiscalYear"]),
-			Period:          stringPtr(item["period"]),
-		}
-	})
-}
-
-func buildQuarterlyEstimates(items []any) []models.QuarterlyEstimate {
-	return buildSlice(items, func(item map[string]any) models.QuarterlyEstimate {
-		return models.QuarterlyEstimate{
-			Value:             floatPtr(item["value"]),
-			PctChangeYoY:      floatPtr(item["percentChangeYOY"]),
-			PeriodEndDate:     stringPtr(item["periodEndDate"]),
-			EffectiveDate:     stringPtr(item["effectiveDate"]),
-			RevisionDirection: stringPtr(item["revisionDirection"]),
-			EstimateType:      stringPtr(item["type"]),
-		}
-	})
-}
-
-func buildQuarterlyProfitMargins(items []any) []models.QuarterlyProfitMargin {
-	return buildSlice(items, func(item map[string]any) models.QuarterlyProfitMargin {
-		return models.QuarterlyProfitMargin{
-			PeriodOffset:   stringify(item["periodOffset"]),
-			PeriodEndDate:  stringPtr(item["periodEndDate"]),
-			PreTaxMargin:   floatPtr(item["preTaxMargin"]),
-			AfterTaxMargin: floatPtr(item["afterTaxMargin"]),
-			GrossMargin:    floatPtr(item["grossMargin"]),
-			ReturnOnEquity: floatPtr(item["returnOnEquity"]),
-		}
-	})
 }

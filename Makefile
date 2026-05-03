@@ -1,4 +1,4 @@
-.PHONY: build test smoke lint clean docs
+.PHONY: build test smoke lint clean
 
 build:
 	go build -o marketsurge-agent ./cmd/marketsurge-agent/
@@ -11,10 +11,6 @@ smoke:
 
 lint:
 	golangci-lint run ./...
-
-docs: build
-	mkdir -p ./docs
-	./marketsurge-agent docs --output ./docs
 
 clean:
 	go clean

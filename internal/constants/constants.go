@@ -15,7 +15,6 @@ const (
 	RefererURL         = "https://marketsurge.investors.com/"
 	OriginalHost       = "marketsurge.investors.com"
 	ApolloClientName   = "marketsurge"
-	CookieDomain       = "investors.com"
 	SymbolDialectType  = "CHARTING"
 	HTTPTimeout        = 30 * time.Second
 	MaxResponseSize    = 10 * 1024 * 1024 // 10 MB

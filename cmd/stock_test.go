@@ -139,6 +139,72 @@ func TestStockAnalyzeMultiSymbol(t *testing.T) {
 	assert.Len(t, symbols, 2)
 }
 
+func TestStockAnalyzeConcurrentAllSuccess(t *testing.T) {
+	t.Parallel()
+	server := stockAnalyzeConcurrentServer(t, nil)
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeStockAnalyze(t, c, "analyze", "AAPL", "MSFT", "NVDA")
+	require.NoError(t, err)
+
+	result := parseJSONEnvelope(t, output)
+	data, ok := result["data"].([]any)
+	require.True(t, ok, "concurrent multi-symbol data should be an array")
+	require.Len(t, data, 3)
+	assert.NotContains(t, result, "errors")
+
+	seen := make(map[string]bool, len(data))
+	for _, item := range data {
+		analysis, ok := item.(map[string]any)
+		require.True(t, ok, "analysis item should be an object")
+		seen[analysis["symbol"].(string)] = true
+		assert.Contains(t, analysis, "stock")
+		assert.Contains(t, analysis, "fundamentals")
+		assert.Contains(t, analysis, "ownership")
+	}
+	assert.Equal(t, map[string]bool{"AAPL": true, "MSFT": true, "NVDA": true}, seen)
+}
+
+func TestStockAnalyzeConcurrentAllFailure(t *testing.T) {
+	t.Parallel()
+	server := stockAnalyzeConcurrentServer(t, map[string]bool{"AAPL": true, "MSFT": true, "NVDA": true})
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeStockAnalyze(t, c, "analyze", "AAPL", "MSFT", "NVDA")
+	require.Error(t, err)
+	assert.Empty(t, output)
+
+	var apiErr *mserrors.APIError
+	assert.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, 33, apiErr.ExitCode())
+	assert.Contains(t, apiErr.Error(), "analysis failed for all symbols")
+}
+
+func TestStockAnalyzeConcurrentMixed(t *testing.T) {
+	t.Parallel()
+	server := stockAnalyzeConcurrentServer(t, map[string]bool{"MSFT": true})
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeStockAnalyze(t, c, "analyze", "AAPL", "MSFT", "NVDA")
+	require.NoError(t, err)
+
+	result := parseJSONEnvelope(t, output)
+	assert.Contains(t, result, "data")
+	assert.Contains(t, result, "errors")
+
+	data, ok := result["data"].([]any)
+	require.True(t, ok, "partial concurrent data should be an array")
+	assert.Len(t, data, 3)
+
+	errors, ok := result["errors"].([]any)
+	require.True(t, ok, "partial envelope should include top-level errors")
+	assert.NotEmpty(t, errors)
+	assert.Contains(t, output, "MSFT")
+}
+
 func TestStockAnalyzePartialFailureWithCompactFlatOutput(t *testing.T) {
 	server := stockAnalyzePartialServer(t)
 	defer server.Close()
@@ -479,6 +545,34 @@ func stockAnalyzePartialServer(t *testing.T) *httptest.Server {
 		} else {
 			_, err = w.Write([]byte(stockResponseFixture()))
 		}
+		if err != nil {
+			t.Errorf("write response body: %v", err)
+		}
+	}))
+}
+
+func stockAnalyzeConcurrentServer(t *testing.T, failingSymbols map[string]bool) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := stockResponseFixture()
+		bodyText := string(body)
+		for symbol, shouldFail := range failingSymbols {
+			if shouldFail && strings.Contains(bodyText, symbol) {
+				response = emptyMarketDataFixture()
+				break
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write([]byte(response))
 		if err != nil {
 			t.Errorf("write response body: %v", err)
 		}

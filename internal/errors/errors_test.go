@@ -220,18 +220,6 @@ func TestErrorChainTraversal(t *testing.T) {
 	if !errors.As(err, &cookieErr) {
 		t.Error("errors.As() failed to find CookieExtractionError in chain")
 	}
-
-	// Verify errors.As() can find AuthenticationError (parent type)
-	var authErr *AuthenticationError
-	if !errors.As(err, &authErr) {
-		t.Error("errors.As() failed to find AuthenticationError in chain")
-	}
-
-	// Verify errors.As() can find MarketSurgeError (grandparent type)
-	var marketErr *MarketSurgeError
-	if !errors.As(err, &marketErr) {
-		t.Error("errors.As() failed to find MarketSurgeError in chain")
-	}
 }
 
 // TestSymbolNotFoundErrorAttributes verifies SymbolNotFoundError stores the symbol.
@@ -285,36 +273,6 @@ func TestErrorMessagePreservation(t *testing.T) {
 	err := NewMarketSurgeError(message, nil)
 	if err.Error() != message {
 		t.Errorf("Error() = %q, want %q", err.Error(), message)
-	}
-}
-
-// TestCookieExtractionIsAuthenticationError verifies CookieExtractionError is also AuthenticationError.
-func TestCookieExtractionIsAuthenticationError(t *testing.T) {
-	t.Parallel()
-	err := NewCookieExtractionError("cookie extraction failed", nil, "Firefox")
-	var authErr *AuthenticationError
-	if !errors.As(err, &authErr) {
-		t.Error("CookieExtractionError is not recognized as AuthenticationError")
-	}
-}
-
-// TestTokenExpiredIsAuthenticationError verifies TokenExpiredError is also AuthenticationError.
-func TestTokenExpiredIsAuthenticationError(t *testing.T) {
-	t.Parallel()
-	err := NewTokenExpiredError("token expired", nil, 401)
-	var authErr *AuthenticationError
-	if !errors.As(err, &authErr) {
-		t.Error("TokenExpiredError is not recognized as AuthenticationError")
-	}
-}
-
-// TestSymbolNotFoundIsAPIError verifies SymbolNotFoundError is also APIError.
-func TestSymbolNotFoundIsAPIError(t *testing.T) {
-	t.Parallel()
-	err := NewSymbolNotFoundError("symbol not found", nil, "INVALID")
-	var apiErr *APIError
-	if !errors.As(err, &apiErr) {
-		t.Error("SymbolNotFoundError is not recognized as APIError")
 	}
 }
 

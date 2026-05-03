@@ -40,8 +40,6 @@ risk metrics, short interest, base_pattern, and signals (blue dot, ant).
 
 Use "stock analyze" for the complete research packet including stock,
 fundamentals, and ownership data fetched concurrently.`,
-		SilenceUsage:  true,
-		SilenceErrors: true,
 	}
 	cmd.AddCommand(newSymbolCmd("get", "Get stock data for a symbol", func(ctx context.Context, symbol string) (any, error) {
 		return ClientFromContext(ctx).GetStock(ctx, symbol)
@@ -125,7 +123,7 @@ interesting symbols without --summary for detail.`,
 			wg.Wait()
 
 			if !analysisHasData(results) {
-				return fmt.Errorf("analysis failed for all symbols: %v", allErrors)
+				return mserrors.NewAPIError(fmt.Sprintf("analysis failed for all symbols: %v", allErrors), nil)
 			}
 
 			data, err := transformAnalysisOutput(results, opts.Compact, opts.Flat, opts.Summary)

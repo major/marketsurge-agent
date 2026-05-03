@@ -58,11 +58,11 @@ func (c *Client) GetRSRatingHistories(ctx context.Context, symbols []string) (ma
 	for _, item := range marketData {
 		mapping, ok := item.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("invalid marketData item")
+			return nil, mserrors.NewAPIError("invalid marketData item", nil)
 		}
 		responseSymbol := rsHistoryResponseSymbol(mapping)
 		if responseSymbol == "" {
-			return nil, fmt.Errorf("missing originRequest symbol in marketData item")
+			return nil, mserrors.NewAPIError("missing originRequest symbol in marketData item", nil)
 		}
 		symbol, ok := requestedSymbols[strings.ToUpper(responseSymbol)]
 		if !ok {

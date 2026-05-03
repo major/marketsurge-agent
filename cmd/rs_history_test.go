@@ -130,5 +130,5 @@ func TestRSHistoryGetMissingSymbol(t *testing.T) {
 
 	var verr *mserrors.ValidationError
 	assert.ErrorAs(t, err, &verr)
-	assert.Equal(t, "missing symbols: pass positional symbols like rs-history get AAPL MSFT", err.Error())
+	assert.Equal(t, "at least one symbol is required; pass --symbols AAPL,MSFT or positional symbols", err.Error())
 }

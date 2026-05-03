@@ -6,6 +6,8 @@ require (
 	github.com/browserutils/kooky v0.2.9
 	github.com/leodido/structcli v0.17.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
+	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.11.1
 	resty.dev/v3 v3.0.0-beta.6
 )
@@ -24,8 +26,6 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.9.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/spf13/viper v1.20.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/thediveo/enumflag/v2 v2.0.7 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

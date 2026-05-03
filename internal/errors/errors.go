@@ -35,14 +35,6 @@ func (e *MarketSurgeError) Unwrap() error {
 	return e.Cause
 }
 
-// As implements custom error type matching for MarketSurgeError.
-func (e *MarketSurgeError) As(target any) bool {
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
-}
-
 // ErrorCode returns the error classification code for JSON responses.
 func (e *MarketSurgeError) ErrorCode() string { return "GENERAL_ERROR" }
 
@@ -52,17 +44,6 @@ func (e *MarketSurgeError) ExitCode() int { return ExitGeneral }
 // AuthenticationError indicates an authentication failure (cookie extraction or token expiry).
 type AuthenticationError struct {
 	MarketSurgeError
-}
-
-// As implements custom error type matching for AuthenticationError.
-func (e *AuthenticationError) As(target any) bool {
-	if _, ok := target.(**AuthenticationError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
 }
 
 // ErrorCode returns the error classification code for JSON responses.
@@ -78,20 +59,6 @@ type CookieExtractionError struct {
 	Browser string // Name of the browser that failed extraction
 }
 
-// As implements custom error type matching for CookieExtractionError.
-func (e *CookieExtractionError) As(target any) bool {
-	if _, ok := target.(**CookieExtractionError); ok {
-		return true
-	}
-	if _, ok := target.(**AuthenticationError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
-}
-
 // ErrorCode returns the error classification code for JSON responses.
 func (e *CookieExtractionError) ErrorCode() string { return "AUTH_FAILED" }
 
@@ -105,20 +72,6 @@ type TokenExpiredError struct {
 	StatusCode int // HTTP status code that triggered this error (usually 401)
 }
 
-// As implements custom error type matching for TokenExpiredError.
-func (e *TokenExpiredError) As(target any) bool {
-	if _, ok := target.(**TokenExpiredError); ok {
-		return true
-	}
-	if _, ok := target.(**AuthenticationError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
-}
-
 // ErrorCode returns the error classification code for JSON responses.
 func (e *TokenExpiredError) ErrorCode() string { return "AUTH_FAILED" }
 
@@ -128,17 +81,6 @@ func (e *TokenExpiredError) ExitCode() int { return ExitAuthFailure }
 // APIError indicates that the GraphQL API returned errors.
 type APIError struct {
 	MarketSurgeError
-}
-
-// As implements custom error type matching for APIError.
-func (e *APIError) As(target any) bool {
-	if _, ok := target.(**APIError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
 }
 
 // ErrorCode returns the error classification code for JSON responses.
@@ -154,20 +96,6 @@ type SymbolNotFoundError struct {
 	Symbol string // The ticker symbol that was not found
 }
 
-// As implements custom error type matching for SymbolNotFoundError.
-func (e *SymbolNotFoundError) As(target any) bool {
-	if _, ok := target.(**SymbolNotFoundError); ok {
-		return true
-	}
-	if _, ok := target.(**APIError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
-}
-
 // ErrorCode returns the error classification code for JSON responses.
 func (e *SymbolNotFoundError) ErrorCode() string { return "SYMBOL_NOT_FOUND" }
 
@@ -181,17 +109,6 @@ type HTTPError struct {
 	Body       string // Raw response body text
 }
 
-// As implements custom error type matching for HTTPError.
-func (e *HTTPError) As(target any) bool {
-	if _, ok := target.(**HTTPError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
-}
-
 // ErrorCode returns the error classification code for JSON responses.
 func (e *HTTPError) ErrorCode() string { return "HTTP_ERROR" }
 
@@ -201,17 +118,6 @@ func (e *HTTPError) ExitCode() int { return ExitAPIError }
 // ValidationError indicates that input validation failed.
 type ValidationError struct {
 	MarketSurgeError
-}
-
-// As implements custom error type matching for ValidationError.
-func (e *ValidationError) As(target any) bool {
-	if _, ok := target.(**ValidationError); ok {
-		return true
-	}
-	if _, ok := target.(**MarketSurgeError); ok {
-		return true
-	}
-	return false
 }
 
 // ErrorCode returns the error classification code for JSON responses.

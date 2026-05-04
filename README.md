@@ -203,10 +203,10 @@ marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact --flat
 - `--symbols AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--symbols`.
 - `--tickers AAPL,MSFT,NVDA` remains supported as a backward-compatible alias for `stock analyze`.
 - `--compact` removes duplicate formatted string fields such as `market_cap_formatted`, while keeping raw numeric values.
-- `--summary` returns one small screening object per symbol with rankings, signal flags, base details, liquidity, volatility, and ownership fields. Response metadata includes `mode: "summary"`.
+- `--summary` returns one small screening object per symbol with rankings, signal flags, ANTS dates and explanation, base details, liquidity, volatility, and ownership fields. Response metadata includes `mode: "summary"`.
 - `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 
-`stock analyze` also includes MarketSurge technical context for chart-driven screening: `stock.base_pattern` summarizes the current base with pattern type, base stage, pivot price, base length, depth, and volume at pivot; `stock.signals` reports blue dot and ant signal flags when the API provides them.
+`stock analyze` also includes MarketSurge technical context for chart-driven screening: `stock.base_pattern` summarizes the current base with pattern type, base stage, pivot price, base length, depth, and volume at pivot; `stock.signals` reports blue dot and ANTS signal flags when the API provides them. ANTS marks flag institutional accumulation: repeated upside price action with rising volume over a recent 15-day window. Full output exposes the mark dates at `stock.pricing.ant_dates`; summary output includes `ant_dates` and `ant_explanation` whenever `ant_signal` is true.
 
 `rs-history get` accepts multiple symbols in one request through positional arguments or `--symbols`. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
 

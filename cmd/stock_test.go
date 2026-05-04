@@ -14,6 +14,7 @@ import (
 
 	"github.com/major/marketsurge-agent/internal/client"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"github.com/major/marketsurge-agent/internal/models"
 )
 
 func TestStockGetSuccess(t *testing.T) {
@@ -351,6 +352,8 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 	assert.Equal(t, "A", first["smr"])
 	assert.Equal(t, true, first["blue_dot"])
 	assert.Equal(t, true, first["ant_signal"])
+	assert.Equal(t, []any{"2024-12-18"}, first["ant_dates"])
+	assert.Equal(t, antSignalExplanation, first["ant_explanation"])
 	assert.Equal(t, "Cup With Handle", first["base_type"])
 	assert.Equal(t, "STAGE_2", first["base_stage"])
 	assert.Equal(t, 199.99, first["pivot"])
@@ -366,6 +369,24 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 
 	meta, _ := result["metadata"].(map[string]any)
 	assert.Equal(t, "summary", meta["mode"])
+}
+
+func TestStockAnalyzeSummaryOmitsAntDetailsWhenSignalFalse(t *testing.T) {
+	t.Parallel()
+	antSignal := false
+	result := AnalysisResult{
+		Symbol: "AAPL",
+		Stock: &models.StockData{
+			Signals: &models.Signals{AntSignal: &antSignal},
+			Pricing: &models.Pricing{AntDates: []string{"2024-12-18"}},
+		},
+	}
+
+	summary := analysisSummaryMap(result)
+
+	assert.Equal(t, false, summary["ant_signal"])
+	assert.NotContains(t, summary, "ant_dates")
+	assert.NotContains(t, summary, "ant_explanation")
 }
 
 func TestStockAnalyzeStructTags(t *testing.T) {

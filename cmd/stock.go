@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const antSignalExplanation = "ANTS marks flag institutional accumulation: repeated upside price action with rising volume over a recent 15-day window."
+
 func init() { rootCmd.AddCommand(newStockCmd()) }
 
 func newStockCmd() *cobra.Command {
@@ -88,7 +90,8 @@ results when only some symbols or subresources fail.
 Flags:
 
   --summary   Compact screening keys: symbol, composite, eps, rs, ad, smr,
-              blue_dot, ant_signal, base_type, base_stage, pivot,
+              blue_dot, ant_signal, ant_dates, ant_explanation,
+              base_type, base_stage, pivot,
               base_depth_percent, industry_group_rs, up_down_volume,
               atr_percent, avg_dollar_volume, funds_float_percent
   --compact   Removes duplicate formatted string fields, keeps raw values
@@ -237,6 +240,7 @@ func analysisSummaryMap(result AnalysisResult) map[string]any {
 
 	addRatingSummary(data, result.Stock.Ratings)
 	addSignalSummary(data, result.Stock.Signals)
+	addAntSummary(data, result.Stock)
 	addBaseSummary(data, result.Stock.BasePattern)
 	addScreeningMetrics(data, result.Stock)
 	return data
@@ -259,6 +263,17 @@ func addSignalSummary(data map[string]any, signals *models.Signals) {
 	}
 	addPtrValue(data, "blue_dot", signals.BlueDot)
 	addPtrValue(data, "ant_signal", signals.AntSignal)
+}
+
+func addAntSummary(data map[string]any, stock *models.StockData) {
+	if stock.Signals == nil || stock.Signals.AntSignal == nil || !*stock.Signals.AntSignal {
+		return
+	}
+
+	if stock.Pricing != nil && len(stock.Pricing.AntDates) > 0 {
+		data["ant_dates"] = stock.Pricing.AntDates
+	}
+	data["ant_explanation"] = antSignalExplanation
 }
 
 func addBaseSummary(data map[string]any, base *models.BasePattern) {

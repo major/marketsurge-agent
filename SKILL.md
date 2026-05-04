@@ -284,7 +284,8 @@ results when only some symbols or subresources fail.
 Flags:
 
   --summary   Compact screening keys: symbol, composite, eps, rs, ad, smr,
-              blue_dot, ant_signal, base_type, base_stage, pivot,
+              blue_dot, ant_signal, ant_dates, ant_explanation,
+              base_type, base_stage, pivot,
               base_depth_percent, industry_group_rs, up_down_volume,
               atr_percent, avg_dollar_volume, funds_float_percent
   --compact   Removes duplicate formatted string fields, keeps raw values

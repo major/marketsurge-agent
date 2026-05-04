@@ -121,7 +121,7 @@ Errors follow the same pattern:
 ## Commands
 
 | Command | Description |
-|---|---|
+| --- | --- |
 | `stock get <symbol>` / `stock get --symbol SYMBOL` | Stock data (ratings, pricing, financials) |
 | `stock analyze [symbols...]` / `stock analyze --symbols SYMBOLS` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, summary, and comma-separated batch modes |
 | `fundamental get <symbol>` / `fundamental get --symbol SYMBOL` | Fundamental analysis data |
@@ -166,6 +166,20 @@ marketsurge-agent --version
 ```
 
 ## Agent integration
+
+marketsurge-agent is built for coding agents and LLM tools that need structured stock research data without scraping MarketSurge pages. The repository currently uses hand-maintained `AGENTS.md` files plus live `--jsonschema`, `--help`, and `--mcp` output from the binary instead of checked-in generated `SKILL.md` or `llms.txt` files.
+
+### Claude Code and skill-aware tools
+
+This repo does not currently ship a generated `SKILL.md`. For Claude Code or other tools that support skills, use the live command contract from `marketsurge-agent --jsonschema` or `marketsurge-agent --jsonschema=tree`, then use `marketsurge-agent <command> --help` for workflow details and copyable examples.
+
+If you create a local skill for this tool, base it on the checked-in README and AGENTS.md files plus live schema output from the binary. Re-run schema discovery after command, flag, default, or help text changes so the skill matches the current command surface.
+
+### OpenCode and Codex
+
+OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the root `AGENTS.md`; package-specific guidance lives in `cmd/AGENTS.md` and `internal/client/AGENTS.md` for command wiring, MCP behavior, JSON Schema behavior, client methods, and test patterns.
+
+Use `--jsonschema`, `--help`, `help env-vars`, and `help config-keys` for the generated command and configuration contract. Update the relevant `AGENTS.md` files by hand when project structure, command patterns, build steps, auth behavior, or safety rules change.
 
 ### Token-efficient stock analysis
 

@@ -1,6 +1,6 @@
 # marketsurge-agent
 
-Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, self-documenting via `--jsonschema` and `--help`.
+Go CLI tool that lets AI agents query the MarketSurge stock research API. Single binary, JSON-first output, self-documenting via `--jsonschema`, generated `SKILL.md`, and `--help`.
 
 This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily.
 
@@ -8,6 +8,7 @@ This project is unofficial and is not affiliated with, approved by, or endorsed 
 
 ```text
 cmd/
+  generate-docs/main.go          Generates root SKILL.md from the command tree
   marketsurge-agent/main.go      Entry point, calls cmd.Execute()
   root.go                        Root command, PersistentPreRunE (auth), Execute()
   symbol.go                      Shared symbol-fetcher pattern
@@ -165,6 +166,10 @@ Schema tags should make command selection and flag filling obvious:
 
 The schema should describe enough for agents to choose flags without scraping prose help, while runtime validation remains the source of truth for mutually exclusive and conditional rules.
 
+### Generated skill file
+
+Run `make docs` after command, flag, default, example, or help text changes. It refreshes the repository-root `SKILL.md` from the live Cobra and structcli command tree so Claude Code and other skill-aware tools have the same primary skill-file location as the sibling agent repositories.
+
 ## Conventions
 
 ### Code style
@@ -215,6 +220,7 @@ make build     # Build binary
 make test      # go test -v -race -coverprofile
 make smoke     # Local-only live API smoke tests with -tags=smoke
 make lint      # golangci-lint run
+make docs      # Refresh root SKILL.md
 make clean     # Remove binary + coverage
 ```
 
@@ -230,6 +236,7 @@ Release: push `v*` tag -> goreleaser v2 -> multi-platform binaries (linux/darwin
 
 - **Keep this file updated**: When adding, removing, or changing commands, error types, conventions, or architecture, update this file and subdirectory AGENTS.md files to match.
 - **Keep README.md updated**: When changing commands, flags, output format, install instructions, or development workflow, update README.md as well.
+- **Keep SKILL.md updated**: Run `make docs` when command metadata changes so the generated root skill stays in sync.
 
 ## Dependencies
 

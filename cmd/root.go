@@ -150,6 +150,13 @@ func ContextWithClient(ctx context.Context, c *client.Client) context.Context {
 	return context.WithValue(ctx, clientKey, c)
 }
 
+// RootCommand returns the configured root command tree for documentation
+// generators. The generator only inspects metadata, so it does not trigger auth
+// hooks or run any MarketSurge API commands.
+func RootCommand() *cobra.Command {
+	return rootCmd
+}
+
 func persistentPreRunE(cmd *cobra.Command, args []string) error {
 	if isNonAPICommand(cmd) {
 		return nil

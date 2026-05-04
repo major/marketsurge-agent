@@ -167,13 +167,24 @@ marketsurge-agent --version
 
 ## Agent integration
 
-marketsurge-agent is built for coding agents and LLM tools that need structured stock research data without scraping MarketSurge pages. The repository currently uses hand-maintained `AGENTS.md` files plus live `--jsonschema`, `--help`, and `--mcp` output from the binary instead of checked-in generated `SKILL.md` or `llms.txt` files.
+marketsurge-agent is built for coding agents and LLM tools that need structured stock research data without scraping MarketSurge pages. The repository uses a generated root `SKILL.md` for skill-aware tools plus hand-maintained `AGENTS.md` files, live `--jsonschema`, `--help`, and `--mcp` output from the binary.
 
 ### Claude Code and skill-aware tools
 
-This repo does not currently ship a generated `SKILL.md`. For Claude Code or other tools that support skills, use the live command contract from `marketsurge-agent --jsonschema` or `marketsurge-agent --jsonschema=tree`, then use `marketsurge-agent <command> --help` for workflow details and copyable examples.
+Use the checked-in root `SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and MCP server hints generated from the live Cobra and structcli command tree.
 
-If you create a local skill for this tool, base it on the checked-in README and AGENTS.md files plus live schema output from the binary. Re-run schema discovery after command, flag, default, or help text changes so the skill matches the current command surface.
+For Claude Code, copy or symlink the generated skill into your local skills directory if you want it available outside this repository:
+
+```bash
+mkdir -p ~/.claude/skills/marketsurge-agent
+ln -sf "$(pwd)/SKILL.md" ~/.claude/skills/marketsurge-agent/SKILL.md
+```
+
+If you already have a custom skill at that path, review or back it up first because `ln -sf` replaces the existing file or symlink. Regenerate `SKILL.md` after command, flag, default, or help text changes so the skill matches the current command surface:
+
+```bash
+make docs
+```
 
 ### OpenCode and Codex
 
@@ -240,6 +251,7 @@ make build     # Build binary
 make test      # Run tests with race detector
 make smoke     # Run local live-data smoke tests against MarketSurge
 make lint      # Run golangci-lint (install: https://golangci-lint.run/welcome/install/)
+make docs      # Refresh root SKILL.md
 make clean     # Remove binary and build artifacts
 ```
 

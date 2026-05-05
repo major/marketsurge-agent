@@ -4,6 +4,8 @@ Go CLI tool that lets AI agents query the MarketSurge stock research API. Single
 
 This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily.
 
+Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/instructions/*.instructions.md` aligned with current repo conventions when review-relevant behavior changes.
+
 ## Architecture
 
 ```text

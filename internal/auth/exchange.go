@@ -10,7 +10,7 @@ import (
 
 	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
-	marketsurge "github.com/major/marketsurge-go"
+	"github.com/major/marketsurge-go/marketsurge"
 )
 
 // exchangeURL is the JWT exchange endpoint URL. It defaults to

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/major/marketsurge-agent/internal/errors"
-	marketsurge "github.com/major/marketsurge-go"
+	"github.com/major/marketsurge-go/marketsurge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

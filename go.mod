@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/browserutils/kooky v0.2.9
 	github.com/leodido/structcli v0.17.0
-	github.com/major/marketsurge-go v0.0.0-20260509201032-7c7cf98b7ae1
+	github.com/major/marketsurge-go v0.0.0-20260509201736-39d5b72c05c6
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.20.1

@@ -42,49 +42,12 @@ func TestGraphQLHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-	t.Parallel()
-	got := headers.Get(tt.key)
+			t.Parallel()
+			got := headers.Get(tt.key)
 			if got != tt.expected {
 				t.Errorf("header %q = %q, want %q", tt.key, got, tt.expected)
 			}
-})
-	}
-}
-
-func TestJWTExchangeHeaders(t *testing.T) {
-	t.Parallel()
-	headers := JWTExchangeHeaders()
-
-	tests := []struct {
-		name     string
-		key      string
-		expected string
-	}{
-		{
-			name:     "x-original-host",
-			key:      "X-Original-Host",
-			expected: "marketsurge.investors.com",
-		},
-		{
-			name:     "Referer",
-			key:      "Referer",
-			expected: "https://marketsurge.investors.com/",
-		},
-		{
-			name:     "Origin",
-			key:      "Origin",
-			expected: "https://marketsurge.investors.com",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-	t.Parallel()
-	got := headers.Get(tt.key)
-			if got != tt.expected {
-				t.Errorf("header %q = %q, want %q", tt.key, got, tt.expected)
-			}
-})
+		})
 	}
 }
 

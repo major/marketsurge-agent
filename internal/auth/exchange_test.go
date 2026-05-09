@@ -7,11 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/major/marketsurge-agent/internal/constants"
 	"github.com/major/marketsurge-agent/internal/errors"
+	marketsurge "github.com/major/marketsurge-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type clientResponse = marketsurge.ClientInfoResponse
 
 // validJWTResponse returns a clientResponse representing a successful login.
 func validJWTResponse() clientResponse {
@@ -20,6 +22,12 @@ func validJWTResponse() clientResponse {
 		JWT:        "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.test.signature",
 		GivenName:  "Test",
 		FamilyName: "User",
+	}
+}
+
+func validSessionCookies() []*http.Cookie {
+	return []*http.Cookie{
+		{Name: "session", Value: "abc123"},
 	}
 }
 
@@ -34,18 +42,13 @@ func TestExchangeJWT_Success(t *testing.T) {
 	exchangeURL = server.URL
 	t.Cleanup(func() { exchangeURL = origURL })
 
-	cookies := []*http.Cookie{
-		{Name: "session", Value: "abc123"},
-	}
-
-	jwt, err := ExchangeJWT(context.Background(), cookies)
+	jwt, err := ExchangeJWT(context.Background(), validSessionCookies())
 
 	require.NoError(t, err)
 	assert.Equal(t, "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.test.signature", jwt)
 }
 
 func TestExchangeJWT_HTTPError(t *testing.T) {
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte("unauthorized"))
@@ -56,7 +59,7 @@ func TestExchangeJWT_HTTPError(t *testing.T) {
 	exchangeURL = server.URL
 	t.Cleanup(func() { exchangeURL = origURL })
 
-	jwt, err := ExchangeJWT(context.Background(), nil)
+	jwt, err := ExchangeJWT(context.Background(), validSessionCookies())
 
 	assert.Empty(t, jwt)
 	require.Error(t, err)
@@ -67,8 +70,6 @@ func TestExchangeJWT_HTTPError(t *testing.T) {
 }
 
 func TestExchangeJWT_NoJWT(t *testing.T) {
-
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := clientResponse{
 			IsLoggedIn: true,
@@ -85,7 +86,7 @@ func TestExchangeJWT_NoJWT(t *testing.T) {
 	exchangeURL = server.URL
 	t.Cleanup(func() { exchangeURL = origURL })
 
-	jwt, err := ExchangeJWT(context.Background(), nil)
+	jwt, err := ExchangeJWT(context.Background(), validSessionCookies())
 
 	assert.Empty(t, jwt)
 	require.Error(t, err)
@@ -96,8 +97,6 @@ func TestExchangeJWT_NoJWT(t *testing.T) {
 }
 
 func TestExchangeJWT_NotLoggedIn(t *testing.T) {
-
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := clientResponse{
 			IsLoggedIn: false,
@@ -112,7 +111,7 @@ func TestExchangeJWT_NotLoggedIn(t *testing.T) {
 	exchangeURL = server.URL
 	t.Cleanup(func() { exchangeURL = origURL })
 
-	jwt, err := ExchangeJWT(context.Background(), nil)
+	jwt, err := ExchangeJWT(context.Background(), validSessionCookies())
 
 	assert.Empty(t, jwt)
 	require.Error(t, err)
@@ -122,35 +121,7 @@ func TestExchangeJWT_NotLoggedIn(t *testing.T) {
 	assert.Contains(t, authErr.Message, "not logged in")
 }
 
-func TestExchangeJWT_Headers(t *testing.T) {
-
-
-	var receivedHeaders http.Header
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedHeaders = r.Header.Clone()
-		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(validJWTResponse()))
-	}))
-	defer server.Close()
-
-	origURL := exchangeURL
-	exchangeURL = server.URL
-	t.Cleanup(func() { exchangeURL = origURL })
-
-	_, err := ExchangeJWT(context.Background(), nil)
-	require.NoError(t, err)
-
-	expectedHeaders := constants.JWTExchangeHeaders()
-	for key, values := range expectedHeaders {
-		assert.Equal(t, values, receivedHeaders.Values(key),
-			"header %q mismatch", key)
-	}
-}
-
 func TestExchangeJWT_Cookies(t *testing.T) {
-
-
 	var receivedCookies []*http.Cookie
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -185,8 +156,6 @@ func TestExchangeJWT_Cookies(t *testing.T) {
 }
 
 func TestExchangeJWT_InvalidJSON(t *testing.T) {
-
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("not valid json"))
@@ -197,7 +166,7 @@ func TestExchangeJWT_InvalidJSON(t *testing.T) {
 	exchangeURL = server.URL
 	t.Cleanup(func() { exchangeURL = origURL })
 
-	jwt, err := ExchangeJWT(context.Background(), nil)
+	jwt, err := ExchangeJWT(context.Background(), validSessionCookies())
 
 	assert.Empty(t, jwt)
 	require.Error(t, err)
@@ -205,25 +174,4 @@ func TestExchangeJWT_InvalidJSON(t *testing.T) {
 	var authErr *errors.AuthenticationError
 	require.ErrorAs(t, err, &authErr)
 	assert.Contains(t, authErr.Message, "JWT exchange request failed")
-}
-
-func TestExchangeJWT_UsesGETMethod(t *testing.T) {
-
-
-	var receivedMethod string
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedMethod = r.Method
-		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(validJWTResponse()))
-	}))
-	defer server.Close()
-
-	origURL := exchangeURL
-	exchangeURL = server.URL
-	t.Cleanup(func() { exchangeURL = origURL })
-
-	_, err := ExchangeJWT(context.Background(), nil)
-	require.NoError(t, err)
-	assert.Equal(t, http.MethodGet, receivedMethod)
 }

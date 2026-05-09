@@ -357,7 +357,10 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 	assert.Equal(t, "Cup With Handle", first["base_type"])
 	assert.Equal(t, "STAGE_2", first["base_stage"])
 	assert.Equal(t, 199.99, first["pivot"])
+	assert.Equal(t, "2024-12-16", first["pivot_price_date"])
 	assert.Equal(t, 18.5, first["base_depth_percent"])
+	assert.Equal(t, "2024-01-01", first["pricing_start_date"])
+	assert.Equal(t, "2024-12-31", first["pricing_end_date"])
 	assert.Equal(t, float64(95), first["industry_group_rs"])
 	assert.Equal(t, 1.2, first["up_down_volume"])
 	assert.Equal(t, float64(60), first["funds_float_percent"])
@@ -369,6 +372,33 @@ func TestStockAnalyzeSummaryOutput(t *testing.T) {
 
 	meta, _ := result["metadata"].(map[string]any)
 	assert.Equal(t, "summary", meta["mode"])
+}
+
+func TestStockAnalyzeSetupOutput(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(stockResponseFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeStockAnalyze(t, c, "analyze", "--setup", "AAPL")
+	require.NoError(t, err)
+
+	result := parseJSONEnvelope(t, output)
+	data, ok := result["data"].(map[string]any)
+	require.True(t, ok, "setup single-symbol data should be an object")
+	assert.Equal(t, "AAPL", data["symbol"])
+	assert.Equal(t, float64(99), data["composite"])
+	assert.Equal(t, "2024-12-31", data["pricing_end_date"])
+	assert.Equal(t, float64(7), data["base_length_weeks"])
+	assert.Equal(t, 42.3, data["volume_at_pivot_percent"])
+	assert.Equal(t, "60%", data["ownership_funds_float_percent"])
+	require.Contains(t, data, "quarterly_funds")
+	assert.NotContains(t, data, "stock")
+	assert.NotContains(t, data, "fundamentals")
+	assert.NotContains(t, data, "ownership")
+
+	meta, _ := result["metadata"].(map[string]any)
+	assert.Equal(t, "setup", meta["mode"])
 }
 
 func TestStockAnalyzeSummaryOmitsAntDetailsWhenSignalFalse(t *testing.T) {
@@ -403,9 +433,10 @@ func TestStockAnalyzeStructTags(t *testing.T) {
 	}{
 		{field: "Symbols", flag: "symbols", short: "s", group: "Input", descr: "Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use", hasShort: true},
 		{field: "Tickers", flag: "tickers", short: "t", group: "Input", descr: "Additional stock symbols to analyze; accepts comma-separated or repeated values", hasShort: true},
-		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values; compatible with --summary and --flat. Example: stock analyze AAPL --compact"},
-		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --summary and --compact. Example: stock analyze AAPL --flat"},
-		{field: "Summary", flag: "summary", group: "Output Format", descr: "Return compact screening objects for ranking many symbols; compatible with --compact and --flat. Example: stock analyze --summary AAPL MSFT NVDA"},
+		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values; compatible with --flat. Example: stock analyze AAPL --compact"},
+		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --compact. Example: stock analyze AAPL --flat"},
+		{field: "Summary", flag: "summary", group: "Output Format", descr: "Return compact screening objects for ranking many symbols. Example: stock analyze --summary AAPL MSFT NVDA"},
+		{field: "Setup", flag: "setup", group: "Output Format", descr: "Return --setup trade triage fields: summary fields plus base_length_weeks, volume_at_pivot_percent, ownership_funds_float_percent, and quarterly_funds. Example: stock analyze AAPL --setup"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.field, func(t *testing.T) {
@@ -498,10 +529,11 @@ func TestStockAnalyzeExamples(t *testing.T) {
 	assert.Contains(t, cmd.Example, "marketsurge-agent stock analyze AAPL")
 	assert.Contains(t, cmd.Example, "--tickers AAPL,MSFT,NVDA --compact")
 	assert.Contains(t, cmd.Example, "--summary AAPL MSFT NVDA")
+	assert.Contains(t, cmd.Example, "stock analyze AAPL --setup")
 	assert.Contains(t, cmd.Example, "--flat --compact")
 
 	typ := reflect.TypeFor[StockAnalyzeOptions]()
-	for _, fieldName := range []string{"Compact", "Flat", "Summary"} {
+	for _, fieldName := range []string{"Compact", "Flat"} {
 		t.Run(fieldName, func(t *testing.T) {
 			field, ok := typ.FieldByName(fieldName)
 			require.True(t, ok)
@@ -510,6 +542,19 @@ func TestStockAnalyzeExamples(t *testing.T) {
 			assert.Contains(t, descr, "Example: stock analyze")
 		})
 	}
+
+	field, ok := typ.FieldByName("Summary")
+	require.True(t, ok)
+	assert.Contains(t, field.Tag.Get("flagdescr"), "compact screening objects")
+	assert.Contains(t, field.Tag.Get("flagdescr"), "Example: stock analyze")
+
+	field, ok = typ.FieldByName("Setup")
+	require.True(t, ok)
+	descr := field.Tag.Get("flagdescr")
+	assert.Contains(t, descr, "Return --setup trade triage fields")
+	assert.Contains(t, descr, "base_length_weeks")
+	assert.Contains(t, descr, "quarterly_funds")
+	assert.Contains(t, descr, "Example: stock analyze")
 }
 
 func TestStockAnalyzeMissingSymbol(t *testing.T) {

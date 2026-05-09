@@ -117,7 +117,8 @@ func TestRootJSONSchemaTreeIncludesComplexExamples(t *testing.T) {
 
 	stockAnalyze := schemaMapByTitle(t, schemas, "marketsurge-agent stock analyze")
 	assert.Contains(t, stockAnalyze["description"], "stock analyze --summary")
-	assert.Contains(t, schemaProperty(t, stockAnalyze, "summary")["description"], "compatible with --compact and --flat")
+	assert.Contains(t, schemaProperty(t, stockAnalyze, "setup")["description"], "base_length_weeks")
+	assert.Contains(t, schemaProperty(t, stockAnalyze, "setup")["description"], "quarterly_funds")
 	assert.Contains(t, schemaProperty(t, stockAnalyze, "flat")["description"], "pricing_market_cap")
 }
 

@@ -350,6 +350,73 @@ func TestCatalogRunWatchlistID64Bit(t *testing.T) {
 	assert.Len(t, envelope.Data.Entries, 2)
 }
 
+func TestCatalogRunFieldProjection(t *testing.T) {
+	t.Parallel()
+	server, _ := newCatalogRunServer(t)
+	defer server.Close()
+
+	envelope := runCatalogRunCommand(
+		t,
+		testClient(t, server),
+		"--kind", "report",
+		"--report-id", "124",
+		"--fields", "symbol,composite-rating",
+	)
+
+	require.Len(t, envelope.Data.Entries, 2)
+	assert.Equal(t, map[string]any{"symbol": "AAPL", "composite_rating": float64(99)}, envelope.Data.Entries[0])
+	assert.Equal(t, map[string]any{"symbol": "MSFT", "composite_rating": float64(97)}, envelope.Data.Entries[1])
+}
+
+func TestCatalogRunBlankFieldsBehaveLikeUnset(t *testing.T) {
+	t.Parallel()
+	server, _ := newCatalogRunServer(t)
+	defer server.Close()
+
+	envelope := runCatalogRunCommand(
+		t,
+		testClient(t, server),
+		"--kind", "report",
+		"--report-id", "124",
+		"--fields", "   ",
+	)
+
+	require.Len(t, envelope.Data.Entries, 2)
+	assert.Contains(t, envelope.Data.Entries[0], "symbol")
+	assert.Contains(t, envelope.Data.Entries[0], "composite_rating")
+	assert.Contains(t, envelope.Data.Entries[0], "rs_rating")
+}
+
+func TestCatalogRunUnknownFieldsValidation(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(`{}`)
+	defer server.Close()
+
+	_, err := executeCatalogRun(
+		t,
+		testClient(t, server),
+		"run",
+		"--kind", "report",
+		"--report-id", "124",
+		"--fields", "symbol,not_real",
+	)
+	require.Error(t, err)
+
+	var verr *mserrors.ValidationError
+	assert.ErrorAs(t, err, &verr)
+	assert.Contains(t, err.Error(), `unknown --fields values "not_real"`)
+	assert.Contains(t, err.Error(), "composite_rating")
+}
+
+func TestCatalogRunOptionsValidateNormalizesFields(t *testing.T) {
+	t.Parallel()
+
+	opts := CatalogRunOptions{Kind: "report", ReportID: 42, Fields: []string{" ", " symbol ", "\t"}}
+
+	assert.Nil(t, opts.Validate(context.Background()))
+	assert.Equal(t, []string{"symbol"}, opts.Fields)
+}
+
 func TestCatalogListStructTags(t *testing.T) {
 	t.Parallel()
 
@@ -689,6 +756,16 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 		{
 			name: "coach_screen with coach-screen-id",
 			opts: CatalogRunOptions{Kind: "coach_screen", CoachScreenID: "s-1"},
+		},
+		{
+			name:    "report with unknown fields",
+			opts:    CatalogRunOptions{Kind: "report", ReportID: 42, Fields: []string{"symbol", "not_real"}},
+			wantErr: `unknown --fields values "not_real": use one or more of acc_dis_rating, charting_symbol, company_name, composite_rating, dow_jones_key, eps_rating, industry_group_rank, industry_name, instrument_sub_type, instrument_type, ipo_date, list_rank, market_cap, price, price_net_change, price_pct_change, price_pct_off_52w_high, rs_rating, smr_rating, symbol, volume, volume_change, volume_dollar_avg_50d, volume_pct_change`,
+		},
+		{
+			name:    "coach_screen with fields",
+			opts:    CatalogRunOptions{Kind: "coach_screen", CoachScreenID: "s-1", Fields: []string{"symbol"}},
+			wantErr: "unsupported --fields with --kind coach_screen: field projection is only supported for report and watchlist rows",
 		},
 	}
 

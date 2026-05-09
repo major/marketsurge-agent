@@ -63,9 +63,10 @@ type AnalysisResult struct {
 type StockAnalyzeOptions struct {
 	Symbols []string `flag:"symbols" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use"`
 	Tickers []string `flag:"tickers" flagshort:"t" flaggroup:"Input" flagdescr:"Additional stock symbols to analyze; accepts comma-separated or repeated values"`
-	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values; compatible with --summary and --flat. Example: stock analyze AAPL --compact"`
-	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --summary and --compact. Example: stock analyze AAPL --flat"`
-	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols; compatible with --compact and --flat. Example: stock analyze --summary AAPL MSFT NVDA"`
+	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values; compatible with --flat. Example: stock analyze AAPL --compact"`
+	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --compact. Example: stock analyze AAPL --flat"`
+	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols. Example: stock analyze --summary AAPL MSFT NVDA"`
+	Setup   bool     `flag:"setup" flaggroup:"Output Format" flagdescr:"Return --setup trade triage fields: summary fields plus base_length_weeks, volume_at_pivot_percent, ownership_funds_float_percent, and quarterly_funds. Example: stock analyze AAPL --setup"`
 }
 
 // MergeSymbols merges positional arguments with --symbols and --tickers flag values, deduplicating and trimming whitespace.
@@ -81,6 +82,7 @@ func newStockAnalyzeCmd() *cobra.Command {
 		Example: `  marketsurge-agent stock analyze AAPL
   marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
   marketsurge-agent stock analyze --summary AAPL MSFT NVDA
+  marketsurge-agent stock analyze AAPL --setup
   marketsurge-agent stock analyze AAPL --flat --compact`,
 		Long: `Fetches stock, fundamentals, and ownership concurrently for one or more
 symbols. Accepts positional symbols, --symbols values, and backward-compatible
@@ -92,8 +94,13 @@ Flags:
   --summary   Compact screening keys: symbol, composite, eps, rs, ad, smr,
               blue_dot, ant_signal, ant_dates, ant_explanation,
               base_type, base_stage, pivot,
-              base_depth_percent, industry_group_rs, up_down_volume,
-              atr_percent, avg_dollar_volume, funds_float_percent
+              pivot_price_date, pricing_start_date, pricing_end_date,
+              base_depth_percent,
+              industry_group_rs, up_down_volume, atr_percent,
+              avg_dollar_volume, funds_float_percent
+  --setup     Setup-focused trade triage keys: all --summary keys plus
+              base_length_weeks, volume_at_pivot_percent,
+              ownership_funds_float_percent, quarterly_funds
   --compact   Removes duplicate formatted string fields, keeps raw values
   --flat      Flattens nested analysis fields inside the JSON envelope
 
@@ -129,13 +136,15 @@ interesting symbols without --summary for detail.`,
 				return mserrors.NewAPIError(fmt.Sprintf("analysis failed for all symbols: %v", allErrors), nil)
 			}
 
-			data, err := transformAnalysisOutput(results, opts.Compact, opts.Flat, opts.Summary)
+			data, err := transformAnalysisOutput(results, opts.Compact, opts.Flat, opts.Summary, opts.Setup)
 			if err != nil {
 				return fmt.Errorf("transform analysis output: %w", err)
 			}
 
 			metadata := analyzeMetadata(symbols)
-			if opts.Summary {
+			if opts.Setup {
+				metadata["mode"] = "setup"
+			} else if opts.Summary {
 				metadata["mode"] = "summary"
 			}
 			if len(allErrors) > 0 {
@@ -205,9 +214,13 @@ func analyzeMetadata(symbols []string) map[string]any {
 	}
 }
 
-func transformAnalysisOutput(results []AnalysisResult, compact, flat, summary bool) (any, error) {
+func transformAnalysisOutput(results []AnalysisResult, compact, flat, summary, setup bool) (any, error) {
 	transformed := make([]any, 0, len(results))
 	for _, result := range results {
+		if setup {
+			transformed = append(transformed, analysisSetupMap(result))
+			continue
+		}
 		if summary {
 			transformed = append(transformed, analysisSummaryMap(result))
 			continue
@@ -243,6 +256,17 @@ func analysisSummaryMap(result AnalysisResult) map[string]any {
 	addAntSummary(data, result.Stock)
 	addBaseSummary(data, result.Stock.BasePattern)
 	addScreeningMetrics(data, result.Stock)
+	addPricingFreshness(data, result.Stock.Pricing)
+	return data
+}
+
+func analysisSetupMap(result AnalysisResult) map[string]any {
+	data := analysisSummaryMap(result)
+	if result.Stock != nil {
+		addSetupBaseContext(data, result.Stock.BasePattern)
+	}
+
+	addSetupOwnershipContext(data, result.Ownership)
 	return data
 }
 
@@ -283,6 +307,7 @@ func addBaseSummary(data map[string]any, base *models.BasePattern) {
 	addPtrValue(data, "base_type", base.PatternType)
 	addPtrValue(data, "base_stage", base.BaseStage)
 	addPtrValue(data, "pivot", base.PivotPrice)
+	addPtrValue(data, "pivot_price_date", base.PivotPriceDate)
 	addPtrValue(data, "base_depth_percent", base.BaseDepthPercent)
 }
 
@@ -297,6 +322,32 @@ func addScreeningMetrics(data map[string]any, stock *models.StockData) {
 	}
 	if stock.Ownership != nil {
 		addPtrValue(data, "funds_float_percent", stock.Ownership.FundsFloatPct)
+	}
+}
+
+func addPricingFreshness(data map[string]any, pricing *models.Pricing) {
+	if pricing == nil {
+		return
+	}
+	addPtrValue(data, "pricing_start_date", pricing.PricingStartDate)
+	addPtrValue(data, "pricing_end_date", pricing.PricingEndDate)
+}
+
+func addSetupBaseContext(data map[string]any, base *models.BasePattern) {
+	if base == nil {
+		return
+	}
+	addPtrValue(data, "base_length_weeks", base.BaseLengthWeeks)
+	addPtrValue(data, "volume_at_pivot_percent", base.VolumeAtPivotPct)
+}
+
+func addSetupOwnershipContext(data map[string]any, ownership *models.OwnershipData) {
+	if ownership == nil {
+		return
+	}
+	addPtrValue(data, "ownership_funds_float_percent", ownership.FundsFloatPct)
+	if len(ownership.QuarterlyFunds) > 0 {
+		data["quarterly_funds"] = ownership.QuarterlyFunds
 	}
 }
 

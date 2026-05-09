@@ -17,7 +17,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const antSignalExplanation = "ANTS marks flag institutional accumulation: repeated upside price action with rising volume over a recent 15-day window."
+const (
+	antSignalExplanation       = "ANTS marks flag institutional accumulation: repeated upside price action with rising volume over a recent 15-day window."
+	compactRecentSignalLimit   = 3
+	compactRecentQuarterLimit  = 4
+	compactRecentEstimateLimit = 2
+)
+
+var compactDroppedFields = map[string]bool{
+	"address":                     true,
+	"address2":                    true,
+	"city":                        true,
+	"code":                        true,
+	"corporate_actions":           true,
+	"country":                     true,
+	"description":                 true,
+	"estimate_type":               true,
+	"group_rank_history":          true,
+	"group_rs_history":            true,
+	"historical_price_statistics": true,
+	"id":                          true,
+	"instrument_sub_type":         true,
+	"pattern_id":                  true,
+	"patterns":                    true,
+	"period_offset":               true,
+	"phone":                       true,
+	"state_province":              true,
+	"tight_areas":                 true,
+	"volume_moving_averages":      true,
+	"website":                     true,
+}
 
 func init() { rootCmd.AddCommand(newStockCmd()) }
 
@@ -63,7 +92,7 @@ type AnalysisResult struct {
 type StockAnalyzeOptions struct {
 	Symbols []string `flag:"symbols" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use"`
 	Tickers []string `flag:"tickers" flagshort:"t" flaggroup:"Input" flagdescr:"Additional stock symbols to analyze; accepts comma-separated or repeated values"`
-	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove duplicate formatted string fields while keeping raw numeric values; compatible with --flat. Example: stock analyze AAPL --compact"`
+	Compact bool     `flag:"compact" flaggroup:"Output Format" flagdescr:"Remove low-value fields such as formatted duplicates, profile metadata, internal IDs, empty fields, and stale arrays while keeping decision-relevant raw values; compatible with --flat. Example: stock analyze AAPL --compact"`
 	Flat    bool     `flag:"flat" flaggroup:"Output Format" flagdescr:"Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --compact. Example: stock analyze AAPL --flat"`
 	Summary bool     `flag:"summary" flaggroup:"Output Format" flagdescr:"Return compact screening objects for ranking many symbols. Example: stock analyze --summary AAPL MSFT NVDA"`
 	Setup   bool     `flag:"setup" flaggroup:"Output Format" flagdescr:"Return --setup trade triage fields: summary fields plus base_length_weeks, volume_at_pivot_percent, ownership_funds_float_percent, and quarterly_funds. Example: stock analyze AAPL --setup"`
@@ -101,7 +130,8 @@ Flags:
   --setup     Setup-focused trade triage keys: all --summary keys plus
               base_length_weeks, volume_at_pivot_percent,
               ownership_funds_float_percent, quarterly_funds
-  --compact   Removes duplicate formatted string fields, keeps raw values
+  --compact   Removes formatted duplicates, profile metadata, internal IDs,
+              empty fields, and stale arrays while keeping raw decision fields
   --flat      Flattens nested analysis fields inside the JSON envelope
 
 Start with "stock analyze --summary" for candidate ranking, then rerun
@@ -231,7 +261,7 @@ func transformAnalysisOutput(results []AnalysisResult, compact, flat, summary, s
 			return nil, err
 		}
 		if compact {
-			data = removeFormattedFields(data).(map[string]any)
+			data = compactAnalysisMap(data)
 		}
 		if flat {
 			data = flattenAnalysisMap(data)
@@ -370,30 +400,81 @@ func analysisResultMap(result AnalysisResult) (map[string]any, error) {
 	return resultMap, nil
 }
 
-func removeFormattedFields(value any) any {
+func compactAnalysisMap(data map[string]any) map[string]any {
+	cleaned, keep := compactAnalysisValue(data, 0, "")
+	if !keep {
+		return map[string]any{}
+	}
+	return cleaned.(map[string]any)
+}
+
+func compactAnalysisValue(value any, depth int, key string) (any, bool) {
 	switch typed := value.(type) {
 	case map[string]any:
 		cleaned := make(map[string]any, len(typed))
 		for key, nested := range typed {
-			if isFormattedField(key) {
+			if isCompactDroppedField(key, depth) {
 				continue
 			}
-			cleaned[key] = removeFormattedFields(nested)
+			cleanedValue, keep := compactAnalysisValue(nested, depth+1, key)
+			if keep {
+				cleaned[key] = cleanedValue
+			}
 		}
-		return cleaned
+		if len(cleaned) == 0 {
+			return nil, false
+		}
+		return cleaned, true
 	case []any:
-		cleaned := make([]any, 0, len(typed))
-		for _, nested := range typed {
-			cleaned = append(cleaned, removeFormattedFields(nested))
+		limit := compactArrayLimit(key, len(typed))
+		cleaned := make([]any, 0, limit)
+		for _, nested := range typed[:limit] {
+			cleanedValue, keep := compactAnalysisValue(nested, depth+1, key)
+			if keep {
+				cleaned = append(cleaned, cleanedValue)
+			}
 		}
-		return cleaned
+		if len(cleaned) == 0 {
+			return nil, false
+		}
+		return cleaned, true
+	case string:
+		if typed == "" || typed == "N/A" {
+			return nil, false
+		}
+		return typed, true
+	case nil:
+		return nil, false
 	default:
-		return value
+		return value, true
 	}
+}
+
+func isCompactDroppedField(key string, parentDepth int) bool {
+	if isFormattedField(key) {
+		return true
+	}
+	if key == "symbol" && parentDepth > 0 {
+		return true
+	}
+	return compactDroppedFields[key]
 }
 
 func isFormattedField(key string) bool {
 	return strings.HasSuffix(key, "_formatted") || strings.HasPrefix(key, "formatted_")
+}
+
+func compactArrayLimit(key string, length int) int {
+	limit := length
+	switch key {
+	case "ant_dates", "blue_dot_daily_dates", "blue_dot_weekly_dates":
+		limit = min(length, compactRecentSignalLimit)
+	case "eps_estimates", "sales_estimates":
+		limit = min(length, compactRecentEstimateLimit)
+	case "profit_margins", "quarterly_funds", "reported_earnings", "reported_sales":
+		limit = min(length, compactRecentQuarterLimit)
+	}
+	return limit
 }
 
 func flattenAnalysisMap(data map[string]any) map[string]any {

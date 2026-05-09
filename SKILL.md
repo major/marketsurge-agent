@@ -91,8 +91,9 @@ Gotchas
     ticker when given multiple symbols.
   - Summary mode: stock analyze --summary returns compact screening
     objects for ranking many candidates. Metadata includes mode: "summary".
-  - Compact mode: stock analyze --compact strips duplicate formatted
-    string fields while keeping raw numeric values.
+  - Compact mode: stock analyze --compact removes formatted duplicates,
+    profile metadata, internal IDs, empty fields, and stale arrays while
+    keeping decision-relevant raw values.
   - Flat mode: stock analyze --flat flattens nested objects into
     single-level keys.
   - Batch tickers: stock analyze --tickers AAPL,NVDA,TSLA accepts
@@ -293,7 +294,8 @@ Flags:
   --setup     Setup-focused trade triage keys: all --summary keys plus
               base_length_weeks, volume_at_pivot_percent,
               ownership_funds_float_percent, quarterly_funds
-  --compact   Removes duplicate formatted string fields, keeps raw values
+  --compact   Removes formatted duplicates, profile metadata, internal IDs,
+              empty fields, and stale arrays while keeping raw decision fields
   --flat      Flattens nested analysis fields inside the JSON envelope
 
 Start with "stock analyze --summary" for candidate ranking, then rerun
@@ -303,7 +305,7 @@ interesting symbols without --summary for detail.
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--compact` | bool | false | no | Remove duplicate formatted string fields while keeping raw numeric values; compatible with --flat. Example: stock analyze AAPL --compact |
+| `--compact` | bool | false | no | Remove low-value fields such as formatted duplicates, profile metadata, internal IDs, empty fields, and stale arrays while keeping decision-relevant raw values; compatible with --flat. Example: stock analyze AAPL --compact |
 | `--flat` | bool | false | no | Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --compact. Example: stock analyze AAPL --flat |
 | `--setup` | bool | false | no | Return --setup trade triage fields: summary fields plus base_length_weeks, volume_at_pivot_percent, ownership_funds_float_percent, and quarterly_funds. Example: stock analyze AAPL --setup |
 | `--summary` | bool | false | no | Return compact screening objects for ranking many symbols. Example: stock analyze --summary AAPL MSFT NVDA |

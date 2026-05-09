@@ -1,11 +1,11 @@
 ---
-applyTo: "internal/client/**/*.go"
+applyTo: "cmd/**/*.go"
 ---
 
-# Client review instructions
+# Command review instructions
 
-- JWT and Cookie headers must be set per request, not in default or base headers.
-- GraphQL queries must be loaded from embedded files through `queries.Load()`.
-- HTTP and GraphQL errors must be wrapped in typed project errors.
+- Commands are kong structs with `Run(client *marketsurge.Client) error`.
+- Auth runs in `main.go` before `ctx.Run`; commands receive an already-authenticated client.
+- Success output is a raw JSON array written to stdout (or an `io.Writer` for testability).
+- Error output uses `mserrors.WriteJSON(os.Stderr, err)` in `main.go`; commands return errors, they don't write them.
 - Preserve request context propagation for cancellation.
-- Avoid adding fields to GraphQL requests that increase payload size without command value.

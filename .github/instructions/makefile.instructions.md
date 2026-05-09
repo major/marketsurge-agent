@@ -6,4 +6,4 @@ applyTo: "Makefile"
 
 - Non-file targets should have `.PHONY` declarations.
 - Avoid flags that are already tool defaults.
-- Keep docs, smoke, build, test, and lint targets aligned with README and `AGENTS.md`.
+- Keep smoke, build, test, lint, and clean targets aligned with README and `AGENTS.md`.

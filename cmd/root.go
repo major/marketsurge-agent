@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 
+	builddebug "runtime/debug"
+
 	"github.com/leodido/structcli"
 	"github.com/leodido/structcli/config"
 	"github.com/leodido/structcli/debug"
@@ -24,8 +26,17 @@ import (
 	"github.com/major/marketsurge-agent/internal/output"
 )
 
+const (
+	devVersion          = "dev"
+	shortRevisionLength = 7
+	vcsRevisionKey      = "vcs.revision"
+)
+
 // version is set via ldflags at build time.
-var version = "dev"
+var version = devVersion
+
+// commit is set via ldflags at build time for local development builds.
+var commit string
 
 type clientKeyType struct{}
 
@@ -97,7 +108,7 @@ Gotchas
     single-level keys.
   - Batch tickers: stock analyze --tickers AAPL,NVDA,TSLA accepts
     comma-separated symbols. Positional and --tickers can be combined.`,
-	Version:            version,
+	Version:            displayVersion(),
 	SilenceUsage:       true,
 	SilenceErrors:      true,
 	TraverseChildren:   true,
@@ -123,7 +134,7 @@ func init() {
 		structcli.WithDebug(debug.Options{Exit: true}),
 		structcli.WithMCP(structclimcp.Options{
 			Name:      "marketsurge-agent",
-			Version:   version,
+			Version:   displayVersion(),
 			Separator: "_",
 			Exclude: []string{
 				"marketsurge-agent completion bash",
@@ -135,6 +146,43 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
+}
+
+func displayVersion() string {
+	if commit != "" {
+		return displayVersionFromCommit(version, commit)
+	}
+
+	info, ok := builddebug.ReadBuildInfo()
+	if !ok {
+		return version
+	}
+	return displayVersionFromSettings(version, info.Settings)
+}
+
+func displayVersionFromCommit(rawVersion, revision string) string {
+	if rawVersion != devVersion || revision == "" {
+		return rawVersion
+	}
+	if len(revision) <= shortRevisionLength {
+		return devVersion + "-" + revision
+	}
+	return devVersion + "-" + revision[:shortRevisionLength]
+}
+
+func displayVersionFromSettings(rawVersion string, settings []builddebug.BuildSetting) string {
+	if rawVersion != devVersion {
+		return rawVersion
+	}
+
+	for _, setting := range settings {
+		if setting.Key != vcsRevisionKey || setting.Value == "" {
+			continue
+		}
+		return displayVersionFromCommit(rawVersion, setting.Value)
+	}
+
+	return rawVersion
 }
 
 // ClientFromContext returns the API client stored by PersistentPreRunE.

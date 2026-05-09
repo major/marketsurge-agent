@@ -20,6 +20,9 @@ func (c *ReportsListCmd) Run(client *marketsurge.Client) error {
 		if marketsurge.IsAuthError(err) {
 			return mserrors.NewAuthenticationError("authentication failed", err)
 		}
+		if marketsurge.IsRateLimited(err) {
+			return mserrors.NewHTTPError("rate limited", err, 429, "")
+		}
 		return mserrors.NewAPIError("API request failed", err)
 	}
 

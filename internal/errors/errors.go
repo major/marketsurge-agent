@@ -8,7 +8,6 @@ import (
 // Exit code ranges:
 //   0:     Success
 //   1-9:   Reserved (general errors)
-//   10-23: Reserved by structcli (flag parsing, validation, schema)
 //   30+:   Domain-specific errors (MarketSurge)
 const (
 	ExitSuccess     = 0
@@ -217,10 +216,12 @@ func ExitCodeFor(err error) int {
 		return ExitSuccess
 	}
 
-	type exitCoder interface{ ExitCode() int }
+	type exitCoder interface {
+		error
+		ExitCode() int
+	}
 
-	var coder exitCoder
-	if errors.As(err, &coder) {
+	if coder, ok := errors.AsType[exitCoder](err); ok {
 		return coder.ExitCode()
 	}
 

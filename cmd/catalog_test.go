@@ -44,7 +44,7 @@ func TestCatalogListAllSourcesSucceed(t *testing.T) {
 	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "watchlist", "name": "My Watchlist", "watchlist_id": float64(99)})
 	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "screen", "name": "Saved Screen", "description": "screen desc"})
 	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "coach_screen", "name": "Coach Alpha", "coach_screen_id": "screen-1"})
-	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "report", "name": constants.PredefinedReports[0].Name, "report_id": float64(constants.PredefinedReports[0].ID)})
+	assertCatalogEntrySubset(t, entries, catalogReportEntryMap(constants.PredefinedReports[0]))
 }
 
 func TestCatalogListPartialFailure(t *testing.T) {
@@ -72,7 +72,7 @@ func TestCatalogListPartialFailure(t *testing.T) {
 	assert.Equal(t, float64(len(entries)), envelope.Metadata["total"])
 	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "watchlist", "name": "My Watchlist", "watchlist_id": float64(99)})
 	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "coach_screen", "name": "Coach Alpha", "coach_screen_id": "screen-1"})
-	assertCatalogEntrySubset(t, entries, map[string]any{"kind": "report", "name": constants.PredefinedReports[0].Name, "report_id": float64(constants.PredefinedReports[0].ID)})
+	assertCatalogEntrySubset(t, entries, catalogReportEntryMap(constants.PredefinedReports[0]))
 }
 
 func TestCatalogListKindFilter(t *testing.T) {
@@ -122,7 +122,7 @@ func TestCatalogListAllAPISourcesFailStillReturnsReports(t *testing.T) {
 	require.Len(t, envelope.Errors, 3)
 	assert.Len(t, entries, len(constants.PredefinedReports))
 	assert.Equal(t, float64(len(constants.PredefinedReports)), envelope.Metadata["total"])
-	assert.Equal(t, map[string]any{"kind": "report", "name": constants.PredefinedReports[0].Name, "report_id": float64(constants.PredefinedReports[0].ID)}, entries[0])
+	assert.Equal(t, catalogReportEntryMap(constants.PredefinedReports[0]), entries[0])
 	for _, entry := range entries {
 		assert.Equal(t, "report", entry["kind"])
 	}
@@ -841,4 +841,16 @@ func assertCatalogEntrySubset(t *testing.T, entries []map[string]any, expected m
 		}
 	}
 	t.Fatalf("no catalog entry matched subset %#v", expected)
+}
+
+func catalogReportEntryMap(report constants.ReportInfo) map[string]any {
+	entry := map[string]any{
+		"kind":      "report",
+		"name":      report.Name,
+		"report_id": float64(report.ID),
+	}
+	if report.Description != "" {
+		entry["description"] = report.Description
+	}
+	return entry
 }

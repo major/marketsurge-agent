@@ -187,6 +187,17 @@ func TestListCatalogReportFilterSkipsRemoteSources(t *testing.T) {
 	assert.Empty(t, requests)
 	assert.Len(t, catalog.Errors, 0)
 	assert.Len(t, catalog.Entries, len(modelsToReportEntries()))
+	assert.Contains(t, catalog.Entries, reportToCatalogEntry(constants.PredefinedReports[0]))
+
+	foundEmptyDescriptionReport := false
+	for _, entry := range catalog.Entries {
+		if entry.ReportID == nil || *entry.ReportID != 128 {
+			continue
+		}
+		foundEmptyDescriptionReport = true
+		assert.Nil(t, entry.Description)
+	}
+	assert.True(t, foundEmptyDescriptionReport)
 }
 
 func TestListCatalogPartialFailure(t *testing.T) {
@@ -309,10 +320,19 @@ func assertStringResponseColumns(t *testing.T, value any) {
 }
 
 func modelsToReportEntries() []models.CatalogEntry {
-	entries := make([]models.CatalogEntry, 0)
+	entries := make([]models.CatalogEntry, 0, len(constants.PredefinedReports))
 	for _, report := range constants.PredefinedReports {
-		reportID := report.ID
-		entries = append(entries, models.CatalogEntry{Name: report.Name, Kind: models.CatalogKindReport, ReportID: &reportID})
+		entries = append(entries, reportToCatalogEntry(report))
 	}
 	return entries
+}
+
+func reportToCatalogEntry(report constants.ReportInfo) models.CatalogEntry {
+	reportID := report.ID
+	entry := models.CatalogEntry{Name: report.Name, Kind: models.CatalogKindReport, ReportID: &reportID}
+	if report.Description != "" {
+		description := report.Description
+		entry.Description = &description
+	}
+	return entry
 }

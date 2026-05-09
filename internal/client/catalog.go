@@ -41,7 +41,12 @@ func (c *Client) ListCatalog(ctx context.Context, kind *models.CatalogKind) (*mo
 	if kind == nil || *kind == models.CatalogKindReport {
 		for _, report := range constants.PredefinedReports {
 			reportID := report.ID
-			entries = append(entries, models.CatalogEntry{Name: report.Name, Kind: models.CatalogKindReport, ReportID: &reportID})
+			entry := models.CatalogEntry{Name: report.Name, Kind: models.CatalogKindReport, ReportID: &reportID}
+			if report.Description != "" {
+				description := report.Description
+				entry.Description = &description
+			}
+			entries = append(entries, entry)
 		}
 	}
 

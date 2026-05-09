@@ -27,7 +27,7 @@ type CatalogRunOptions struct {
 	CoachScreenID string             `flag:"coach-screen-id" flaggroup:"Kind-Specific IDs" flagdescr:"Coach screen ID; required when kind=coach_screen. Example coach screen run: --kind coach_screen --coach-screen-id screen-1"`
 	Limit         int                `flag:"limit" flaggroup:"Pagination" flagdescr:"Maximum number of results to return" default:"50"`
 	Offset        int                `flag:"offset" flaggroup:"Pagination" flagdescr:"Number of results to skip for pagination"`
-	Fields        []string           `flag:"fields" flaggroup:"Filtering & Projection" flagdescr:"Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,price,composite_rating. Common fields: symbol, price, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d"`
+	Fields        []string           `flag:"fields" flaggroup:"Filtering & Projection" flagdescr:"Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,group_rank,group_rs. Common fields: symbol, price, group_rank, group_rs, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d"`
 	MinComposite  *int
 	MinRS         *int
 	ExcludeSPACs  bool `flag:"exclude-spacs" flaggroup:"Filtering & Projection" flagdescr:"Exclude SPAC/blank-check entries from results"`
@@ -144,9 +144,10 @@ Examples:
 Useful flags:
 
   --limit, --offset   Page large lists (default limit: 50)
-  --fields            Project columns: symbol, price, composite_rating,
-                      eps_rating, rs_rating, acc_dis_rating, smr_rating,
-                      industry_name, market_cap, volume_dollar_avg_50d
+  --fields            Project columns: symbol, price, group_rank, group_rs,
+                      composite_rating, eps_rating, rs_rating,
+                      acc_dis_rating, smr_rating, industry_name,
+                      market_cap, volume_dollar_avg_50d
   --min-composite     Minimum composite rating for report/watchlist rows
   --min-rs            Minimum RS rating for report/watchlist rows
   --exclude-spacs     Exclude SPAC/blank-check entries

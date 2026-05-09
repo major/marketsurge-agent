@@ -1,6 +1,6 @@
 package constants
 
-// WatchlistColumns contains all 23 column names for watchlist responses.
+// WatchlistColumns contains all column names for watchlist and report responses.
 var WatchlistColumns = []string{
 	"Symbol",
 	"CompanyName",

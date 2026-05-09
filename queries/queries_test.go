@@ -15,6 +15,7 @@ func TestLoadAllQueries(t *testing.T) {
 		"chart_market_data_weekly.graphql",
 		"chart_markups.graphql",
 		"adhoc_screen.graphql",
+		"industry_group_rs.graphql",
 		"run_screen.graphql",
 		"flagged_symbols.graphql",
 		"watchlist_names.graphql",
@@ -24,15 +25,15 @@ func TestLoadAllQueries(t *testing.T) {
 
 	for _, query := range queries {
 		t.Run(query, func(t *testing.T) {
-	t.Parallel()
-	content, err := Load(query)
+			t.Parallel()
+			content, err := Load(query)
 			if err != nil {
 				t.Fatalf("failed to load %s: %v", query, err)
 			}
 			if content == "" {
 				t.Fatalf("query %s is empty", query)
 			}
-})
+		})
 	}
 }
 

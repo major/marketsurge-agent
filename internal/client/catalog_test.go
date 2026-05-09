@@ -28,6 +28,45 @@ func TestRunReportSuccess(t *testing.T) {
 	assert.Equal(t, "AAPL", *data.Entries[0].Symbol)
 }
 
+func TestRunIndustryGroupsReportEnrichesVerifiedMatches(t *testing.T) {
+	t.Parallel()
+	requests := []Request{}
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var payload Request
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		requests = append(requests, payload)
+		switch len(requests) {
+		case 1:
+			_, _ = w.Write([]byte(industryGroupsReportResponseJSON()))
+		case 2:
+			_, _ = w.Write([]byte(industryGroupsStockUniverseResponseJSON()))
+		case 3:
+			_, _ = w.Write([]byte(industryGroupRSResponseJSON()))
+		default:
+			t.Fatalf("unexpected request %d for operation %s", len(requests), payload.OperationName)
+		}
+	})
+
+	data, err := client.RunReport(t.Context(), industryGroupsReportID)
+	require.NoError(t, err)
+	require.Len(t, requests, 3)
+	assert.Equal(t, "MarketDataAdhocScreen", requests[0].OperationName)
+	assert.Equal(t, float64(industryGroupsReportID), getNestedMap(requests[0].Variables, "includeSource", "screenId")["id"])
+	assert.Equal(t, "MarketDataAdhocScreen", requests[1].OperationName)
+	assert.Empty(t, getNestedMap(requests[1].Variables, "includeSource"))
+	assert.Equal(t, "IndustryGroupRS", requests[2].OperationName)
+	assert.Equal(t, []any{"AGCO", "ZZZZ"}, requests[2].Variables["symbols"])
+
+	require.Len(t, data.Entries, 2)
+	assert.Equal(t, "G1000", *data.Entries[0].Symbol)
+	assert.Equal(t, 39, *data.Entries[0].GroupRank)
+	assert.Equal(t, 80, *data.Entries[0].GroupRS)
+	assert.Equal(t, "G9999", *data.Entries[1].Symbol)
+	assert.Nil(t, data.Entries[1].GroupRank)
+	assert.Nil(t, data.Entries[1].GroupRS)
+}
+
 func TestRunWatchlistTwoStepFlow(t *testing.T) {
 	t.Parallel()
 	requests := []Request{}
@@ -221,6 +260,8 @@ func TestParseAdhocScreenResultMapsFields(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, data.Entries, 1)
 	assert.Equal(t, 99, *data.Entries[0].CompositeRating)
+	assert.Equal(t, 5, *data.Entries[0].GroupRank)
+	assert.Equal(t, 95, *data.Entries[0].GroupRS)
 	assert.Equal(t, "DJ:1", *data.Entries[0].DowJonesKey)
 	assert.Equal(t, "COMMON", *data.Entries[0].InstrumentSubType)
 	assert.Nil(t, data.Entries[0].Volume)
@@ -228,7 +269,19 @@ func TestParseAdhocScreenResultMapsFields(t *testing.T) {
 }
 
 func adhocResponseJSON() string {
-	return `{"data":{"marketDataAdhocScreen":{"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"},{"mdItem":{"name":"CompanyName"},"value":"Apple Inc."},{"mdItem":{"name":"ListRank"},"value":"1"},{"mdItem":{"name":"Price"},"value":"101.5"},{"mdItem":{"name":"PriceNetChg"},"value":"1.0"},{"mdItem":{"name":"PricePctChg"},"value":"0.9"},{"mdItem":{"name":"PricePctOff52WHigh"},"value":"5.0"},{"mdItem":{"name":"VolumeAvg50Day"},"value":"1000"},{"mdItem":{"name":"VolumePctChgVs50DAvgVolume"},"value":"10.0"},{"mdItem":{"name":"CompositeRating"},"value":"99"},{"mdItem":{"name":"EPSRating"},"value":"95"},{"mdItem":{"name":"RSRating"},"value":"94"},{"mdItem":{"name":"AccDisRating"},"value":"A"},{"mdItem":{"name":"SMRRating"},"value":"A"},{"mdItem":{"name":"IndustryGroupRank"},"value":"3"},{"mdItem":{"name":"IndustryName"},"value":"Technology"},{"mdItem":{"name":"MarketCapIntraday"},"value":"1000"},{"mdItem":{"name":"VolumeDollarAvg50D"},"value":"500"},{"mdItem":{"name":"IPODate"},"value":"1980-12-12"},{"mdItem":{"name":"DowJonesKey"},"value":"DJ:1"},{"mdItem":{"name":"ChartingSymbol"},"value":"AAPL"},{"mdItem":{"name":"DowJonesInstrumentType"},"value":"EQUITY"},{"mdItem":{"name":"DowJonesInstrumentSubType"},"value":"COMMON"}]],"errorValues":[]}}}`
+	return `{"data":{"marketDataAdhocScreen":{"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AAPL"},{"mdItem":{"name":"CompanyName"},"value":"Apple Inc."},{"mdItem":{"name":"ListRank"},"value":"1"},{"mdItem":{"name":"GroupRank"},"value":"5"},{"mdItem":{"name":"GroupRS"},"value":"95"},{"mdItem":{"name":"Price"},"value":"101.5"},{"mdItem":{"name":"PriceNetChg"},"value":"1.0"},{"mdItem":{"name":"PricePctChg"},"value":"0.9"},{"mdItem":{"name":"PricePctOff52WHigh"},"value":"5.0"},{"mdItem":{"name":"VolumeAvg50Day"},"value":"1000"},{"mdItem":{"name":"VolumePctChgVs50DAvgVolume"},"value":"10.0"},{"mdItem":{"name":"CompositeRating"},"value":"99"},{"mdItem":{"name":"EPSRating"},"value":"95"},{"mdItem":{"name":"RSRating"},"value":"94"},{"mdItem":{"name":"AccDisRating"},"value":"A"},{"mdItem":{"name":"SMRRating"},"value":"A"},{"mdItem":{"name":"IndustryGroupRank"},"value":"3"},{"mdItem":{"name":"IndustryName"},"value":"Technology"},{"mdItem":{"name":"MarketCapIntraday"},"value":"1000"},{"mdItem":{"name":"VolumeDollarAvg50D"},"value":"500"},{"mdItem":{"name":"IPODate"},"value":"1980-12-12"},{"mdItem":{"name":"DowJonesKey"},"value":"DJ:1"},{"mdItem":{"name":"ChartingSymbol"},"value":"AAPL"},{"mdItem":{"name":"DowJonesInstrumentType"},"value":"EQUITY"},{"mdItem":{"name":"DowJonesInstrumentSubType"},"value":"COMMON"}]],"errorValues":[]}}}`
+}
+
+func industryGroupsReportResponseJSON() string {
+	return `{"data":{"marketDataAdhocScreen":{"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"G1000"},{"mdItem":{"name":"CompanyName"},"value":"(L)Agricultural Operations"},{"mdItem":{"name":"ListRank"},"value":"2"}],[{"mdItem":{"name":"Symbol"},"value":"G9999"},{"mdItem":{"name":"CompanyName"},"value":"(L)Old Missing"},{"mdItem":{"name":"ListRank"},"value":"197"}]],"errorValues":[]}}}`
+}
+
+func industryGroupsStockUniverseResponseJSON() string {
+	return `{"data":{"marketDataAdhocScreen":{"responseValues":[[{"mdItem":{"name":"Symbol"},"value":"AGCO"},{"mdItem":{"name":"IndustryName"},"value":"Agricultural Operations"},{"mdItem":{"name":"IndustryGroupRank"},"value":"39"}],[{"mdItem":{"name":"Symbol"},"value":"ZZZZ"},{"mdItem":{"name":"IndustryName"},"value":"Unrelated Group"},{"mdItem":{"name":"IndustryGroupRank"},"value":"5"}]],"errorValues":[]}}}`
+}
+
+func industryGroupRSResponseJSON() string {
+	return `{"data":{"marketData":[{"originRequest":{"symbol":"AGCO"},"industry":{"groupRS":[{"value":80}]}},{"originRequest":{"symbol":"ZZZZ"},"industry":{"groupRS":[{"value":12}]}}]}}`
 }
 
 func assertAdhocResponseColumns(t *testing.T, request Request) {

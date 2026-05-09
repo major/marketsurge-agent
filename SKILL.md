@@ -153,9 +153,10 @@ Examples:
 Useful flags:
 
   --limit, --offset   Page large lists (default limit: 50)
-  --fields            Project columns: symbol, price, composite_rating,
-                      eps_rating, rs_rating, acc_dis_rating, smr_rating,
-                      industry_name, market_cap, volume_dollar_avg_50d
+  --fields            Project columns: symbol, price, group_rank, group_rs,
+                      composite_rating, eps_rating, rs_rating,
+                      acc_dis_rating, smr_rating, industry_name,
+                      market_cap, volume_dollar_avg_50d
   --min-composite     Minimum composite rating for report/watchlist rows
   --min-rs            Minimum RS rating for report/watchlist rows
   --exclude-spacs     Exclude SPAC/blank-check entries
@@ -169,7 +170,7 @@ not behave like report or watchlist rows.
 |------|------|---------|----------|-------------|
 | `--coach-screen-id` | string | - | no | Coach screen ID; required when kind=coach_screen. Example coach screen run: --kind coach_screen --coach-screen-id screen-1 |
 | `--exclude-spacs` | bool | false | no | Exclude SPAC/blank-check entries from results |
-| `--fields` | stringSlice | [] | no | Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,price,composite_rating. Common fields: symbol, price, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d |
+| `--fields` | stringSlice | [] | no | Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,group_rank,group_rs. Common fields: symbol, price, group_rank, group_rs, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d |
 | `--kind` | string | - | no | Required catalog kind to run: watchlist uses --watchlist-id, report uses --report-id, coach_screen uses --coach-screen-id; screens are list-only. Example report: --kind report --report-id 124 |
 | `--limit` | int | 50 | no | Maximum number of results to return |
 | `--min-composite` | int | 0 | no | Minimum composite rating for report/watchlist rows (0-99); omitted when unset. Example: --min-composite 90 |

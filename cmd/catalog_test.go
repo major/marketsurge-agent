@@ -445,7 +445,7 @@ func TestCatalogRunStructTags(t *testing.T) {
 		{field: "CoachScreenID", flag: "coach-screen-id", group: "Kind-Specific IDs", descr: "Coach screen ID; required when kind=coach_screen. Example coach screen run: --kind coach_screen --coach-screen-id screen-1"},
 		{field: "Limit", flag: "limit", group: "Pagination", descr: "Maximum number of results to return", defaultValue: "50"},
 		{field: "Offset", flag: "offset", group: "Pagination", descr: "Number of results to skip for pagination"},
-		{field: "Fields", flag: "fields", group: "Filtering & Projection", descr: "Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,price,composite_rating. Common fields: symbol, price, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d"},
+		{field: "Fields", flag: "fields", group: "Filtering & Projection", descr: "Project specific result fields; accepts repeated --fields flags or comma-separated values. Examples: --fields symbol --fields price, or --fields symbol,group_rank,group_rs. Common fields: symbol, price, group_rank, group_rs, composite_rating, eps_rating, rs_rating, acc_dis_rating, smr_rating, industry_name, market_cap, volume_dollar_avg_50d"},
 		{field: "ExcludeSPACs", flag: "exclude-spacs", group: "Filtering & Projection", descr: "Exclude SPAC/blank-check entries from results"},
 	}
 
@@ -509,7 +509,7 @@ func TestCatalogRunExamples(t *testing.T) {
 		{field: "ReportID", want: "--kind report --report-id 124"},
 		{field: "WatchlistID", want: "--kind watchlist --watchlist-id 99"},
 		{field: "CoachScreenID", want: "--kind coach_screen --coach-screen-id screen-1"},
-		{field: "Fields", want: "--fields symbol,price,composite_rating"},
+		{field: "Fields", want: "--fields symbol,group_rank,group_rs"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.field+"/"+tt.want, func(t *testing.T) {
@@ -668,12 +668,16 @@ func catalogRunAdhocFixture() string {
 				"responseValues": [
 					[
 						{"mdItem":{"name":"Symbol"},"value":"AAPL"},
+						{"mdItem":{"name":"GroupRank"},"value":5},
+						{"mdItem":{"name":"GroupRS"},"value":95},
 						{"mdItem":{"name":"CompositeRating"},"value":99},
 						{"mdItem":{"name":"RSRating"},"value":95},
 						{"mdItem":{"name":"DowJonesInstrumentSubType"},"value":"COMMON"}
 					],
 					[
 						{"mdItem":{"name":"Symbol"},"value":"MSFT"},
+						{"mdItem":{"name":"GroupRank"},"value":7},
+						{"mdItem":{"name":"GroupRS"},"value":90},
 						{"mdItem":{"name":"CompositeRating"},"value":97},
 						{"mdItem":{"name":"RSRating"},"value":90},
 						{"mdItem":{"name":"DowJonesInstrumentSubType"},"value":"COMMON"}
@@ -760,7 +764,7 @@ func TestCatalogRunOptionsValidate(t *testing.T) {
 		{
 			name:    "report with unknown fields",
 			opts:    CatalogRunOptions{Kind: "report", ReportID: 42, Fields: []string{"symbol", "not_real"}},
-			wantErr: `unknown --fields values "not_real": use one or more of acc_dis_rating, charting_symbol, company_name, composite_rating, dow_jones_key, eps_rating, industry_group_rank, industry_name, instrument_sub_type, instrument_type, ipo_date, list_rank, market_cap, price, price_net_change, price_pct_change, price_pct_off_52w_high, rs_rating, smr_rating, symbol, volume, volume_change, volume_dollar_avg_50d, volume_pct_change`,
+			wantErr: `unknown --fields values "not_real": use one or more of acc_dis_rating, charting_symbol, company_name, composite_rating, dow_jones_key, eps_rating, group_rank, group_rs, industry_group_rank, industry_name, instrument_sub_type, instrument_type, ipo_date, list_rank, market_cap, price, price_net_change, price_pct_change, price_pct_off_52w_high, rs_rating, smr_rating, symbol, volume, volume_change, volume_dollar_avg_50d, volume_pct_change`,
 		},
 		{
 			name:    "coach_screen with fields",

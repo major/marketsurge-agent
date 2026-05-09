@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/leodido/structcli"
@@ -76,6 +77,8 @@ func (o *CatalogRunOptions) Validate(_ context.Context) []error {
 		return []error{mserrors.NewValidationError("invalid --kind screen for catalog run: screens are list-only; use catalog list --kind screen", nil)}
 	}
 
+	o.Fields = normalizeWatchlistFields(o.Fields)
+
 	switch *kind {
 	case models.CatalogKindReport:
 		if o.ReportID == 0 {
@@ -89,6 +92,16 @@ func (o *CatalogRunOptions) Validate(_ context.Context) []error {
 		if o.CoachScreenID == "" {
 			return []error{mserrors.NewValidationError("missing --coach-screen-id: --kind coach_screen requires --coach-screen-id ID", nil)}
 		}
+		if hasWatchlistFields(o.Fields) {
+			return []error{mserrors.NewValidationError("unsupported --fields with --kind coach_screen: field projection is only supported for report and watchlist rows", nil)}
+		}
+	}
+
+	if unknown := unknownWatchlistFields(o.Fields); len(unknown) > 0 {
+		return []error{mserrors.NewValidationError(
+			fmt.Sprintf("unknown --fields values %q: use one or more of %s", strings.Join(unknown, ", "), strings.Join(validWatchlistFields(), ", ")),
+			nil,
+		)}
 	}
 
 	return nil
@@ -314,4 +327,60 @@ func normalizeWatchlistField(field string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func unknownWatchlistFields(fields []string) []string {
+	unknown := make([]string, 0)
+	seen := map[string]bool{}
+	for _, field := range fields {
+		trimmed := strings.TrimSpace(field)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := normalizeWatchlistField(trimmed); ok {
+			continue
+		}
+		if seen[trimmed] {
+			continue
+		}
+		seen[trimmed] = true
+		unknown = append(unknown, trimmed)
+	}
+	sort.Strings(unknown)
+	return unknown
+}
+
+func normalizeWatchlistFields(fields []string) []string {
+	normalized := make([]string, 0, len(fields))
+	for _, field := range fields {
+		trimmed := strings.TrimSpace(field)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
+}
+
+func hasWatchlistFields(fields []string) bool {
+	for _, field := range fields {
+		if strings.TrimSpace(field) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func validWatchlistFields() []string {
+	seen := map[string]bool{}
+	fields := make([]string, 0, len(watchlistFieldAliases))
+	for _, field := range watchlistFieldAliases {
+		if seen[field] {
+			continue
+		}
+		seen[field] = true
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+	return fields
 }

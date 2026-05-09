@@ -331,6 +331,7 @@ func buildBasePattern(patterns []models.Pattern) *models.BasePattern {
 		PatternType:      pattern.PatternType,
 		BaseStage:        pattern.BaseStage,
 		PivotPrice:       pattern.PivotPrice,
+		PivotPriceDate:   pattern.PivotPriceDate,
 		BaseLengthWeeks:  pattern.BaseLength,
 		BaseDepthPercent: pattern.BaseDepth,
 		VolumeAtPivotPct: pattern.AvgVolumeRatePctOnPivot,

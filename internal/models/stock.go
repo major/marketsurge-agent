@@ -164,6 +164,7 @@ type BasePattern struct {
 	PatternType      *string  `json:"pattern_type,omitempty"`
 	BaseStage        *string  `json:"base_stage,omitempty"`
 	PivotPrice       *float64 `json:"pivot_price,omitempty"`
+	PivotPriceDate   *string  `json:"pivot_price_date,omitempty"`
 	BaseLengthWeeks  *int     `json:"base_length_weeks,omitempty"`
 	BaseDepthPercent *float64 `json:"base_depth_percent,omitempty"`
 	VolumeAtPivotPct *float64 `json:"volume_at_pivot_pct,omitempty"`

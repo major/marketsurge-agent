@@ -286,8 +286,13 @@ Flags:
   --summary   Compact screening keys: symbol, composite, eps, rs, ad, smr,
               blue_dot, ant_signal, ant_dates, ant_explanation,
               base_type, base_stage, pivot,
-              base_depth_percent, industry_group_rs, up_down_volume,
-              atr_percent, avg_dollar_volume, funds_float_percent
+              pivot_price_date, pricing_start_date, pricing_end_date,
+              base_depth_percent,
+              industry_group_rs, up_down_volume, atr_percent,
+              avg_dollar_volume, funds_float_percent
+  --setup     Setup-focused trade triage keys: all --summary keys plus
+              base_length_weeks, volume_at_pivot_percent,
+              ownership_funds_float_percent, quarterly_funds
   --compact   Removes duplicate formatted string fields, keeps raw values
   --flat      Flattens nested analysis fields inside the JSON envelope
 
@@ -298,9 +303,10 @@ interesting symbols without --summary for detail.
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--compact` | bool | false | no | Remove duplicate formatted string fields while keeping raw numeric values; compatible with --summary and --flat. Example: stock analyze AAPL --compact |
-| `--flat` | bool | false | no | Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --summary and --compact. Example: stock analyze AAPL --flat |
-| `--summary` | bool | false | no | Return compact screening objects for ranking many symbols; compatible with --compact and --flat. Example: stock analyze --summary AAPL MSFT NVDA |
+| `--compact` | bool | false | no | Remove duplicate formatted string fields while keeping raw numeric values; compatible with --flat. Example: stock analyze AAPL --compact |
+| `--flat` | bool | false | no | Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --compact. Example: stock analyze AAPL --flat |
+| `--setup` | bool | false | no | Return --setup trade triage fields: summary fields plus base_length_weeks, volume_at_pivot_percent, ownership_funds_float_percent, and quarterly_funds. Example: stock analyze AAPL --setup |
+| `--summary` | bool | false | no | Return compact screening objects for ranking many symbols. Example: stock analyze --summary AAPL MSFT NVDA |
 | `--symbols` | stringSlice | [] | no | Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use |
 | `--tickers` | stringSlice | [] | no | Additional stock symbols to analyze; accepts comma-separated or repeated values |
 
@@ -310,6 +316,7 @@ interesting symbols without --summary for detail.
 marketsurge-agent stock analyze AAPL
   marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
   marketsurge-agent stock analyze --summary AAPL MSFT NVDA
+  marketsurge-agent stock analyze AAPL --setup
   marketsurge-agent stock analyze AAPL --flat --compact
 ```
 
@@ -351,5 +358,6 @@ marketsurge-agent chart history AAPL --lookback 3M
 marketsurge-agent stock analyze AAPL
   marketsurge-agent stock analyze --tickers AAPL,MSFT,NVDA --compact
   marketsurge-agent stock analyze --summary AAPL MSFT NVDA
+  marketsurge-agent stock analyze AAPL --setup
   marketsurge-agent stock analyze AAPL --flat --compact
 ```

@@ -8,14 +8,15 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-go/marketsurge"
 )
 
-// exchangeURL is the JWT exchange endpoint URL. It defaults to
-// constants.JWTExchangeURL and can be overridden in tests.
-var exchangeURL = constants.JWTExchangeURL
+// jwtExchangeURL is the investors.com JWT exchange endpoint.
+const jwtExchangeURL = "https://www.investors.com/client"
+
+// exchangeURL is the JWT exchange endpoint URL. It can be overridden in tests.
+var exchangeURL = jwtExchangeURL
 
 // ExchangeJWT exchanges browser cookies for a JWT token through marketsurge-go
 // while preserving this CLI's authentication error contract.
@@ -54,8 +55,8 @@ func investorsBaseURL(rawExchangeURL string) string {
 }
 
 func mapJWTExchangeError(err error) error {
-	var statusErr *marketsurge.StatusError
-	if errors.As(err, &statusErr) {
+	statusErr, ok := errors.AsType[*marketsurge.StatusError](err)
+	if ok {
 		return mserrors.NewAuthenticationError(
 			fmt.Sprintf("JWT exchange failed: HTTP %d", statusErr.StatusCode),
 			err,

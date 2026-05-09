@@ -22,15 +22,6 @@ type ReportsCmd struct {
 	Get  ReportsGetCmd  `cmd:"" help:"Get report data for a specific screen ID."`
 }
 
-// ReportsListCmd lists all available screens and reports.
-// Full implementation in cmd/reports_list.go (Task 7).
-type ReportsListCmd struct{}
-
-// Run is a placeholder - real implementation in reports_list.go.
-func (c *ReportsListCmd) Run() error {
-	return errors.New("not implemented")
-}
-
 // ReportsGetCmd retrieves report data for a specific screen ID.
 // Full implementation in cmd/reports_get.go (Task 8).
 type ReportsGetCmd struct {

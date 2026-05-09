@@ -32,38 +32,40 @@ type Screen struct {
 
 // ScreenResult represents the result of running a named screen.
 type ScreenResult struct {
-	ScreenName      *string              `json:"screen_name,omitempty"`
-	ElapsedTime     *string              `json:"elapsed_time,omitempty"`
-	NumInstruments  *int                 `json:"num_instruments,omitempty"`
-	Rows            []map[string]*string `json:"rows,omitempty"`
+	ScreenName     *string              `json:"screen_name,omitempty"`
+	ElapsedTime    *string              `json:"elapsed_time,omitempty"`
+	NumInstruments *int                 `json:"num_instruments,omitempty"`
+	Rows           []map[string]*string `json:"rows,omitempty"`
 }
 
 // WatchlistEntry represents a single row from an AdhocScreen watchlist query.
 type WatchlistEntry struct {
-	Symbol                *string  `json:"symbol,omitempty"`
-	CompanyName           *string  `json:"company_name,omitempty"`
-	ListRank              *int     `json:"list_rank,omitempty"`
-	Price                 *float64 `json:"price,omitempty"`
-	PriceNetChange        *float64 `json:"price_net_change,omitempty"`
-	PricePctChange        *float64 `json:"price_pct_change,omitempty"`
-	PricePctOff52WHighs   *float64 `json:"price_pct_off_52w_high,omitempty"`
-	Volume                *int     `json:"volume,omitempty"`
-	VolumeChange          *int     `json:"volume_change,omitempty"`
-	VolumePctChange       *float64 `json:"volume_pct_change,omitempty"`
-	CompositeRating       *int     `json:"composite_rating,omitempty"`
-	EPSRating             *int     `json:"eps_rating,omitempty"`
-	RSRating              *int     `json:"rs_rating,omitempty"`
-	AccDisRating          *string  `json:"acc_dis_rating,omitempty"`
-	SMRRating             *string  `json:"smr_rating,omitempty"`
-	IndustryGroupRank     *int     `json:"industry_group_rank,omitempty"`
-	IndustryName          *string  `json:"industry_name,omitempty"`
-	MarketCap             *float64 `json:"market_cap,omitempty"`
-	VolumeDollarAvg50D    *float64 `json:"volume_dollar_avg_50d,omitempty"`
-	IPODate               *string  `json:"ipo_date,omitempty"`
-	DowJonesKey           *string  `json:"dow_jones_key,omitempty"`
-	ChartingSymbol        *string  `json:"charting_symbol,omitempty"`
-	InstrumentType        *string  `json:"instrument_type,omitempty"`
-	InstrumentSubType     *string  `json:"instrument_sub_type,omitempty"`
+	Symbol              *string  `json:"symbol,omitempty"`
+	CompanyName         *string  `json:"company_name,omitempty"`
+	ListRank            *int     `json:"list_rank,omitempty"`
+	GroupRank           *int     `json:"group_rank,omitempty"`
+	GroupRS             *int     `json:"group_rs,omitempty"`
+	Price               *float64 `json:"price,omitempty"`
+	PriceNetChange      *float64 `json:"price_net_change,omitempty"`
+	PricePctChange      *float64 `json:"price_pct_change,omitempty"`
+	PricePctOff52WHighs *float64 `json:"price_pct_off_52w_high,omitempty"`
+	Volume              *int     `json:"volume,omitempty"`
+	VolumeChange        *int     `json:"volume_change,omitempty"`
+	VolumePctChange     *float64 `json:"volume_pct_change,omitempty"`
+	CompositeRating     *int     `json:"composite_rating,omitempty"`
+	EPSRating           *int     `json:"eps_rating,omitempty"`
+	RSRating            *int     `json:"rs_rating,omitempty"`
+	AccDisRating        *string  `json:"acc_dis_rating,omitempty"`
+	SMRRating           *string  `json:"smr_rating,omitempty"`
+	IndustryGroupRank   *int     `json:"industry_group_rank,omitempty"`
+	IndustryName        *string  `json:"industry_name,omitempty"`
+	MarketCap           *float64 `json:"market_cap,omitempty"`
+	VolumeDollarAvg50D  *float64 `json:"volume_dollar_avg_50d,omitempty"`
+	IPODate             *string  `json:"ipo_date,omitempty"`
+	DowJonesKey         *string  `json:"dow_jones_key,omitempty"`
+	ChartingSymbol      *string  `json:"charting_symbol,omitempty"`
+	InstrumentType      *string  `json:"instrument_type,omitempty"`
+	InstrumentSubType   *string  `json:"instrument_sub_type,omitempty"`
 }
 
 // AdhocScreenResult represents the result of running an adhoc screen.
@@ -82,17 +84,17 @@ type WatchlistSummary struct {
 
 // WatchlistSymbol represents a single symbol entry in a watchlist.
 type WatchlistSymbol struct {
-	Key        *string `json:"key,omitempty"`
+	Key         *string `json:"key,omitempty"`
 	DowJonesKey *string `json:"dow_jones_key,omitempty"`
 }
 
 // WatchlistDetail represents a full watchlist with its symbol items.
 type WatchlistDetail struct {
-	ID           *string            `json:"id,omitempty"`
-	Name         *string            `json:"name,omitempty"`
-	LastModified *string            `json:"last_modified,omitempty"`
-	Description  *string            `json:"description,omitempty"`
-	Items        []WatchlistSymbol   `json:"items"`
+	ID           *string           `json:"id,omitempty"`
+	Name         *string           `json:"name,omitempty"`
+	LastModified *string           `json:"last_modified,omitempty"`
+	Description  *string           `json:"description,omitempty"`
+	Items        []WatchlistSymbol `json:"items"`
 }
 
 // CatalogEntry represents a unified entry from the stock list catalog.
@@ -113,9 +115,9 @@ type Catalog struct {
 
 // CatalogResult represents the result of running a catalog entry.
 type CatalogResult struct {
-	Kind             CatalogKind         `json:"kind"`
-	Total            *int                `json:"total,omitempty"`
-	ScreenResult     *ScreenResult       `json:"screen_result,omitempty"`
-	AdhocResult      *AdhocScreenResult  `json:"adhoc_result,omitempty"`
-	WatchlistEntries []WatchlistEntry    `json:"watchlist_entries,omitempty"`
+	Kind             CatalogKind        `json:"kind"`
+	Total            *int               `json:"total,omitempty"`
+	ScreenResult     *ScreenResult      `json:"screen_result,omitempty"`
+	AdhocResult      *AdhocScreenResult `json:"adhoc_result,omitempty"`
+	WatchlistEntries []WatchlistEntry   `json:"watchlist_entries,omitempty"`
 }

@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/major/marketsurge-agent/internal/constants"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
 )
+
+const industryGroupsReportID = 46
 
 // ListCatalog aggregates screens, reports, watchlists, and coach screens.
 func (c *Client) ListCatalog(ctx context.Context, kind *models.CatalogKind) (*models.Catalog, error) {
@@ -80,7 +84,16 @@ func (c *Client) RunReport(ctx context.Context, reportID int) (*models.AdhocScre
 		return nil, err
 	}
 
-	return parseAdhocScreenResult(raw)
+	result, err := parseAdhocScreenResult(raw)
+	if err != nil {
+		return nil, err
+	}
+	if reportID == industryGroupsReportID {
+		if err := c.enrichIndustryGroupReport(ctx, result); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 // RunWatchlist resolves a 64-bit watchlist ID through FlaggedSymbols, then screens the symbols.
@@ -194,6 +207,154 @@ func adhocResponseColumns() []map[string]string {
 		columns = append(columns, map[string]string{"name": column})
 	}
 	return columns
+}
+
+type industryGroupInfo struct {
+	Rank int
+	RS   int
+}
+
+// enrichIndustryGroupReport adds verified stock-level industry rank data to the
+// static 197 Industry Groups report. MarketSurge exposes the report rows as
+// group index instruments, but the group rank and RS values only appear on
+// stock-level industry data.
+func (c *Client) enrichIndustryGroupReport(ctx context.Context, result *models.AdhocScreenResult) error {
+	groups, err := c.industryGroupsByName(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range result.Entries {
+		name := result.Entries[i].CompanyName
+		if name == nil {
+			continue
+		}
+		info, ok := groups[normalizeIndustryGroupName(*name)]
+		if !ok {
+			continue
+		}
+		if info.Rank != 0 {
+			result.Entries[i].GroupRank = &info.Rank
+		}
+		if info.RS != 0 {
+			result.Entries[i].GroupRS = &info.RS
+		}
+	}
+	return nil
+}
+
+// industryGroupsByName builds a lookup from current stock universe industry
+// names to their published group rank and group RS values.
+func (c *Client) industryGroupsByName(ctx context.Context) (map[string]industryGroupInfo, error) {
+	query, err := queries.Load("adhoc_screen.graphql")
+	if err != nil {
+		return nil, err
+	}
+	raw, err := c.Execute(ctx, Request{
+		OperationName: "MarketDataAdhocScreen",
+		Variables: map[string]any{
+			"correlationTag": "marketsurge-industry-groups",
+			"responseColumns": []map[string]string{
+				{"name": "Symbol"},
+				{"name": "IndustryName"},
+				{"name": "IndustryGroupRank"},
+			},
+			"adhocQuery":    nil,
+			"includeSource": map[string]any{},
+			"pageSize":      20000,
+			"resultLimit":   20000,
+			"pageSkip":      0,
+			"resultType":    "RESULT_WITH_EXPRESSION_COUNTS",
+		},
+		Query: query,
+	})
+	if err != nil {
+		return nil, err
+	}
+	stocks, err := parseAdhocScreenResult(raw)
+	if err != nil {
+		return nil, err
+	}
+	representatives := map[string]string{}
+	groups := map[string]industryGroupInfo{}
+	for i := range stocks.Entries {
+		stock := &stocks.Entries[i]
+		if stock.Symbol == nil || stock.IndustryName == nil || stock.IndustryGroupRank == nil {
+			continue
+		}
+		key := normalizeIndustryGroupName(*stock.IndustryName)
+		groups[key] = industryGroupInfo{Rank: *stock.IndustryGroupRank}
+		if _, exists := representatives[key]; !exists {
+			representatives[key] = *stock.Symbol
+		}
+	}
+	if len(representatives) == 0 {
+		return groups, nil
+	}
+	symbols := make([]string, 0, len(representatives))
+	nameBySymbol := make(map[string]string, len(representatives))
+	for name, symbol := range representatives {
+		symbols = append(symbols, symbol)
+		nameBySymbol[symbol] = name
+	}
+	sort.Strings(symbols)
+	rsBySymbol, err := c.industryGroupRSByRepresentative(ctx, symbols)
+	if err != nil {
+		return nil, err
+	}
+	for symbol, rs := range rsBySymbol {
+		name := nameBySymbol[symbol]
+		info := groups[name]
+		info.RS = rs
+		groups[name] = info
+	}
+	return groups, nil
+}
+
+// industryGroupRSByRepresentative fetches group RS from one stock per industry.
+// The adhoc screener exposes the rank, while the marketData industry object is
+// the verified source for the matching RS value.
+func (c *Client) industryGroupRSByRepresentative(ctx context.Context, symbols []string) (map[string]int, error) {
+	query, err := queries.Load("industry_group_rs.graphql")
+	if err != nil {
+		return nil, fmt.Errorf("loading industry group RS query: %w", err)
+	}
+
+	result := map[string]int{}
+	for start := 0; start < len(symbols); start += 250 {
+		end := min(start+250, len(symbols))
+		raw, err := c.Execute(ctx, Request{
+			OperationName: "IndustryGroupRS",
+			Variables: map[string]any{
+				"symbols":           symbols[start:end],
+				"symbolDialectType": "CHARTING",
+			},
+			Query: query,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range getNestedSlice(raw, "data", "marketData") {
+			mapped, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			rs := firstMap(getNestedSlice(mapped, "industry", "groupRS"))
+			if value := intPtr(rs["value"]); value != nil {
+				result[stringify(getNestedMap(mapped, "originRequest")["symbol"])] = *value
+			}
+		}
+	}
+	return result, nil
+}
+
+// normalizeIndustryGroupName removes report-only markers and spacing so report
+// 46 rows can be matched to stock universe industry names when MarketSurge uses
+// the same display name in both sources.
+func normalizeIndustryGroupName(name string) string {
+	name = strings.TrimPrefix(name, "(L)")
+	name = strings.ToLower(name)
+	name = strings.ReplaceAll(name, " ", "")
+	return name
 }
 
 func (c *Client) listWatchlists(ctx context.Context) ([]models.CatalogEntry, error) {
@@ -339,6 +500,8 @@ func parseWatchlistEntries(rows []any) []models.WatchlistEntry {
 			Symbol:              stringPtr(mapped["Symbol"]),
 			CompanyName:         stringPtr(mapped["CompanyName"]),
 			ListRank:            intPtr(mapped["ListRank"]),
+			GroupRank:           intPtr(mapped["GroupRank"]),
+			GroupRS:             intPtr(mapped["GroupRS"]),
 			Price:               floatPtr(mapped["Price"]),
 			PriceNetChange:      floatPtr(firstNonNil(mapped["PriceNetChange"], mapped["PriceNetChg"])),
 			PricePctChange:      floatPtr(mapped["PricePctChg"]),

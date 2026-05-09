@@ -63,7 +63,7 @@ marketsurge-agent stock get --symbol AAPL
 # Analyze multiple symbols concurrently
 marketsurge-agent stock analyze AAPL MSFT NVDA GOOG
 
-# Analyze a comma-separated batch and remove formatted duplicate fields
+# Analyze a comma-separated batch and remove low-value fields
 marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact
 
 # Return screening fields for ranking many candidates
@@ -202,7 +202,7 @@ marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact --flat
 
 - `--symbols AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--symbols`.
 - `--tickers AAPL,MSFT,NVDA` remains supported as a backward-compatible alias for `stock analyze`.
-- `--compact` removes duplicate formatted string fields such as `market_cap_formatted`, while keeping raw numeric values.
+- `--compact` removes low-value fields such as formatted duplicates, profile metadata, internal IDs, empty fields, and stale arrays, while keeping decision-relevant raw values.
 - `--summary` returns one small screening object per symbol with rankings, signal flags, ANTS dates and explanation, base details, liquidity, volatility, and ownership fields. Response metadata includes `mode: "summary"`.
 - `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
 

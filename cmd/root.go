@@ -90,8 +90,9 @@ Gotchas
     ticker when given multiple symbols.
   - Summary mode: stock analyze --summary returns compact screening
     objects for ranking many candidates. Metadata includes mode: "summary".
-  - Compact mode: stock analyze --compact strips duplicate formatted
-    string fields while keeping raw numeric values.
+  - Compact mode: stock analyze --compact removes formatted duplicates,
+    profile metadata, internal IDs, empty fields, and stale arrays while
+    keeping decision-relevant raw values.
   - Flat mode: stock analyze --flat flattens nested objects into
     single-level keys.
   - Batch tickers: stock analyze --tickers AAPL,NVDA,TSLA accepts

@@ -290,6 +290,87 @@ func TestStockAnalyzeCompactOutput(t *testing.T) {
 	assert.Contains(t, pricing, "market_cap")
 	assert.NotContains(t, pricing, "market_cap_formatted")
 	assert.NotContains(t, pricing, "forward_price_to_earnings_ratio_formatted")
+	assert.NotContains(t, pricing, "volume_moving_averages")
+	assert.NotContains(t, pricing, "historical_price_statistics")
+
+	company, _ := stock["company"].(map[string]any)
+	assert.Contains(t, company, "name")
+	assert.NotContains(t, company, "website")
+	assert.NotContains(t, company, "address")
+	assert.NotContains(t, company, "city")
+	assert.NotContains(t, company, "state_province")
+	assert.NotContains(t, company, "instrument_sub_type")
+
+	industry, _ := stock["industry"].(map[string]any)
+	assert.Contains(t, industry, "name")
+	assert.NotContains(t, industry, "code")
+	assert.NotContains(t, stock, "corporate_actions")
+	assert.NotContains(t, stock, "patterns")
+	assert.NotContains(t, stock, "tight_areas")
+
+	fundamentals, _ := data["fundamentals"].(map[string]any)
+	assert.NotContains(t, fundamentals, "symbol")
+	reportedEarnings, _ := fundamentals["reported_earnings"].([]any)
+	firstEarnings, _ := reportedEarnings[0].(map[string]any)
+	assert.NotContains(t, firstEarnings, "formatted_value")
+	assert.NotContains(t, firstEarnings, "formatted_pct_change")
+	assert.NotContains(t, firstEarnings, "period_offset")
+}
+
+func TestCompactAnalysisMapPrunesLowValueFields(t *testing.T) {
+	t.Parallel()
+
+	data := map[string]any{
+		"symbol": "AAPL",
+		"stock": map[string]any{
+			"symbol": "AAPL",
+			"pricing": map[string]any{
+				"market_cap":                         3000000000000.0,
+				"market_cap_formatted":               "$3T",
+				"blue_dot_daily_dates":               []any{"2024-12-20", "2024-12-19", "2024-12-18", "2024-12-17"},
+				"historical_price_statistics":        []any{map[string]any{"period_offset": "0"}},
+				"price_to_cash_flow_ratio_formatted": "N/A",
+			},
+			"corporate_actions": map[string]any{},
+			"patterns": []any{
+				map[string]any{"id": "pattern-1", "pattern_type": "Cup With Handle"},
+			},
+		},
+		"fundamentals": map[string]any{
+			"symbol": "AAPL",
+			"reported_earnings": []any{
+				map[string]any{"period_offset": "0", "value": 1.5, "formatted_value": "1.5"},
+				map[string]any{"period_offset": "-1", "value": 1.4},
+				map[string]any{"period_offset": "-2", "value": 1.3},
+				map[string]any{"period_offset": "-3", "value": 1.2},
+				map[string]any{"period_offset": "-4", "value": 1.1},
+			},
+		},
+	}
+
+	compact := compactAnalysisMap(data)
+
+	assert.Equal(t, "AAPL", compact["symbol"])
+	stock, _ := compact["stock"].(map[string]any)
+	assert.NotContains(t, stock, "symbol")
+	assert.NotContains(t, stock, "corporate_actions")
+	assert.NotContains(t, stock, "patterns")
+
+	pricing, _ := stock["pricing"].(map[string]any)
+	assert.Equal(t, 3000000000000.0, pricing["market_cap"])
+	assert.NotContains(t, pricing, "market_cap_formatted")
+	assert.NotContains(t, pricing, "price_to_cash_flow_ratio_formatted")
+	assert.NotContains(t, pricing, "historical_price_statistics")
+	assert.Equal(t, []any{"2024-12-20", "2024-12-19", "2024-12-18"}, pricing["blue_dot_daily_dates"])
+
+	fundamentals, _ := compact["fundamentals"].(map[string]any)
+	assert.NotContains(t, fundamentals, "symbol")
+	reportedEarnings, _ := fundamentals["reported_earnings"].([]any)
+	require.Len(t, reportedEarnings, 4)
+	firstEarnings, _ := reportedEarnings[0].(map[string]any)
+	assert.Equal(t, 1.5, firstEarnings["value"])
+	assert.NotContains(t, firstEarnings, "period_offset")
+	assert.NotContains(t, firstEarnings, "formatted_value")
 }
 
 func TestStockAnalyzeFlatOutput(t *testing.T) {
@@ -433,7 +514,7 @@ func TestStockAnalyzeStructTags(t *testing.T) {
 	}{
 		{field: "Symbols", flag: "symbols", short: "s", group: "Input", descr: "Stock symbols to analyze, for example AAPL,MSFT; accepts comma-separated or repeated values; positional symbols remain supported for shell use", hasShort: true},
 		{field: "Tickers", flag: "tickers", short: "t", group: "Input", descr: "Additional stock symbols to analyze; accepts comma-separated or repeated values", hasShort: true},
-		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove duplicate formatted string fields while keeping raw numeric values; compatible with --flat. Example: stock analyze AAPL --compact"},
+		{field: "Compact", flag: "compact", group: "Output Format", descr: "Remove low-value fields such as formatted duplicates, profile metadata, internal IDs, empty fields, and stale arrays while keeping decision-relevant raw values; compatible with --flat. Example: stock analyze AAPL --compact"},
 		{field: "Flat", flag: "flat", group: "Output Format", descr: "Flatten nested analysis fields into single-level JSON keys, for example stock.pricing.market_cap becomes pricing_market_cap; compatible with --compact. Example: stock analyze AAPL --flat"},
 		{field: "Summary", flag: "summary", group: "Output Format", descr: "Return compact screening objects for ranking many symbols. Example: stock analyze --summary AAPL MSFT NVDA"},
 		{field: "Setup", flag: "setup", group: "Output Format", descr: "Return --setup trade triage fields: summary fields plus base_length_weeks, volume_at_pivot_percent, ownership_funds_float_percent, and quarterly_funds. Example: stock analyze AAPL --setup"},

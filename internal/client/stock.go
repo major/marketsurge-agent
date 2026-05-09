@@ -2,10 +2,12 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/major/marketsurge-agent/internal/constants"
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
 )
@@ -153,7 +155,7 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 		PricingEndDate:                       stringPtr(pricingEOD["pricingEndDate"]),
 	}
 
-	return &models.StockData{
+	stock := &models.StockData{
 		Symbol: symbol,
 		Ratings: &models.Ratings{
 			Composite: intPtr(compRating["value"]),
@@ -287,7 +289,80 @@ func (c *Client) GetStock(ctx context.Context, symbol string) (*models.StockData
 				Length:    intPtr(item["length"]),
 			}
 		}),
-	}, nil
+	}
+	if !hasStockData(stock) {
+		return nil, mserrors.NewSymbolNotFoundError(fmt.Sprintf("symbol not found: %q", symbol), nil, symbol)
+	}
+	return stock, nil
+}
+
+func hasStockData(stock *models.StockData) bool {
+	if stock == nil {
+		return false
+	}
+	if stock.Ratings != nil && (stock.Ratings.Composite != nil || stock.Ratings.EPS != nil || stock.Ratings.RS != nil || stock.Ratings.SMR != nil || stock.Ratings.AD != nil) {
+		return true
+	}
+	if stock.Company != nil && (stock.Company.Name != nil || stock.Company.Industry != nil || stock.Company.Sector != nil || stock.Company.IndustryGroupRank != nil || stock.Company.IndustryGroupRS != nil) {
+		return true
+	}
+	if stock.Pricing != nil && (stock.Pricing.MarketCap != nil || stock.Pricing.AvgDollarVolume50D != nil || stock.Pricing.UpDownVolumeRatio != nil || stock.Pricing.ATRPercent21D != nil || stock.Pricing.PricingStartDate != nil || stock.Pricing.PricingEndDate != nil) {
+		return true
+	}
+	if hasBasePatternData(stock.BasePattern) {
+		return true
+	}
+	if stock.Financials != nil && (stock.Financials.EPSDueDate != nil || stock.Financials.EPSLastReportedDate != nil || stock.Financials.EPSGrowthRate != nil || stock.Financials.SalesGrowthRate3Y != nil || stock.Financials.CashFlowPerShare != nil) {
+		return true
+	}
+	if stock.Ownership != nil && stock.Ownership.FundsFloatPct != nil {
+		return true
+	}
+	if stock.Fundamentals != nil && (stock.Fundamentals.RAndDPercentLastQtr != nil || stock.Fundamentals.DebtPercentFormatted != nil || stock.Fundamentals.NewCEODate != nil) {
+		return true
+	}
+	return hasQuarterlyFinancialData(stock.QuarterlyFinancials)
+}
+
+func hasBasePatternData(pattern *models.BasePattern) bool {
+	if pattern == nil {
+		return false
+	}
+	return pattern.PatternType != nil || pattern.BaseStage != nil || pattern.PivotPrice != nil || pattern.PivotPriceDate != nil || pattern.BaseLengthWeeks != nil || pattern.BaseDepthPercent != nil || pattern.VolumeAtPivotPct != nil
+}
+
+func hasQuarterlyFinancialData(financials *models.QuarterlyFinancials) bool {
+	if financials == nil {
+		return false
+	}
+	return hasQuarterlyReportedPeriodData(financials.ReportedEarnings) || hasQuarterlyReportedPeriodData(financials.ReportedSales) || hasQuarterlyEstimateData(financials.EPSEstimates) || hasQuarterlyEstimateData(financials.SalesEstimates) || hasQuarterlyProfitMarginData(financials.ProfitMargins)
+}
+
+func hasQuarterlyReportedPeriodData(periods []models.QuarterlyReportedPeriod) bool {
+	for _, period := range periods {
+		if period.Value != nil || period.PctChangeYoY != nil || period.PeriodEndDate != nil || period.EffectiveDate != nil || period.PercentSurprise != nil || period.SurpriseAmount != nil || period.QuarterNumber != nil || period.FiscalYear != nil || period.Period != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func hasQuarterlyEstimateData(estimates []models.QuarterlyEstimate) bool {
+	for _, estimate := range estimates {
+		if estimate.Value != nil || estimate.PctChangeYoY != nil || estimate.PeriodEndDate != nil || estimate.EffectiveDate != nil || estimate.RevisionDirection != nil || estimate.EstimateType != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func hasQuarterlyProfitMarginData(margins []models.QuarterlyProfitMargin) bool {
+	for _, margin := range margins {
+		if margin.PeriodEndDate != nil || margin.PreTaxMargin != nil || margin.AfterTaxMargin != nil || margin.GrossMargin != nil || margin.ReturnOnEquity != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func buildSignals(pricing *models.Pricing) *models.Signals {

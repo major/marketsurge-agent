@@ -2,8 +2,10 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/major/marketsurge-agent/internal/constants"
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
 )
@@ -42,14 +44,46 @@ func (c *Client) GetFundamentals(ctx context.Context, symbol string) (*models.Fu
 	symbology := getNestedMap(item, "symbology")
 	companyName := stringPtr(firstMap(getNestedSlice(symbology, "company"))["companyName"])
 
-	return &models.FundamentalData{
+	fundamentals := &models.FundamentalData{
 		Symbol:           symbol,
 		CompanyName:      companyName,
 		ReportedEarnings: buildReportedPeriods(getNestedSlice(consensus, "eps", "reportedEarnings")),
 		ReportedSales:    buildReportedPeriods(getNestedSlice(consensus, "sales", "reportedSales")),
 		EPSEstimates:     buildEstimatePeriods(getNestedSlice(estimates, "epsEstimates")),
 		SalesEstimates:   buildEstimatePeriods(getNestedSlice(estimates, "salesEstimates")),
-	}, nil
+	}
+	if !hasFundamentalData(fundamentals) {
+		return nil, mserrors.NewSymbolNotFoundError(fmt.Sprintf("symbol not found: %q", symbol), nil, symbol)
+	}
+	return fundamentals, nil
+}
+
+func hasFundamentalData(data *models.FundamentalData) bool {
+	if data == nil {
+		return false
+	}
+	if data.CompanyName != nil {
+		return true
+	}
+	return hasReportedPeriodData(data.ReportedEarnings) || hasReportedPeriodData(data.ReportedSales) || hasEstimatePeriodData(data.EPSEstimates) || hasEstimatePeriodData(data.SalesEstimates)
+}
+
+func hasReportedPeriodData(periods []models.ReportedPeriod) bool {
+	for _, period := range periods {
+		if period.Value != nil || period.FormattedValue != nil || period.PctChangeYoY != nil || period.FormattedPctChange != nil || period.PeriodEndDate != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func hasEstimatePeriodData(periods []models.EstimatePeriod) bool {
+	for _, period := range periods {
+		if period.Value != nil || period.FormattedValue != nil || period.PctChangeYoY != nil || period.FormattedPctChange != nil || period.Period != nil || period.RevisionDirection != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func buildReportedPeriods(items []any) []models.ReportedPeriod {

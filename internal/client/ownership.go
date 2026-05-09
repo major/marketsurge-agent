@@ -2,8 +2,10 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/major/marketsurge-agent/internal/constants"
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 	"github.com/major/marketsurge-agent/internal/models"
 	"github.com/major/marketsurge-agent/queries"
 )
@@ -34,7 +36,7 @@ func (c *Client) GetOwnership(ctx context.Context, symbol string) (*models.Owner
 
 	ownership := getNestedMap(item, "ownership")
 	quarterly := getNestedSlice(ownership, "fundOwnershipSummary")
-	return &models.OwnershipData{
+	data := &models.OwnershipData{
 		Symbol:        symbol,
 		FundsFloatPct: formattedValue(ownership["fundsFloatPercentHeld"]),
 		QuarterlyFunds: buildSlice(quarterly, func(item map[string]any) models.QuarterlyFundOwnership {
@@ -43,5 +45,24 @@ func (c *Client) GetOwnership(ctx context.Context, symbol string) (*models.Owner
 				Count: formattedValue(item["numberOfFundsHeld"]),
 			}
 		}),
-	}, nil
+	}
+	if !hasOwnershipData(data) {
+		return nil, mserrors.NewSymbolNotFoundError(fmt.Sprintf("symbol not found: %q", symbol), nil, symbol)
+	}
+	return data, nil
+}
+
+func hasOwnershipData(data *models.OwnershipData) bool {
+	if data == nil {
+		return false
+	}
+	if data.FundsFloatPct != nil {
+		return true
+	}
+	for _, fund := range data.QuarterlyFunds {
+		if fund.Date != nil || fund.Count != nil {
+			return true
+		}
+	}
+	return false
 }

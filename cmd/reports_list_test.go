@@ -21,7 +21,7 @@ import (
 func TestReportsListSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":{"user":{"screens":[{"id":"42","name":"IBD 50","type":"SCREEN","site":"marketsurge","description":"Top 50 stocks","createdAt":"2024-01-01T00:00:00Z","updatedAt":"2024-06-01T00:00:00Z","filterCriteria":null,"source":{"id":"1","type":"IBD","pub":"IBD"}},{"id":"99","name":"Growth 250","type":"REPORT","site":"marketsurge","description":"Growth report","createdAt":"2024-02-01T00:00:00Z","updatedAt":"2024-07-01T00:00:00Z","filterCriteria":"rs > 80","source":{"id":"2","type":"IBD","pub":"MarketSurge"}}]}}}`)
+		fmt.Fprint(w, `{"data":{"user":{"screens":[{"id":"42","name":"IBD 50","type":"SCREEN","site":"marketsurge","description":"Top 50 stocks","createdAt":"2024-01-01T00:00:00Z","updatedAt":"2024-06-01T00:00:00Z","filterCriteria":null,"source":{"id":"1","type":"IBD","pub":"IBD"}},{"id":"99","name":"Growth 250","type":"REPORT","site":"marketsurge","description":"Growth report","createdAt":"2024-02-01T00:00:00Z","updatedAt":"2024-07-01T00:00:00Z","filterCriteria":{"type":"AND","terms":[{"left":{"name":"RSRating"},"operand":">","right":{"value":"80"}}]},"source":{"id":"2","type":"IBD","pub":"MarketSurge"}}]}}}`)
 	}))
 	t.Cleanup(server.Close)
 

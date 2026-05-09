@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/alecthomas/kong v1.15.0
 	github.com/browserutils/kooky v0.2.9
-	github.com/major/marketsurge-go v0.0.0-20260509201736-39d5b72c05c6
+	github.com/major/marketsurge-go v0.0.0-20260509231558-3f46a3c53cd7
 	github.com/stretchr/testify v1.11.1
 )
 

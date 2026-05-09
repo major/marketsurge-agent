@@ -21,7 +21,7 @@ import (
 func TestReportsGetSuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":2,"responseValues":[[{"value":"AAPL","mdItem":{"name":"Symbol","mdItemID":"sym1"}},{"value":"213.50","mdItem":{"name":"Price","mdItemID":"price1"}},{"value":"95","mdItem":{"name":"CompositeRating","mdItemID":"cr1"}}],[{"value":"NVDA","mdItem":{"name":"Symbol","mdItemID":"sym1"}},{"value":"950.00","mdItem":{"name":"Price","mdItemID":"price1"}},{"value":"99","mdItem":{"name":"CompositeRating","mdItemID":"cr1"}}]]}}}}`)
+		fmt.Fprint(w, `{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":2,"responseValues":[[{"value":"AAPL","mdItem":{"name":"Symbol","mdItemID":1}},{"value":"213.50","mdItem":{"name":"Price","mdItemID":2}},{"value":"95","mdItem":{"name":"CompositeRating","mdItemID":3}}],[{"value":"NVDA","mdItem":{"name":"Symbol","mdItemID":1}},{"value":"950.00","mdItem":{"name":"Price","mdItemID":2}},{"value":"99","mdItem":{"name":"CompositeRating","mdItemID":3}}]]}}}}`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -51,7 +51,9 @@ func TestReportsGetCustomColumns(t *testing.T) {
 		var req struct {
 			Variables struct {
 				Input struct {
-					ResponseColumns []string `json:"responseColumns"`
+					ResponseColumns []struct {
+						Name string `json:"name"`
+					} `json:"responseColumns"`
 				} `json:"input"`
 			} `json:"variables"`
 		}
@@ -67,10 +69,12 @@ func TestReportsGetCustomColumns(t *testing.T) {
 			http.Error(w, "decode request body", http.StatusInternalServerError)
 			return
 		}
-		requestColumns = req.Variables.Input.ResponseColumns
+		for _, col := range req.Variables.Input.ResponseColumns {
+			requestColumns = append(requestColumns, col.Name)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":1,"responseValues":[[{"value":"AAPL","mdItem":{"name":"Symbol","mdItemID":"1"}},{"value":"213.50","mdItem":{"name":"Price","mdItemID":"2"}}]]}}}}`)
+		fmt.Fprint(w, `{"data":{"user":{"runScreen":{"numberOfMatchingInstruments":1,"responseValues":[[{"value":"AAPL","mdItem":{"name":"Symbol","mdItemID":1}},{"value":"213.50","mdItem":{"name":"Price","mdItemID":2}}]]}}}}`)
 	}))
 	t.Cleanup(server.Close)
 

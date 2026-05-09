@@ -23,9 +23,14 @@ func (c *ReportsGetCmd) Run(client *marketsurge.Client) error {
 }
 
 func (c *ReportsGetCmd) run(client *marketsurge.Client, w io.Writer) error {
+	columns := make([]marketsurge.RunScreenResponseColumn, len(c.Columns))
+	for i, name := range c.Columns {
+		columns[i] = marketsurge.RunScreenResponseColumn{Name: marketsurge.ColumnName(name)}
+	}
+
 	resp, err := client.RunScreen(
 		context.Background(),
-		marketsurge.NewRunScreenRequest(c.ScreenID, c.Columns),
+		marketsurge.NewRunScreenRequest(c.ScreenID, columns),
 	)
 	if err != nil {
 		if marketsurge.IsAuthError(err) {

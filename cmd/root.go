@@ -9,9 +9,9 @@ import (
 
 // CLI is the root command struct for marketsurge-agent.
 type CLI struct {
-	Version  kong.VersionFlag `help:"Show version and exit." short:"V"`
-	CookieDB string           `help:"Path to Firefox cookie database." env:"MARKETSURGE_AGENT_COOKIE_DB"`
+	CookieDB string           `help:"Path to Firefox cookie database." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
 	Verbose  bool             `help:"Enable verbose logging to stderr." env:"MARKETSURGE_AGENT_VERBOSE"`
+	Version  kong.VersionFlag `help:"Show version and exit." short:"V"`
 
 	Reports ReportsCmd `cmd:"" help:"List and retrieve MarketSurge predefined reports."`
 }
@@ -23,7 +23,7 @@ type ReportsCmd struct {
 }
 
 // ReportsListCmd lists all available screens and reports.
-// Implementation is in cmd/reports_list.go (added in a later task).
+// Full implementation in cmd/reports_list.go (Task 7).
 type ReportsListCmd struct{}
 
 // Run is a placeholder - real implementation in reports_list.go.
@@ -32,7 +32,7 @@ func (c *ReportsListCmd) Run() error {
 }
 
 // ReportsGetCmd retrieves report data for a specific screen ID.
-// Implementation is in cmd/reports_get.go (added in a later task).
+// Full implementation in cmd/reports_get.go (Task 8).
 type ReportsGetCmd struct {
 	ScreenID string `arg:"" help:"Screen ID from 'reports list' output."`
 }

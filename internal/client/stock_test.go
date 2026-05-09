@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
 )
 
 func TestGetStockSuccess(t *testing.T) {
@@ -43,6 +45,19 @@ func TestGetStockReturnsSymbolNotFoundForEmptyMarketData(t *testing.T) {
 	assert.Contains(t, err.Error(), "symbol not found")
 }
 
+func TestGetStockReturnsSymbolNotFoundForSparseMarketData(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sparseMarketDataJSON()))
+	})
+
+	_, err := client.GetStock(t.Context(), "CYBR")
+	require.Error(t, err)
+	var snf *mserrors.SymbolNotFoundError
+	assert.ErrorAs(t, err, &snf)
+}
+
 func TestGetFundamentalsSuccess(t *testing.T) {
 	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +73,19 @@ func TestGetFundamentalsSuccess(t *testing.T) {
 	assert.Len(t, data.EPSEstimates, 1)
 }
 
+func TestGetFundamentalsReturnsSymbolNotFoundForSparseMarketData(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sparseMarketDataJSON()))
+	})
+
+	_, err := client.GetFundamentals(t.Context(), "CYBR")
+	require.Error(t, err)
+	var snf *mserrors.SymbolNotFoundError
+	assert.ErrorAs(t, err, &snf)
+}
+
 func TestGetOwnershipSuccess(t *testing.T) {
 	t.Parallel()
 	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +98,19 @@ func TestGetOwnershipSuccess(t *testing.T) {
 	assert.Equal(t, "65%", *data.FundsFloatPct)
 	assert.Len(t, data.QuarterlyFunds, 1)
 	assert.Equal(t, "100", *data.QuarterlyFunds[0].Count)
+}
+
+func TestGetOwnershipReturnsSymbolNotFoundForSparseMarketData(t *testing.T) {
+	t.Parallel()
+	client := testServerAndClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sparseMarketDataJSON()))
+	})
+
+	_, err := client.GetOwnership(t.Context(), "CYBR")
+	require.Error(t, err)
+	var snf *mserrors.SymbolNotFoundError
+	assert.ErrorAs(t, err, &snf)
 }
 
 func TestGetRSRatingHistorySuccess(t *testing.T) {
@@ -170,6 +211,47 @@ func stockResponseJSON() string {
 					"company": [{"companyName": "Apple Inc.", "businessDescription": "Desc", "url": "https://apple.example", "address": "One Apple Park", "address2": "Suite 1", "phone": "123", "city": "Cupertino", "country": "USA", "stateProvince": "CA"}],
 					"instrument": [{"ipoDate": {"value": "1980-12-12"}, "ipoPrice": {"value": 22, "formattedValue": "$22"}, "subType": "COMMON"}]
 				}
+			}]
+		}
+	}`
+}
+
+func sparseMarketDataJSON() string {
+	return `{
+		"data": {
+			"marketData": [{
+				"originRequest": {"symbol": "CYBR"},
+				"ratings": {
+					"compRating": [],
+					"epsRating": [],
+					"rsRating": [],
+					"smrRating": [],
+					"adRating": []
+				},
+				"pricingStatistics": {
+					"endOfDayStatistics": {
+						"isDailyBlueDotEvent": false
+					},
+					"intradayStatistics": {
+						"isWeeklyBlueDotEvent": false
+					}
+				},
+				"financials": {
+					"consensusFinancials": {
+						"eps": {"reportedEarnings": [{}]},
+						"sales": {"reportedSales": [{}]}
+					},
+					"estimates": {
+						"epsEstimates": [{}],
+						"salesEstimates": [{}]
+					},
+					"profitMarginValues": [{}]
+				},
+				"industry": {},
+				"ownership": {"fundOwnershipSummary": []},
+				"fundamentals": {},
+				"patternInfo": {"patterns": [{}], "tightAreas": []},
+				"symbology": {"company": [], "instrument": []}
 			}]
 		}
 	}`

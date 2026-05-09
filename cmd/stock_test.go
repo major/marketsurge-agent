@@ -663,6 +663,21 @@ func TestStockAnalyzeTotalFailure(t *testing.T) {
 	assert.Empty(t, output)
 }
 
+func TestStockAnalyzeSparseMarketDataTotalFailure(t *testing.T) {
+	t.Parallel()
+	server := jsonServer(sparseMarketDataFixture())
+	defer server.Close()
+	c := testClient(t, server)
+
+	output, err := executeStockAnalyze(t, c, "analyze", "CYBR")
+	require.Error(t, err)
+	assert.Empty(t, output)
+
+	var apiErr *mserrors.APIError
+	assert.ErrorAs(t, err, &apiErr)
+	assert.Contains(t, err.Error(), "analysis failed for all symbols")
+}
+
 // executeStockAnalyze creates a stock command tree, injects the client into subcommand
 // contexts, and executes with the given args. structcli.Bind sets a scope context on the
 // analyze subcommand, which prevents cobra's parent-to-child context propagation. This

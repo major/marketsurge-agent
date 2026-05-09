@@ -211,6 +211,48 @@ func emptyMarketDataFixture() string {
 	return `{"data":{"marketData":[]}}`
 }
 
+// sparseMarketDataFixture returns a response with a marketData item but no useful data.
+func sparseMarketDataFixture() string {
+	return `{
+		"data": {
+			"marketData": [{
+				"originRequest": {"symbol": "CYBR"},
+				"ratings": {
+					"compRating": [],
+					"epsRating": [],
+					"rsRating": [],
+					"smrRating": [],
+					"adRating": []
+				},
+				"pricingStatistics": {
+					"endOfDayStatistics": {
+						"isDailyBlueDotEvent": false
+					},
+					"intradayStatistics": {
+						"isWeeklyBlueDotEvent": false
+					}
+				},
+				"financials": {
+					"consensusFinancials": {
+						"eps": {"reportedEarnings": [{}]},
+						"sales": {"reportedSales": [{}]}
+					},
+					"estimates": {
+						"epsEstimates": [{}],
+						"salesEstimates": [{}]
+					},
+					"profitMarginValues": [{}]
+				},
+				"industry": {},
+				"ownership": {"fundOwnershipSummary": []},
+				"fundamentals": {},
+				"patternInfo": {"patterns": [{}], "tightAreas": []},
+				"symbology": {"company": [], "instrument": []}
+			}]
+		}
+	}`
+}
+
 // chartResponseFixture returns a minimal chart API response.
 func chartResponseFixture() string {
 	return `{"data":{"marketData":[{"pricing":{"timeSeries":{"period":"P1D","dataPoints":[{"startDateTime":"2024-01-01","endDateTime":"2024-01-02","open":{"value":100},"high":{"value":102},"low":{"value":99},"last":{"value":101},"volume":{"value":50000}}]},"quote":{"tradeDateTime":"2024-01-02T16:00:00Z","timeliness":"REALTIME","quoteType":"LAST","last":{"value":101.5,"formattedValue":"101.5"},"volume":{"value":50000,"formattedValue":"50000"},"percentChange":{"value":1.5,"formattedValue":"1.5%"},"netChange":{"value":1.5,"formattedValue":"1.5"}},"currentMarketState":"REGULAR"}}],"exchangeData":[{"city":"New York","countryCode":"US","exchangeISO":"XNYS"}]}}`

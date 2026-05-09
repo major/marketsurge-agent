@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -180,7 +181,7 @@ func TestRootMCPInitializeAndToolsList(t *testing.T) {
 	var initResult mcpInitializeResult
 	require.NoError(t, json.Unmarshal(responses[0].Result, &initResult))
 	assert.Equal(t, "marketsurge-agent", initResult.ServerInfo.Name)
-	assert.Equal(t, "dev", initResult.ServerInfo.Version)
+	assert.True(t, strings.HasPrefix(initResult.ServerInfo.Version, "dev"), "MCP version = %q, want dev build version", initResult.ServerInfo.Version)
 
 	var listResult mcpToolsListResult
 	require.NoError(t, json.Unmarshal(responses[1].Result, &listResult))
@@ -327,6 +328,104 @@ func TestRootRejectsJWTFlag(t *testing.T) {
 	require.Error(t, err, string(output))
 
 	assert.Contains(t, string(output), "unknown flag: --jwt")
+}
+
+func TestDisplayVersionFromSettings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		rawVersion string
+		settings   []debug.BuildSetting
+		want       string
+	}{
+		{
+			name:       "release version ignores vcs revision",
+			rawVersion: "1.2.3",
+			settings: []debug.BuildSetting{
+				{Key: vcsRevisionKey, Value: "09dd191abc123"},
+			},
+			want: "1.2.3",
+		},
+		{
+			name:       "dev version uses short vcs revision",
+			rawVersion: devVersion,
+			settings: []debug.BuildSetting{
+				{Key: vcsRevisionKey, Value: "09dd191abc123"},
+			},
+			want: "dev-09dd191",
+		},
+		{
+			name:       "dev version keeps short revision",
+			rawVersion: devVersion,
+			settings: []debug.BuildSetting{
+				{Key: vcsRevisionKey, Value: "abc123"},
+			},
+			want: "dev-abc123",
+		},
+		{
+			name:       "dev version without vcs revision stays dev",
+			rawVersion: devVersion,
+			settings: []debug.BuildSetting{
+				{Key: "vcs.modified", Value: "true"},
+			},
+			want: devVersion,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := displayVersionFromSettings(tt.rawVersion, tt.settings)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestDisplayVersionFromCommit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		rawVersion string
+		revision   string
+		want       string
+	}{
+		{
+			name:       "release version ignores commit",
+			rawVersion: "1.2.3",
+			revision:   "09dd191abc123",
+			want:       "1.2.3",
+		},
+		{
+			name:       "dev version uses short commit",
+			rawVersion: devVersion,
+			revision:   "09dd191abc123",
+			want:       "dev-09dd191",
+		},
+		{
+			name:       "dev version keeps already short commit",
+			rawVersion: devVersion,
+			revision:   "abc123",
+			want:       "dev-abc123",
+		},
+		{
+			name:       "dev version without commit stays dev",
+			rawVersion: devVersion,
+			revision:   "",
+			want:       devVersion,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := displayVersionFromCommit(tt.rawVersion, tt.revision)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func rootExecCommand(t *testing.T, args ...string) *exec.Cmd {

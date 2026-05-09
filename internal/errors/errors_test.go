@@ -324,9 +324,6 @@ func TestAllErrorTypesExitCodeGe30(t *testing.T) {
 		if code < 30 {
 			t.Errorf("%T.ExitCode() = %d, want >= 30", err, code)
 		}
-		// Also verify no overlap with structcli's 10-23 range
-		if code >= 10 && code <= 23 {
-			t.Errorf("%T.ExitCode() = %d, overlaps with structcli range 10-23", err, code)
-		}
+
 	}
 }

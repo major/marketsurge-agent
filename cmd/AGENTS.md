@@ -1,173 +1,116 @@
 # cmd package
 
-Cobra command tree for marketsurge-agent.
+Kong command tree for marketsurge-agent.
 
 ## Structure
 
-- `root.go` - Root command, PersistentPreRunE (auth), PersistentPostRunE (cleanup), Execute()
-- `symbol.go` - Shared symbol-fetcher pattern (newSymbolCmd)
-- `stock.go` - stock get + stock analyze
-- `fundamental.go` - fundamental get
-- `ownership.go` - ownership get
-- `rs_history.go` - rs-history get
-- `chart.go` - chart history + chart markups
-- `catalog.go` - catalog list + catalog run
-- `helpers_test.go` - Test utilities
+- `root.go` - `CLI` root struct, `ReportsCmd` group; kong flag tags
+- `reports_list.go` - `ReportsListCmd.Run(client)` - calls `client.Screens()`
+- `reports_get.go` - `ReportsGetCmd.Run(client)` - calls `client.RunScreen()`
+- `root_test.go` - Binary-level tests (help, version, auth error, missing subcommand)
+- `reports_list_test.go` - Unit tests for reports list
+- `reports_get_test.go` - Unit tests for reports get
 
 ## Patterns
 
-### Command constructor pattern
+### Kong struct pattern
 
-Each command file uses unexported constructors + init() for wiring:
+Commands are plain structs with kong struct tags. No `init()` wiring, no constructor functions.
 
 ```go
-func init() { rootCmd.AddCommand(newFundamentalCmd()) }
+type CLI struct {
+    CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
+    Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
+    Version  kong.VersionFlag `help:"..." short:"V"`
+    Reports  ReportsCmd       `cmd:"" help:"..."`
+}
 
-func newFundamentalCmd() *cobra.Command {
-    cmd := &cobra.Command{Use: "fundamental", Short: "..."}
-    cmd.AddCommand(newSymbolCmd("get", "...", func(ctx context.Context, symbol string) (any, error) {
-        return ClientFromContext(ctx).GetFundamentals(ctx, symbol)
-    }))
-    return cmd
+type ReportsCmd struct {
+    List ReportsListCmd `cmd:"" help:"..."`
+    Get  ReportsGetCmd  `cmd:"" help:"..."`
 }
 ```
 
-### Context-based client injection
+Each leaf command struct implements `Run(client *marketsurge.Client) error`. Kong dispatches to it via `ctx.Run(client)` in `main.go`.
 
-Client is stored in context by PersistentPreRunE, retrieved in RunE:
+### Client injection
+
+Auth runs in `main.go` before `ctx.Run`. The client is constructed once and passed directly to `ctx.Run(client)`. Commands receive an already-authenticated client; there is no per-command auth hook.
 
 ```go
-c := ClientFromContext(cmd.Context())
+// main.go
+client, err := newClient(cli.CookieDB)
+// ...
+if err := ctx.Run(client); err != nil { ... }
 ```
 
-### MCP behavior
+### Command flags
 
-The root command enables structcli's stdio MCP server with `structcli.WithMCP()`. MCP discovery requests (`initialize`, `tools/list`) are intercepted before `PersistentPreRunE`, so they must not require Firefox cookie auth. MCP `tools/call` executes the normal Cobra command path and must keep using `PersistentPreRunE` auth for API commands.
+Flags are struct fields with kong tags. `[]string` fields use `sep:","` for comma-separated input.
 
-Shell completion subcommands are excluded from MCP tool discovery because they are not useful agent-callable API tools. Keep the MCP tool list focused on MarketSurge data commands.
+```go
+type ReportsGetCmd struct {
+    ScreenID string   `arg:"" help:"Screen ID from 'reports list' output."`
+    Columns  []string `help:"Response columns to include." default:"Symbol,..." sep:","`
+}
+```
 
-MCP argument conversion maps tool arguments to flags, not positional arguments. Any API command that requires stock symbols must expose those symbols through schema-visible structcli flags (`--symbol` for single-symbol commands, `--symbols` for multi-symbol commands) while preserving positional arguments for shell compatibility.
+### Output
 
-### JSON schema behavior
+Commands write raw JSON arrays to stdout (no envelope wrapper). Empty results are `[]`, never `null`. Errors are returned to `main.go`, which calls `mserrors.WriteJSON(os.Stderr, err)`.
 
-The root command enables structcli JSON schema output with `jsonschema.WithFullTree()` and `jsonschema.WithEnumInDescription()`. Bare `--jsonschema` and explicit `--jsonschema=tree` both return the full command tree as a JSON array, which lets LLM agents discover every runnable command in one call.
+### Error mapping
 
-Enum-backed flags should keep typed enum fields when a non-empty default exists. The schema exposes those values through machine-readable `enum` arrays and keeps the `{value1,value2}` text in descriptions for prompt readability. Optional enum-like fields with no default, such as `ChartHistoryOptions.Lookback`, must stay `string` and document valid values in `flagdescr` so command validation can return domain `ValidationError` envelopes.
+Commands map client errors to typed `mserrors` before returning:
 
-MCP tool names use `_` as the structcli command-path separator, for example `stock_analyze`, `chart_history`, and `catalog_run`. Existing command segments keep their own spelling, so `rs-history get` becomes `rs-history_get`. Use full command paths in the MCP `Exclude` list, not generated tool names, so excludes keep working if the separator changes later. Keep `AllCommands` unset/false so only runnable leaf API commands are exposed.
+```go
+if marketsurge.IsAuthError(err) {
+    return mserrors.NewAuthenticationError("authentication failed", err)
+}
+return mserrors.NewAPIError("API request failed", err)
+```
+
+### Testability
+
+`ReportsListCmd` writes to `os.Stdout` directly. Tests redirect `os.Stdout` via `os.Pipe()` to capture output.
+
+`ReportsGetCmd` exposes an internal `run(client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
 
 ### Test pattern
 
-Tests call constructors directly (not package-level vars) and inject client via context:
+Tests live in the external `cmd_test` package. They construct command structs directly and build a test client with `httptest.NewServer`:
 
 ```go
-func TestFundamentalGet(t *testing.T) {
-    t.Parallel()
-    server := jsonServer(fundamentalResponseFixture())
-    defer server.Close()
-    c := testClient(t, server)
-    output, err := executeCommandWithClient(newFundamentalCmd(), c, "get", "AAPL")
+func TestReportsListSuccess(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprint(w, `{"data":{"user":{"screens":[...]}}}`)
+    }))
+    t.Cleanup(server.Close)
+
+    client, err := marketsurge.NewClient(
+        marketsurge.WithJWT("test-token"),
+        marketsurge.WithHTTPClient(server.Client()),
+        marketsurge.WithGraphQLURL(server.URL),
+    )
     require.NoError(t, err)
-    result := parseJSONEnvelope(t, output)
-    assertSymbolMeta(t, result, "AAPL")
+
+    // redirect stdout, run command, restore stdout
+    err = (&agentcmd.ReportsListCmd{}).Run(client)
+    require.NoError(t, err)
 }
 ```
+
+Binary-level tests in `root_test.go` build the binary in `TestMain` and run it as a subprocess to verify exit codes, help output, and auth error JSON shape.
 
 ### Local live smoke tests
 
-`smoke_test.go` is guarded by `//go:build smoke` and is local-only. Run it with `make smoke` or `go test -v -tags=smoke -run TestSmoke ./cmd`. It executes the CLI as a subprocess against live MarketSurge data, preserves the caller environment for Firefox cookie auth, and validates JSON envelope shape rather than exact live values. Keep smoke cases serial and do not use `t.Parallel()` because live API calls can hit rate limits. Add a smoke case whenever `--jsonschema` exposes a new API leaf command.
-
-### Option struct pattern (structcli)
-
-Commands use option structs with structcli struct tags to encapsulate flags and validation logic.
-
-**Canonical 4-step pattern:**
-
-1. Constructor creates `opts := &XxxOptions{}` before the command
-2. `structcli.Bind(cmd, opts)` registers flags from struct tags (called after command creation)
-3. RunE calls `opts.FromCommand(cmd)` if pointer fields exist, then `opts.Validate(ctx)` if validation exists
-4. RunE accesses `opts.Field` directly (structcli populates fields before RunE runs)
-
-**Simplest example (ChartMarkupsOptions):**
-
-```go
-type ChartMarkupsOptions struct {
-    Symbol    string               `flag:"symbol" flagshort:"s" flaggroup:"Input" flagdescr:"Stock symbol to fetch"`
-    Frequency models.Frequency    `flag:"frequency" default:"DAILY" flagdescr:"Chart frequency"`
-    SortDir   models.SortDirection `flag:"sort-dir" default:"ASC" flagdescr:"Sort direction"`
-}
-
-func newChartMarkupsCmd() *cobra.Command {
-    opts := &ChartMarkupsOptions{}
-    cmd := &cobra.Command{
-        Use:   "markups <symbol>",
-        Short: "Get chart markup data for a symbol",
-        Args:  cobra.ArbitraryArgs,
-        RunE: func(cmd *cobra.Command, args []string) error {
-            symbol, err := resolveSingleSymbol(args, opts.Symbol)
-            if err != nil {
-                return err
-            }
-            c := ClientFromContext(cmd.Context())
-            data, err := c.GetChartMarkups(cmd.Context(), symbol, string(opts.Frequency), string(opts.SortDir))
-            if err != nil {
-                return err
-            }
-            return output.WriteSuccess(cmd.OutOrStdout(), data, output.SymbolMeta(symbol))
-        },
-    }
-    structcli.Bind(cmd, opts)
-    return cmd
-}
-```
-
-**Methods by command:**
-
-- `structcli.Bind()` only: ChartMarkupsOptions, StockAnalyzeOptions, CatalogListOptions, RootOptions
-- `structcli.Bind()` + `Validate(ctx) []error`: ChartHistoryOptions
-- `structcli.Bind()` + `Validate(ctx) []error` + transformation method: ChartHistoryOptions (also has `ResolveDates()`)
-- `structcli.Bind()` + `FromCommand()` + `Validate(ctx) []error` + helper method: CatalogRunOptions (also has `Filters()`)
-- `structcli.Bind()` + transformation method: StockAnalyzeOptions (also has `MergeSymbols()`)
-
-**Pointer fields and FromCommand():**
-
-Only CatalogRunOptions uses pointer fields (`MinComposite *int`, `MinRS *int`) to distinguish "not set" from "set to zero". structcli cannot handle `*int` natively, so these flags are registered manually after `structcli.Bind()` and `FromCommand(cmd)` detects `Changed()` to populate the pointers:
-
-```go
-func (o *CatalogRunOptions) FromCommand(cmd *cobra.Command) {
-    if cmd.Flags().Changed("min-composite") {
-        v, _ := cmd.Flags().GetInt("min-composite")
-        o.MinComposite = &v
-    }
-}
-```
-
-This is the only place where `cmd.Flags().GetXxx()` is acceptable in RunE.
-
-**Optional enum fields:**
-
-Fields with no `default:` struct tag must stay `string` type. structcli rejects an empty string for a registered enum during unmarshal, before `Validate()` can return a typed `ValidationError`. Only use typed enum fields when a non-empty default is always present (e.g., `Frequency`, `SortDir`, `Period`). Fields like `Lookback` stay `string` with manual validation.
-
-### Schema-visible symbol flags
-
-Use `newSymbolCmd()` for single-symbol commands. It exposes `--symbol/-s` through structcli and still accepts one positional `<symbol>` for shell users. Commands with their own option structs, such as `chart history` and `chart markups`, add a `Symbol string` field with the same `flag:"symbol"` tags and call `resolveSingleSymbol(args, opts.Symbol)`.
-
-Use `--symbols/-s` for multi-symbol commands. Merge positional symbols and flag values with `mergeSymbolInputs()` so repeated flags, comma-separated values, and positional arguments deduplicate consistently.
+`smoke_test.go` is guarded by `//go:build smoke` and is local-only. Run it with `make smoke`. It requires a live Firefox MarketSurge session or `MARKETSURGE_AGENT_COOKIE_DB`. Keep smoke cases serial; do not use `t.Parallel()`.
 
 ## Adding a new command
 
-1. Create `cmd/<group>.go` with constructor function and init()
-2. Define an options struct with `flag:`, `flagdescr:`, `flaggroup:`, and `default:` struct tags
-3. Call `structcli.Bind(cmd, opts)` in the constructor (replaces manual flag registration)
-4. Add client method in `internal/client/<group>.go`
-5. Add GraphQL query in `queries/<operation>.graphql`
-6. Add model structs in `internal/models/` if needed
-7. Add tests in `cmd/<group>_test.go`
-
-Use `flaggroup:` on every non-trivial flag so `--jsonschema=tree` and MCP tool metadata are useful to LLM agents. Prefer `Validate()` over `flagrequired:"true"` for conditional requirements or domain errors that must preserve the JSON error envelope and MarketSurge exit codes.
-
-For complex modes, put copyable examples where schema generators can see them:
-
-- Put complete invocation examples in command `Long` descriptions for schema output; Cobra `Example` is useful for help/generation consumers but is not emitted by structcli's draft JSON Schema conversion.
-- Include short examples in `flagdescr` for conditional flags, for example date range pairs and `catalog run --kind` plus matching ID flag combinations.
-- Do not use presets just to document examples. Presets create real CLI alias flags, so reserve them for deliberate UX changes.
+1. Add a new struct to `cmd/root.go` (or a new file for larger commands) with kong struct tags
+2. Embed the struct in the appropriate parent (`ReportsCmd` or a new group on `CLI`)
+3. Implement `Run(client *marketsurge.Client) error` on the struct
+4. Write JSON output to `os.Stdout` (or accept `io.Writer` via an internal `run` method for testability)
+5. Map client errors to `mserrors` types before returning
+6. Add tests in `cmd/<command>_test.go` using the external `cmd_test` package

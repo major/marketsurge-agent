@@ -43,6 +43,9 @@ marketsurge-agent compare AMD NVDA MSFT
 # Summarize high-level data for one stock or ETF
 marketsurge-agent overview AMD
 
+# Show industry group relative strength
+marketsurge-agent industry AMD NVDA MSFT
+
 # List available reports
 marketsurge-agent reports list
 
@@ -51,6 +54,12 @@ marketsurge-agent reports get <screen-id>
 
 # Get report with custom columns
 marketsurge-agent reports get <screen-id> --columns Symbol,Price,EPSRating,RSRating
+
+# List saved watchlists
+marketsurge-agent watchlist list
+
+# Get symbols in a watchlist
+marketsurge-agent watchlist get <watchlist-id>
 
 # Use environment variable for cookie path
 MARKETSURGE_AGENT_COOKIE_DB=/path/to/cookies.sqlite marketsurge-agent reports list
@@ -64,9 +73,12 @@ marketsurge-agent --version
 | Command | Description |
 | --- | --- |
 | `compare <symbols...>` | Compare key MarketSurge data for multiple stocks or ETFs |
+| `industry <symbols...>` | Show industry group relative strength for stocks or ETFs |
 | `overview <symbol>` | Summarize high-level stock or ETF data for LLM context |
 | `reports list` | List all available screens and reports |
 | `reports get <screen-id>` | Get report data for a specific screen ID |
+| `watchlist list` | List all saved watchlists |
+| `watchlist get <watchlist-id>` | Get symbols in a watchlist by ID |
 
 ### Global flags
 
@@ -101,6 +113,26 @@ Example output:
   }
 ]
 ```
+
+### industry
+
+Fetches the 6-month industry group relative strength ranking for one or more symbols. Accepts comma-separated or space-separated tickers.
+
+```bash
+marketsurge-agent industry AMD NVDA
+marketsurge-agent industry AMD,NVDA,MSFT
+```
+
+Example output:
+
+```json
+[
+  {"ticker": "AMD", "industryGroupRS": 85},
+  {"ticker": "NVDA", "industryGroupRS": 92}
+]
+```
+
+A `null` value for `industryGroupRS` means the API returned no RS data for that symbol.
 
 ### overview
 
@@ -187,6 +219,49 @@ Example output:
 ]
 ```
 
+### watchlist list
+
+Lists all saved watchlists in your MarketSurge account. Output is a JSON array of watchlist entries, each with an ID, name, description, and last-modified timestamp.
+
+```bash
+marketsurge-agent watchlist list
+```
+
+Example output:
+
+```json
+[
+  {
+    "id": "12345",
+    "name": "Growth Leaders",
+    "lastModifiedDateUtc": "2026-05-01T12:00:00Z",
+    "description": "Top growth stocks"
+  }
+]
+```
+
+### watchlist get
+
+Fetches watchlist details and the list of ticker symbols for a watchlist ID from `watchlist list`. Output is a one-element JSON array with an LLM-friendly shape.
+
+```bash
+marketsurge-agent watchlist get <watchlist-id>
+```
+
+Example output:
+
+```json
+[
+  {
+    "id": "12345",
+    "name": "Growth Leaders",
+    "lastModifiedDateUtc": "2026-05-01T12:00:00Z",
+    "description": "Top growth stocks",
+    "symbols": ["AAPL", "NVDA", "AMD"]
+  }
+]
+```
+
 ## Output format
 
 All commands write to stdout and stderr separately:
@@ -229,9 +304,12 @@ cmd/
   marketsurge-agent/     Entry point (main.go)
   root.go                Root command struct (kong)
   compare.go             compare command
+  industry.go            industry command
   overview.go            overview command
   reports_list.go        reports list command
   reports_get.go         reports get command
+  watchlist_list.go      watchlist list command
+  watchlist_get.go       watchlist get command
 internal/
   auth/                  Cookie-based JWT exchange
   cookies/               Firefox cookie extraction

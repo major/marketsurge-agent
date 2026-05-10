@@ -77,7 +77,7 @@ func TestMissingSubcommandFailsBeforeAuth(t *testing.T) {
 	if got, want := exitErr.ExitCode(), 80; got != want {
 		t.Errorf("%s exit code = %d, want %d", testBinary, got, want)
 	}
-	assertContains(t, string(out), `expected one of "compare", "overview", "reports"`, "missing subcommand")
+	assertContains(t, string(out), `expected one of "compare", "industry", "overview", "reports", "watchlist"`, "missing subcommand")
 }
 
 func TestAuthErrorWritesJSONAndExits32(t *testing.T) {

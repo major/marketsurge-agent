@@ -134,7 +134,7 @@ func (c *CompareCmd) Run(client *marketsurge.Client) error {
 }
 
 func (c *CompareCmd) run(client *marketsurge.Client, w io.Writer) error {
-	symbols := normalizeCompareSymbols(c.Symbols)
+	symbols := normalizeSymbols(c.Symbols)
 	if len(symbols) == 0 {
 		return mserrors.NewValidationError("at least one symbol is required", errors.New("empty symbols"))
 	}
@@ -152,7 +152,7 @@ func (c *CompareCmd) run(client *marketsurge.Client, w io.Writer) error {
 
 	resp, err := client.MarketDataAdhocScreen(context.Background(), req)
 	if err != nil {
-		return overviewClientError("comparison data request failed", err)
+		return clientError("comparison data request failed", err)
 	}
 
 	if err := json.NewEncoder(w).Encode(compareRows(resp)); err != nil {
@@ -193,7 +193,7 @@ func compareResponseColumns(names []string) ([]marketsurge.AdhocScreenResponseCo
 	return columns, nil
 }
 
-func normalizeCompareSymbols(symbols []string) []string {
+func normalizeSymbols(symbols []string) []string {
 	seen := make(map[string]bool, len(symbols))
 	normalized := make([]string, 0, len(symbols))
 	for _, symbol := range symbols {

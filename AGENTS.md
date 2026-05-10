@@ -11,14 +11,20 @@ Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/inst
 ```text
 cmd/
   marketsurge-agent/main.go   Entry point: kong.Parse, auth, ctx.Run(client)
-  root.go                     CLI struct (CLI, CompareCmd, OverviewCmd, ReportsCmd), kong flag tags
+  root.go                     CLI struct (CLI, CompareCmd, IndustryCmd, OverviewCmd, ReportsCmd, WatchlistCmd), kong flag tags
   compare.go                  CompareCmd.Run(client) - calls MarketDataAdhocScreen for multi-symbol comparison data
+  industry.go                 IndustryCmd.Run(client) - calls IndustryGroupRS for 6-month industry group RS
   overview.go                 OverviewCmd.Run(client) - calls OtherMarketData, RSRatingRIPanel, Ownership, Fundamentals, ChartMarketDataWeekly APIs
   reports_list.go             ReportsListCmd.Run(client) - calls Screens API
   reports_get.go              ReportsGetCmd.Run(client) - calls RunScreen API
+  watchlist_list.go           WatchlistListCmd.Run(client) - calls GetAllWatchlistNames API
+  watchlist_get.go            WatchlistGetCmd.Run(client) - calls FlaggedSymbols API
   root_test.go                Binary-level tests (help, version, auth error, missing subcommand)
   reports_list_test.go        Unit tests for reports list
   reports_get_test.go         Unit tests for reports get
+  watchlist_list_test.go      Unit tests for watchlist list
+  watchlist_get_test.go       Unit tests for watchlist get
+  industry_test.go            Unit tests for industry
 internal/
   auth/                       Cookie-based JWT exchange
   cookies/                    Firefox cookie extraction
@@ -74,14 +80,21 @@ type CLI struct {
     CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
     Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
     Version  kong.VersionFlag `help:"..." short:"V"`
-    Compare  CompareCmd  `cmd:"" help:"..."`
-    Overview OverviewCmd `cmd:"" help:"..."`
-    Reports  ReportsCmd  `cmd:"" help:"..."`
+    Compare   CompareCmd   `cmd:"" help:"..."`
+    Industry  IndustryCmd  `cmd:"" help:"..."`
+    Overview  OverviewCmd  `cmd:"" help:"..."`
+    Reports   ReportsCmd   `cmd:"" help:"..."`
+    Watchlist WatchlistCmd `cmd:"" help:"..."`
 }
 
 type ReportsCmd struct {
     List ReportsListCmd `cmd:"" help:"..."`
     Get  ReportsGetCmd  `cmd:"" help:"..."`
+}
+
+type WatchlistCmd struct {
+    List WatchlistListCmd `cmd:"" help:"..."`
+    Get  WatchlistGetCmd  `cmd:"" help:"..."`
 }
 ```
 
@@ -92,6 +105,8 @@ Key behaviors:
 - `[]string` flags use `sep:","` to accept comma-separated values
 - `compare <symbols...>` is a top-level porcelain command for comparing short symbol lists before deeper review
 - `overview <symbol>` is a top-level porcelain command for one stock or ETF, not part of the `reports` group
+- `industry <symbols...>` is a top-level porcelain command accepting comma-separated or space-separated symbols
+- `watchlist` is a group command mirroring the `reports` subcommand pattern (list + get)
 
 ## Conventions
 
@@ -111,6 +126,9 @@ Key behaviors:
 - `reports get` accepts `--columns` as a comma-separated list with `sep:","` and a default of 23 column names
 - `reports list` emits a JSON array of `marketsurge.ScreenEntry` objects; empty result is `[]`, not `null`
 - `reports get` reshapes `[][]RunScreenCell` into `[]map[string]any` keyed by `MDItem.Name`
+- `watchlist list` emits a JSON array of `marketsurge.WatchlistSummary` objects; empty result is `[]`, not `null`
+- `watchlist get` emits a one-element JSON array with LLM-oriented keys (`id`, `name`, `lastModifiedDateUtc`, `description`, `symbols`), extracting ticker symbols from `WatchlistItem.Key`
+- `industry` emits a JSON array of `{ticker, industryGroupRS}` objects from the 6-month industry group RS data; nil RS values are preserved as JSON `null`
 
 ### Adding a new command
 

@@ -207,7 +207,7 @@ func (c *OverviewCmd) run(client *marketsurge.Client, w io.Writer) error {
 	ctx := context.Background()
 	marketData, err := client.OtherMarketData(ctx, marketsurge.NewOtherMarketDataRequest(symbol))
 	if err != nil {
-		return overviewClientError("market data request failed", err)
+		return clientError("market data request failed", err)
 	}
 	if marketData == nil || len(marketData.MarketData) == 0 {
 		return mserrors.NewSymbolNotFoundError("symbol not found", nil, symbol)
@@ -217,25 +217,25 @@ func (c *OverviewCmd) run(client *marketsurge.Client, w io.Writer) error {
 
 	rsData, err := client.RSRatingRIPanel(ctx, marketsurge.NewRSRatingRIPanelRequest(symbol))
 	if err != nil {
-		return overviewClientError("RS rating request failed", err)
+		return clientError("RS rating request failed", err)
 	}
 	addRSOverview(&item, rsData)
 
 	ownership, err := client.Ownership(ctx, marketsurge.NewOwnershipRequest(symbol))
 	if err != nil {
-		return overviewClientError("ownership request failed", err)
+		return clientError("ownership request failed", err)
 	}
 	addOwnershipOverview(&item, ownership)
 
 	fundamentals, err := client.Fundamentals(ctx, marketsurge.NewFundamentalsRequest(symbol))
 	if err != nil {
-		return overviewClientError("fundamentals request failed", err)
+		return clientError("fundamentals request failed", err)
 	}
 	addFundamentalsOverview(&item, fundamentals)
 
 	weeklyTrend, err := client.ChartMarketDataWeekly(ctx, newWeeklyTrendRequest(symbol, time.Now().UTC()))
 	if err != nil {
-		return overviewClientError("weekly trend request failed", err)
+		return clientError("weekly trend request failed", err)
 	}
 	item.WeeklyTrend = overviewWeeklyTrendFrom(weeklyTrend)
 
@@ -700,7 +700,7 @@ func ownershipFormattedValue(value *marketsurge.OwnershipFormattedValue) *string
 	return value.FormattedValue
 }
 
-func overviewClientError(message string, err error) error {
+func clientError(message string, err error) error {
 	if marketsurge.IsAuthError(err) {
 		return mserrors.NewAuthenticationError("authentication failed", err)
 	}

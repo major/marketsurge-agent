@@ -3,8 +3,6 @@ package cmd_test
 import (
 	"bytes"
 	"encoding/json"
-	"io"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,21 +30,8 @@ func TestReportsCatalog(t *testing.T) {
 func runReportsCatalog(t *testing.T) string {
 	t.Helper()
 
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = r.Close() })
-
-	oldStdout := os.Stdout
-	os.Stdout = w
-	runErr := (&agentcmd.ReportsCatalogCmd{}).Run()
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	require.NoError(t, runErr, "ReportsCatalogCmd.Run() error = %v, want nil", runErr)
-
 	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
+	require.NoError(t, (&agentcmd.ReportsCatalogCmd{}).RunForTest(&buf), "ReportsCatalogCmd.RunForTest() error")
 
 	return buf.String()
 }

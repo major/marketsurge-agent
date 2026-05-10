@@ -3,8 +3,6 @@ package cmd_test
 import (
 	"bytes"
 	"encoding/json"
-	"io"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,21 +69,8 @@ func TestColumnsByCategoryEmpty(t *testing.T) {
 func runColumns(t *testing.T, cmd agentcmd.ColumnsCmd) string {
 	t.Helper()
 
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = r.Close() })
-
-	oldStdout := os.Stdout
-	os.Stdout = w
-	runErr := cmd.Run()
-	_ = w.Close()
-	os.Stdout = oldStdout
-
-	require.NoError(t, runErr, "ColumnsCmd.Run() error = %v, want nil", runErr)
-
 	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
+	require.NoError(t, cmd.RunForTest(&buf), "ColumnsCmd.RunForTest() error")
 
 	return buf.String()
 }

@@ -4,17 +4,23 @@ Kong command tree for marketsurge-agent.
 
 ## Structure
 
-- `root.go` - `CLI` root struct, top-level `CompareCmd`, `IndustryCmd`, `OverviewCmd`, `ReportsCmd` group, `WatchlistCmd` group; kong flag tags
+- `root.go` - `CLI` root struct, top-level `ChartCmd`, `CoachCmd`, `CompareCmd`, `IndustryCmd`, `OverviewCmd`, `ReportsCmd` group, `WatchlistCmd` group; kong flag tags
+- `chart.go` - `ChartCmd.Run(client)` - calls `client.ChartMarketData()` for daily OHLCV + live quotes
+- `coach.go` - `CoachCmd.Run(client)` - calls `client.CoachTree()` for curated watchlist/screen discovery
 - `compare.go` - `CompareCmd.Run(client)` - calls `client.MarketDataAdhocScreen()` for multi-symbol comparison data
 - `industry.go` - `IndustryCmd.Run(client)` - calls `client.IndustryGroupRS()` for 6-month industry group RS
 - `overview.go` - `OverviewCmd.Run(client)` - calls `client.OtherMarketData()`, `client.RSRatingRIPanel()`, `client.Ownership()`, `client.Fundamentals()`, and `client.ChartMarketDataWeekly()`
 - `reports_list.go` - `ReportsListCmd.Run(client)` - calls `client.Screens()`
 - `reports_get.go` - `ReportsGetCmd.Run(client)` - calls `client.RunScreen()`
+- `reports_inspect.go` - `ReportsInspectCmd.Run(client)` - calls `client.Screen()` for screen definition/filter criteria
 - `watchlist_list.go` - `WatchlistListCmd.Run(client)` - calls `client.GetAllWatchlistNames()`
 - `watchlist_get.go` - `WatchlistGetCmd.Run(client)` - calls `client.FlaggedSymbols()`
 - `root_test.go` - Binary-level tests (help, version, auth error, missing subcommand)
+- `chart_test.go` - Unit tests for chart
+- `coach_test.go` - Unit tests for coach
 - `reports_list_test.go` - Unit tests for reports list
 - `reports_get_test.go` - Unit tests for reports get
+- `reports_inspect_test.go` - Unit tests for reports inspect
 - `watchlist_list_test.go` - Unit tests for watchlist list
 - `watchlist_get_test.go` - Unit tests for watchlist get
 - `industry_test.go` - Unit tests for industry
@@ -30,6 +36,8 @@ type CLI struct {
     CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
     Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
     Version  kong.VersionFlag `help:"..." short:"V"`
+    Chart     ChartCmd     `cmd:"" help:"..."`
+    Coach     CoachCmd     `cmd:"" help:"..."`
     Compare   CompareCmd   `cmd:"" help:"..."`
     Industry  IndustryCmd  `cmd:"" help:"..."`
     Overview  OverviewCmd  `cmd:"" help:"..."`
@@ -38,8 +46,9 @@ type CLI struct {
 }
 
 type ReportsCmd struct {
-    List ReportsListCmd `cmd:"" help:"..."`
-    Get  ReportsGetCmd  `cmd:"" help:"..."`
+    Get     ReportsGetCmd     `cmd:"" help:"..."`
+    Inspect ReportsInspectCmd `cmd:"" help:"..."`
+    List    ReportsListCmd    `cmd:"" help:"..."`
 }
 
 type WatchlistCmd struct {
@@ -76,6 +85,14 @@ type ReportsGetCmd struct {
 
 Commands write raw JSON arrays to stdout (no envelope wrapper). Empty results are `[]`, never `null`. Errors are returned to `main.go`, which calls `mserrors.WriteJSON(os.Stderr, err)`. `overview <symbol>` is a single-symbol porcelain command, but it still returns a one-element JSON array to preserve this contract.
 
+### Porcelain chart output
+
+`ChartCmd` uses `ChartMarketData` to fetch daily OHLCV data and live/extended-hours quotes for a single symbol. The output is a one-element JSON array with LLM-oriented keys (`ticker`, `days`, `exchange`, `dataPoints`, `quote`, `premarketQuote`, `postmarketQuote`, `currentMarketState`). The `days` field reflects actual data point count (not the requested `--days` flag). DataPoints use `close` (mapped from the API's `Last` field). Empty API results are a successful one-element array with zero data points. Blank symbols and non-positive days are validation errors.
+
+### Porcelain coach output
+
+`CoachCmd` uses `CoachTree` to discover MarketSurge curated watchlists and screens. The output is a flat JSON array of `coachNode` objects. Each node has a synthetic `category` field set to `"watchlist"` or `"screen"` based on which tree it came from. Supports `--type=watchlist|screen|all` filtering (default: `all`). Empty result is `[]`.
+
 ### Porcelain compare output
 
 `CompareCmd` uses `MarketDataAdhocScreen` with `IncludeSource.Instruments` to compare a short list of stock or ETF symbols. Normalize symbols by trimming whitespace, uppercasing, and de-duplicating while preserving first occurrence. The response keeps every returned MarketSurge value in the `columns` map and also groups curated defaults into LLM-oriented keys (`ratings`, `price`, `volume`, `momentum`, `fundamentals`, `industry`, `ownership`, `events`). Empty API results are a successful `[]`; blank or missing symbols are validation errors.
@@ -83,6 +100,10 @@ Commands write raw JSON arrays to stdout (no envelope wrapper). Empty results ar
 ### Porcelain industry output
 
 `IndustryCmd` uses `IndustryGroupRS` to fetch 6-month industry group relative strength for one or more symbols. Symbols are normalized via `normalizeSymbols()` (trim, uppercase, deduplicate). The output is a flat JSON array of `{ticker, industryGroupRS}` objects. Nil RS values (when the API returns no data for a symbol) are preserved as JSON `null`. Empty symbols input is a validation error.
+
+### Porcelain reports inspect output
+
+`ReportsInspectCmd` uses `Screen` to fetch a single screen definition by ID. The output is a one-element JSON array with LLM-oriented keys (`id`, `name`, `description`, `type`, `filters`, `filterType`, `resultLimit`, `sortBy`, `lastResult`, `createdAt`, `updatedAt`). Filter terms are mapped from the API's `FilterCriteria.Terms` into `{field, operand, value}` objects. Supports `--coach` flag to treat the screen ID as a MarketSurge coach screen (sets `CoachScreen=true` on the request). Nil screen responses produce a single-element array with empty filters.
 
 ### Porcelain watchlist output
 
@@ -109,7 +130,7 @@ return mserrors.NewAPIError("API request failed", err)
 
 `ReportsListCmd` writes to `os.Stdout` directly. Tests redirect `os.Stdout` via `os.Pipe()` to capture output.
 
-`ReportsGetCmd`, `CompareCmd`, `OverviewCmd`, `WatchlistListCmd`, `WatchlistGetCmd`, and `IndustryCmd` expose an internal `run(client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
+`ChartCmd`, `CoachCmd`, `ReportsGetCmd`, `ReportsInspectCmd`, `CompareCmd`, `OverviewCmd`, `WatchlistListCmd`, `WatchlistGetCmd`, and `IndustryCmd` expose an internal `run(client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
 
 ### Test pattern
 

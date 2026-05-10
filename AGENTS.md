@@ -11,17 +11,23 @@ Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/inst
 ```text
 cmd/
   marketsurge-agent/main.go   Entry point: kong.Parse, auth, ctx.Run(client)
-  root.go                     CLI struct (CLI, CompareCmd, IndustryCmd, OverviewCmd, ReportsCmd, WatchlistCmd), kong flag tags
+  root.go                     CLI struct (CLI, ChartCmd, CoachCmd, CompareCmd, IndustryCmd, OverviewCmd, ReportsCmd, WatchlistCmd), kong flag tags
+  chart.go                    ChartCmd.Run(client) - calls ChartMarketData for daily OHLCV + live quotes
+  coach.go                    CoachCmd.Run(client) - calls CoachTree for curated watchlist/screen discovery
   compare.go                  CompareCmd.Run(client) - calls MarketDataAdhocScreen for multi-symbol comparison data
   industry.go                 IndustryCmd.Run(client) - calls IndustryGroupRS for 6-month industry group RS
   overview.go                 OverviewCmd.Run(client) - calls OtherMarketData, RSRatingRIPanel, Ownership, Fundamentals, ChartMarketDataWeekly APIs
   reports_list.go             ReportsListCmd.Run(client) - calls Screens API
   reports_get.go              ReportsGetCmd.Run(client) - calls RunScreen API
+  reports_inspect.go          ReportsInspectCmd.Run(client) - calls Screen API for screen definition/filter criteria
   watchlist_list.go           WatchlistListCmd.Run(client) - calls GetAllWatchlistNames API
   watchlist_get.go            WatchlistGetCmd.Run(client) - calls FlaggedSymbols API
   root_test.go                Binary-level tests (help, version, auth error, missing subcommand)
+  chart_test.go               Unit tests for chart
+  coach_test.go               Unit tests for coach
   reports_list_test.go        Unit tests for reports list
   reports_get_test.go         Unit tests for reports get
+  reports_inspect_test.go     Unit tests for reports inspect
   watchlist_list_test.go      Unit tests for watchlist list
   watchlist_get_test.go       Unit tests for watchlist get
   industry_test.go            Unit tests for industry
@@ -80,6 +86,8 @@ type CLI struct {
     CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
     Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
     Version  kong.VersionFlag `help:"..." short:"V"`
+    Chart     ChartCmd     `cmd:"" help:"..."`
+    Coach     CoachCmd     `cmd:"" help:"..."`
     Compare   CompareCmd   `cmd:"" help:"..."`
     Industry  IndustryCmd  `cmd:"" help:"..."`
     Overview  OverviewCmd  `cmd:"" help:"..."`
@@ -88,8 +96,9 @@ type CLI struct {
 }
 
 type ReportsCmd struct {
-    List ReportsListCmd `cmd:"" help:"..."`
-    Get  ReportsGetCmd  `cmd:"" help:"..."`
+    Get     ReportsGetCmd     `cmd:"" help:"..."`
+    Inspect ReportsInspectCmd `cmd:"" help:"..."`
+    List    ReportsListCmd    `cmd:"" help:"..."`
 }
 
 type WatchlistCmd struct {
@@ -103,6 +112,8 @@ Key behaviors:
 - `--version` / `-V` prints the version set via ldflags and exits
 - Kong exits with code 80 when a required subcommand is missing
 - `[]string` flags use `sep:","` to accept comma-separated values
+- `chart <symbol>` is a top-level porcelain command for daily OHLCV chart data and live/extended-hours quotes
+- `coach` is a top-level porcelain command for discovering MarketSurge curated watchlists and screens
 - `compare <symbols...>` is a top-level porcelain command for comparing short symbol lists before deeper review
 - `overview <symbol>` is a top-level porcelain command for one stock or ETF, not part of the `reports` group
 - `industry <symbols...>` is a top-level porcelain command accepting comma-separated or space-separated symbols
@@ -121,11 +132,14 @@ Key behaviors:
 ### Critical constraints
 
 - Auth runs in `main.go` before `ctx.Run`; there is no per-command auth hook
+- `chart` emits a one-element JSON array with LLM-oriented keys (`ticker`, `days`, `exchange`, `dataPoints`, `quote`, `premarketQuote`, `postmarketQuote`, `currentMarketState`); days reflects actual data point count; DataPoints use `close` (mapped from API's `Last`)
+- `coach` emits a flat JSON array of `coachNode` objects with a synthetic `category` field (`"watchlist"` or `"screen"`); supports `--type=watchlist|screen|all` filtering; empty result is `[]`
 - `compare` emits one JSON object per returned symbol, keeps all requested MarketSurge columns under `columns`, and groups default columns into LLM-friendly keys (`ratings`, `price`, `volume`, `momentum`, `fundamentals`, `industry`, `ownership`, `events`)
 - `overview` emits a one-element JSON array with LLM-oriented keys (`ticker`, `ratings`, `price`, `relativeStrengthTrend`, `ants`, `patterns`, `tightAreas`, `industry`, `ownership`, `fundamentals`, `risk`, `weeklyTrend`) and returns `SymbolNotFoundError` when `OtherMarketData` returns no rows
 - `reports get` accepts `--columns` as a comma-separated list with `sep:","` and a default of 23 column names
 - `reports list` emits a JSON array of `marketsurge.ScreenEntry` objects; empty result is `[]`, not `null`
 - `reports get` reshapes `[][]RunScreenCell` into `[]map[string]any` keyed by `MDItem.Name`
+- `reports inspect` emits a one-element JSON array with LLM-oriented keys (`id`, `name`, `description`, `type`, `filters`, `filterType`, `resultLimit`, `sortBy`, `lastResult`, `createdAt`, `updatedAt`); supports `--coach` flag for MarketSurge coach screens
 - `watchlist list` emits a JSON array of `marketsurge.WatchlistSummary` objects; empty result is `[]`, not `null`
 - `watchlist get` emits a one-element JSON array with LLM-oriented keys (`id`, `name`, `lastModifiedDateUtc`, `description`, `symbols`), extracting ticker symbols from `WatchlistItem.Key`
 - `industry` emits a JSON array of `{ticker, industryGroupRS}` objects from the 6-month industry group RS data; nil RS values are preserved as JSON `null`

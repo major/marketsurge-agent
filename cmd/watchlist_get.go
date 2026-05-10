@@ -17,13 +17,13 @@ type WatchlistGetCmd struct {
 }
 
 // Run fetches watchlist details and writes an LLM-friendly JSON array.
-func (c *WatchlistGetCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *WatchlistGetCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *WatchlistGetCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *WatchlistGetCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	resp, err := client.FlaggedSymbols(
-		context.Background(),
+		ctx,
 		marketsurge.NewFlaggedSymbolsRequest(c.ID),
 	)
 	if err != nil {
@@ -40,11 +40,11 @@ func (c *WatchlistGetCmd) run(client *marketsurge.Client, w io.Writer) error {
 
 // watchlistItem is the LLM-friendly output shape for a watchlist.
 type watchlistItem struct {
-	ID                 string   `json:"id"`
-	Name               string   `json:"name"`
+	ID                  string   `json:"id"`
+	Name                string   `json:"name"`
 	LastModifiedDateUtc string   `json:"lastModifiedDateUtc"`
-	Description        string   `json:"description"`
-	Symbols            []string `json:"symbols"`
+	Description         string   `json:"description"`
+	Symbols             []string `json:"symbols"`
 }
 
 // watchlistGetItem reshapes a FlaggedSymbolsResponse into an LLM-friendly watchlistItem.
@@ -61,10 +61,10 @@ func watchlistGetItem(resp *marketsurge.FlaggedSymbolsResponse) watchlistItem {
 	}
 
 	return watchlistItem{
-		ID:                 resp.Watchlist.ID,
-		Name:               resp.Watchlist.Name,
+		ID:                  resp.Watchlist.ID,
+		Name:                resp.Watchlist.Name,
 		LastModifiedDateUtc: resp.Watchlist.LastModifiedDateUtc,
-		Description:        resp.Watchlist.Description,
-		Symbols:            symbols,
+		Description:         resp.Watchlist.Description,
+		Symbols:             symbols,
 	}
 }

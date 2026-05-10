@@ -133,14 +133,14 @@ Key behaviors:
 ### Code style
 
 - **Kong struct pattern**: Commands are structs with kong struct tags; no `init()` wiring needed
-- **Command dispatch**: Each command struct implements `Run(client *marketsurge.Client) error`; kong calls it via `ctx.Run(client)`. Commands that need no auth implement `Run() error` instead
+- **Command dispatch**: Commands that call MarketSurge APIs implement `Run(ctx context.Context, client *marketsurge.Client) error`; Kong calls them via `ctx.Run()` with a signal-aware context and lazy client provider. Commands that need no auth implement `Run() error` instead
 - **Error wrapping**: Always use `fmt.Errorf("context: %w", err)` with `%w`
 - **Typed errors**: Use `errors.As()` to match, constructor functions to create
 - **Output**: Commands write JSON directly to `os.Stdout` (or an `io.Writer` for testability); no envelope wrapper
 
 ### Critical constraints
 
-- Auth runs in `main.go` before `ctx.Run`; there is no per-command auth hook
+- Auth is wired in `main.go` through Kong's lazy singleton provider before `ctx.Run()` invokes an auth-backed command; there is no per-command auth hook
 - `chart` emits a one-element JSON array with LLM-oriented keys (`ticker`, `days`, `exchange`, `dataPoints`, `quote`, `premarketQuote`, `postmarketQuote`, `currentMarketState`); days reflects actual data point count; DataPoints use `close` (mapped from API's `Last`)
 - `coach` emits a flat JSON array of `coachNode` objects with a synthetic `category` field (`"watchlist"` or `"screen"`); supports `--type=watchlist|screen|all` filtering; empty result is `[]`
 - `compare` emits one JSON object per returned symbol, keeps all requested MarketSurge columns under `columns`, and groups default columns into LLM-friendly keys (`ratings`, `price`, `volume`, `momentum`, `fundamentals`, `industry`, `ownership`, `events`)
@@ -160,8 +160,8 @@ Key behaviors:
 
 1. Add a new struct to `cmd/root.go` (or a new file for larger commands) with kong struct tags
 2. Embed the struct in the appropriate parent (`ReportsCmd` or a new group on `CLI`)
-3. Implement `Run(client *marketsurge.Client) error` on the struct
-4. Write JSON output to `os.Stdout` (or accept `io.Writer` for testability)
+3. Implement `Run(ctx context.Context, client *marketsurge.Client) error` for auth-backed commands, or `Run() error` for local no-auth commands
+4. Write JSON output to `os.Stdout` and use an internal `run(..., w io.Writer)` helper when tests need to capture output without swapping global stdout
 5. Add tests in `cmd/<command>_test.go` using the external `cmd_test` package
 
 ## Testing

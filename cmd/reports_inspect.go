@@ -49,18 +49,18 @@ type screenResultSummary struct {
 }
 
 // Run executes the screen inspect query and writes a JSON array.
-func (c *ReportsInspectCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *ReportsInspectCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *ReportsInspectCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *ReportsInspectCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	req := marketsurge.NewScreenRequest(c.ScreenID)
 	if c.Coach {
 		coach := true
 		req.CoachScreen = &coach
 	}
 
-	resp, err := client.Screen(context.Background(), req)
+	resp, err := client.Screen(ctx, req)
 	if err != nil {
 		return clientError("screen definition request failed", err)
 	}

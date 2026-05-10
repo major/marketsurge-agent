@@ -15,13 +15,13 @@ import (
 type ReportsListCmd struct{}
 
 // Run fetches MarketSurge screens and writes them as a JSON array to stdout.
-func (c *ReportsListCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *ReportsListCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
 // run fetches MarketSurge screens and writes them as a JSON array to w.
-func (c *ReportsListCmd) run(client *marketsurge.Client, w io.Writer) error {
-	resp, err := client.Screens(context.Background(), marketsurge.NewScreensRequest())
+func (c *ReportsListCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
+	resp, err := client.Screens(ctx, marketsurge.NewScreensRequest())
 	if err != nil {
 		return clientError("API request failed", err)
 	}

@@ -23,11 +23,11 @@ type ChartCmd struct {
 }
 
 // Run executes the chart query and writes a JSON array.
-func (c *ChartCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *ChartCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *ChartCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *ChartCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	symbol := strings.ToUpper(strings.TrimSpace(c.Symbol))
 	if symbol == "" {
 		return mserrors.NewValidationError("symbol is required", errors.New("empty symbol"))
@@ -52,7 +52,7 @@ func (c *ChartCmd) run(client *marketsurge.Client, w io.Writer) error {
 		c.Exchange,
 	)
 
-	resp, err := client.ChartMarketData(context.Background(), req)
+	resp, err := client.ChartMarketData(ctx, req)
 	if err != nil {
 		return clientError("chart data request failed", err)
 	}

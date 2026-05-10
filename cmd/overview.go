@@ -25,11 +25,11 @@ type OverviewCmd struct {
 }
 
 type overviewItem struct {
-	Ticker                string                   `json:"ticker"`
-	Name                  *string                  `json:"name,omitempty"`
-	BusinessDescription   *string                  `json:"businessDescription,omitempty"`
-	Type                  *string                  `json:"type,omitempty"`
-	IPODate               *string                  `json:"ipoDate,omitempty"`
+	Ticker                string                    `json:"ticker"`
+	Name                  *string                   `json:"name,omitempty"`
+	BusinessDescription   *string                   `json:"businessDescription,omitempty"`
+	Type                  *string                   `json:"type,omitempty"`
+	IPODate               *string                   `json:"ipoDate,omitempty"`
 	IPOPrice              *overviewFloat            `json:"ipoPrice,omitempty"`
 	Ratings               *overviewRatings          `json:"ratings,omitempty"`
 	Valuation             *overviewValuation        `json:"valuation,omitempty"`
@@ -141,15 +141,15 @@ type overviewFundHolder struct {
 }
 
 type overviewFundamentals struct {
-	DebtPct              *overviewFloat             `json:"debtPct,omitempty"`
-	RNDPct               *overviewFloat             `json:"rndPct,omitempty"`
-	CashFlowPerShare     *overviewFloat             `json:"cashFlowPerShare,omitempty"`
-	EarningsStability    *int                       `json:"earningsStability,omitempty"`
-	CEODate              *string                    `json:"ceoDate,omitempty"`
-	ReportedEPS          *overviewFundamentalPeriod `json:"reportedEPS,omitempty"`
-	ReportedSales        *overviewFundamentalPeriod `json:"reportedSales,omitempty"`
-	EstimatedEPS         *overviewFundamentalPeriod `json:"estimatedEPS,omitempty"`
-	EstimatedSales       *overviewFundamentalPeriod `json:"estimatedSales,omitempty"`
+	DebtPct           *overviewFloat             `json:"debtPct,omitempty"`
+	RNDPct            *overviewFloat             `json:"rndPct,omitempty"`
+	CashFlowPerShare  *overviewFloat             `json:"cashFlowPerShare,omitempty"`
+	EarningsStability *int                       `json:"earningsStability,omitempty"`
+	CEODate           *string                    `json:"ceoDate,omitempty"`
+	ReportedEPS       *overviewFundamentalPeriod `json:"reportedEPS,omitempty"`
+	ReportedSales     *overviewFundamentalPeriod `json:"reportedSales,omitempty"`
+	EstimatedEPS      *overviewFundamentalPeriod `json:"estimatedEPS,omitempty"`
+	EstimatedSales    *overviewFundamentalPeriod `json:"estimatedSales,omitempty"`
 }
 
 type overviewFloat struct {
@@ -189,14 +189,14 @@ type overviewValuation struct {
 }
 
 type overviewHistoricalPrice struct {
-	Period       *string        `json:"period,omitempty"`
-	Offset       *string        `json:"offset,omitempty"`
-	EndDate      *string        `json:"endDate,omitempty"`
-	High         *overviewFloat `json:"high,omitempty"`
-	HighDate     *string        `json:"highDate,omitempty"`
-	Low          *overviewFloat `json:"low,omitempty"`
-	LowDate      *string        `json:"lowDate,omitempty"`
-	Close        *overviewFloat `json:"close,omitempty"`
+	Period        *string        `json:"period,omitempty"`
+	Offset        *string        `json:"offset,omitempty"`
+	EndDate       *string        `json:"endDate,omitempty"`
+	High          *overviewFloat `json:"high,omitempty"`
+	HighDate      *string        `json:"highDate,omitempty"`
+	Low           *overviewFloat `json:"low,omitempty"`
+	LowDate       *string        `json:"lowDate,omitempty"`
+	Close         *overviewFloat `json:"close,omitempty"`
 	PercentChange *overviewFloat `json:"percentChange,omitempty"`
 }
 
@@ -272,17 +272,16 @@ type overviewChartQuote struct {
 }
 
 // Run executes the overview query and writes a compact JSON array.
-func (c *OverviewCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *OverviewCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *OverviewCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *OverviewCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	symbol := strings.ToUpper(strings.TrimSpace(c.Symbol))
 	if symbol == "" {
 		return mserrors.NewValidationError("symbol is required", errors.New("empty symbol"))
 	}
 
-	ctx := context.Background()
 	marketData, err := client.OtherMarketData(ctx, marketsurge.NewOtherMarketDataRequest(symbol))
 	if err != nil {
 		return clientError("market data request failed", err)
@@ -543,8 +542,6 @@ func addFundamentalsOverview(item *overviewItem, resp *marketsurge.FundamentalsR
 		item.Fundamentals = &overviewFundamentals{}
 	}
 	financials := resp.MarketData[0].Financials
-
-
 
 	if financials.ConsensusFinancials != nil {
 		consensus := financials.ConsensusFinancials

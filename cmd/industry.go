@@ -18,18 +18,18 @@ type IndustryCmd struct {
 }
 
 // Run executes the industry group RS query and writes a JSON array.
-func (c *IndustryCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *IndustryCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *IndustryCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *IndustryCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	symbols := normalizeSymbols(c.Symbols)
 	if len(symbols) == 0 {
 		return mserrors.NewValidationError("at least one symbol is required", errors.New("empty symbols"))
 	}
 
 	resp, err := client.IndustryGroupRS(
-		context.Background(),
+		ctx,
 		marketsurge.NewIndustryGroupRSRequest(symbols...),
 	)
 	if err != nil {
@@ -62,12 +62,22 @@ func industryRows(resp *marketsurge.IndustryGroupRSResponse) []industryItem {
 			item.Ticker = *md.OriginRequest.Symbol
 		}
 
-		if md.Industry != nil && len(md.Industry.GroupRS) > 0 {
-			item.IndustryGroupRS = md.Industry.GroupRS[0].Value
+		if md.Industry != nil {
+			item.IndustryGroupRS = firstGroupRSValue(md.Industry.GroupRS)
 		}
 
 		items = append(items, item)
 	}
 
 	return items
+}
+
+func firstGroupRSValue(groupRS []marketsurge.IndustryGroupRSGroupRS) *int {
+	for _, rs := range groupRS {
+		if rs.Value != nil {
+			return rs.Value
+		}
+	}
+
+	return nil
 }

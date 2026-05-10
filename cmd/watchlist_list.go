@@ -15,13 +15,13 @@ import (
 type WatchlistListCmd struct{}
 
 // Run fetches all watchlist names and writes them as a JSON array.
-func (c *WatchlistListCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *WatchlistListCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *WatchlistListCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *WatchlistListCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	resp, err := client.GetAllWatchlistNames(
-		context.Background(),
+		ctx,
 		marketsurge.NewGetAllWatchlistNamesRequest(),
 	)
 	if err != nil {

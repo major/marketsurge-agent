@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/major/marketsurge-go/marketsurge"
@@ -171,21 +169,7 @@ func coachClient(t *testing.T, server *httptest.Server) *marketsurge.Client {
 func runCoach(t *testing.T, client *marketsurge.Client, cmd agentcmd.CoachCmd) (string, error) {
 	t.Helper()
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(t, err, "os.Pipe() error = %v, want nil", err)
-	t.Cleanup(func() {
-		_ = r.Close()
-	})
-
-	os.Stdout = w
-	runErr := cmd.Run(client)
-	closeErr := w.Close()
-	os.Stdout = oldStdout
-	require.NoError(t, closeErr, "stdout pipe Close() error = %v, want nil", closeErr)
-
 	var output bytes.Buffer
-	_, err = io.Copy(&output, r)
-	require.NoError(t, err, "io.Copy(CoachCmd.Run stdout) error = %v, want nil", err)
+	runErr := cmd.RunForTest(client, &output)
 	return output.String(), runErr
 }

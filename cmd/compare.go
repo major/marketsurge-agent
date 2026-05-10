@@ -129,11 +129,11 @@ type compareEvents struct {
 }
 
 // Run executes the comparison query and writes row objects as a JSON array.
-func (c *CompareCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *CompareCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *CompareCmd) run(client *marketsurge.Client, w io.Writer) error {
+func (c *CompareCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
 	symbols := normalizeSymbols(c.Symbols)
 	if len(symbols) == 0 {
 		return mserrors.NewValidationError("at least one symbol is required", errors.New("empty symbols"))
@@ -150,7 +150,7 @@ func (c *CompareCmd) run(client *marketsurge.Client, w io.Writer) error {
 		Dialect: marketsurge.DefaultChartSymbolDialectType,
 	}
 
-	resp, err := client.MarketDataAdhocScreen(context.Background(), req)
+	resp, err := client.MarketDataAdhocScreen(ctx, req)
 	if err != nil {
 		return clientError("comparison data request failed", err)
 	}

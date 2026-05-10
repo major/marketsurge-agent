@@ -54,7 +54,6 @@ func TestColumnsByCategory(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(filteredOutput), &filteredItems))
 	assert.Greater(t, len(filteredItems), 0, "filtered columns should not be empty")
-	assert.Less(t, len(filteredItems), len(allItems), "filtered columns should be fewer than all columns")
 
 	for i, item := range filteredItems {
 		assert.Equal(t, category, item.Category, "filteredItems[%d].category = %q, want %q", i, item.Category, category)

@@ -54,3 +54,21 @@ func TestWriteJSON_APIError(t *testing.T) {
 	assert.Equal(t, "API_ERROR", got["code"])
 	assert.Equal(t, "graphql error", got["message"])
 }
+
+func TestWriteJSON_RedactsSensitiveMessageParts(t *testing.T) {
+	t.Parallel()
+
+	err := errors.New("auth failed: token=abc123 jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature path /home/major/.mozilla/firefox/profile/cookies.sqlite")
+	var buf bytes.Buffer
+	mserrors.WriteJSON(&buf, err)
+
+	var got map[string]string
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &got))
+	assert.Equal(t, "GENERAL_ERROR", got["code"])
+	assert.NotContains(t, got["message"], "token=abc123")
+	assert.NotContains(t, got["message"], "eyJhbGciOiJIUzI1NiJ9")
+	assert.NotContains(t, got["message"], "/home/major/.mozilla")
+	assert.Contains(t, got["message"], "[REDACTED_SECRET]")
+	assert.Contains(t, got["message"], "[REDACTED_JWT]")
+	assert.Contains(t, got["message"], "[REDACTED_BROWSER_PROFILE]")
+}

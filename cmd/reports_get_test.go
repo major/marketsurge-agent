@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/major/marketsurge-go/marketsurge"
@@ -44,6 +43,7 @@ func TestReportsGetSuccess(t *testing.T) {
 }
 
 func TestReportsGetCustomColumns(t *testing.T) {
+	var requestScreenID string
 	var requestColumns []string
 	var requestErr error
 
@@ -51,6 +51,7 @@ func TestReportsGetCustomColumns(t *testing.T) {
 		var req struct {
 			Variables struct {
 				Input struct {
+					ScreenID        string `json:"screenID"`
 					ResponseColumns []struct {
 						Name string `json:"name"`
 					} `json:"responseColumns"`
@@ -69,6 +70,7 @@ func TestReportsGetCustomColumns(t *testing.T) {
 			http.Error(w, "decode request body", http.StatusInternalServerError)
 			return
 		}
+		requestScreenID = req.Variables.Input.ScreenID
 		for _, col := range req.Variables.Input.ResponseColumns {
 			requestColumns = append(requestColumns, col.Name)
 		}
@@ -80,12 +82,45 @@ func TestReportsGetCustomColumns(t *testing.T) {
 
 	client := reportsGetClient(t, server)
 	_, err := runReportsGet(t, client, agentcmd.ReportsGetCmd{
-		ScreenID: "screen-1",
-		Columns:  []string{"Symbol", "Price"},
+		ScreenID: " screen-1 ",
+		Columns:  []string{"Symbol", " Price "},
 	})
 	require.NoError(t, err, "ReportsGetCmd.Run(custom columns) error = %v, want nil", err)
 	require.NoError(t, requestErr, "RunScreen request capture error = %v, want nil", requestErr)
+	assert.Equal(t, "screen-1", requestScreenID)
 	assert.Equal(t, []string{"Symbol", "Price"}, requestColumns)
+}
+
+func TestReportsGetValidationError(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(server.Close)
+
+	client := reportsGetClient(t, server)
+	output, err := runReportsGet(t, client, agentcmd.ReportsGetCmd{
+		ScreenID: " ",
+		Columns:  []string{"Symbol"},
+	})
+	require.Error(t, err, "ReportsGetCmd.Run(blank screen ID) error = nil, want non-nil")
+
+	var validationErr *mserrors.ValidationError
+	require.ErrorAs(t, err, &validationErr, "ReportsGetCmd.Run(blank screen ID) error type = %T, want *mserrors.ValidationError", err)
+	assert.Empty(t, output, "ReportsGetCmd.Run(blank screen ID) stdout = %q, want empty", output)
+}
+
+func TestReportsGetBlankColumnValidationError(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(server.Close)
+
+	client := reportsGetClient(t, server)
+	output, err := runReportsGet(t, client, agentcmd.ReportsGetCmd{
+		ScreenID: "screen-1",
+		Columns:  []string{"Symbol", " "},
+	})
+	require.Error(t, err, "ReportsGetCmd.Run(blank column) error = nil, want non-nil")
+
+	var validationErr *mserrors.ValidationError
+	require.ErrorAs(t, err, &validationErr, "ReportsGetCmd.Run(blank column) error type = %T, want *mserrors.ValidationError", err)
+	assert.Empty(t, output, "ReportsGetCmd.Run(blank column) stdout = %q, want empty", output)
 }
 
 func TestReportsGetEmpty(t *testing.T) {
@@ -153,21 +188,7 @@ func reportsGetClient(t *testing.T, server *httptest.Server) *marketsurge.Client
 func runReportsGet(t *testing.T, client *marketsurge.Client, cmd agentcmd.ReportsGetCmd) (string, error) {
 	t.Helper()
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(t, err, "os.Pipe() error = %v, want nil", err)
-	t.Cleanup(func() {
-		_ = r.Close()
-	})
-
-	os.Stdout = w
-	runErr := cmd.Run(client)
-	closeErr := w.Close()
-	os.Stdout = oldStdout
-	require.NoError(t, closeErr, "stdout pipe Close() error = %v, want nil", closeErr)
-
 	var output bytes.Buffer
-	_, err = io.Copy(&output, r)
-	require.NoError(t, err, "io.Copy(ReportsGetCmd.Run stdout) error = %v, want nil", err)
+	runErr := cmd.RunForTest(client, &output)
 	return output.String(), runErr
 }

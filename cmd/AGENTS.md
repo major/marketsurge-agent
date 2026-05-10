@@ -65,7 +65,7 @@ type WatchlistCmd struct {
 }
 ```
 
-Each leaf command struct implements `Run(client *marketsurge.Client) error`. Kong dispatches to it via `ctx.Run()` in `main.go`. Commands that need no auth implement `Run() error` instead.
+Each auth-backed leaf command struct implements `Run(ctx context.Context, client *marketsurge.Client) error`. Kong dispatches to it via `ctx.Run()` in `main.go` with a signal-aware context and lazy client provider. Commands that need no auth implement `Run() error` instead.
 
 ### Client injection
 
@@ -74,8 +74,9 @@ Auth is wired lazily via `kong.BindSingletonProvider` in `main.go`. The client i
 ```go
 // main.go
 ctx := kong.Parse(&cli, ...,
-    kong.BindSingletonProvider(func() (*marketsurge.Client, error) {
-        return newClient(cli.CookieDB)
+    kong.BindFor(rootCtx),
+    kong.BindSingletonProvider(func(ctx context.Context) (*marketsurge.Client, error) {
+        return newClient(ctx, cli.CookieDB)
     }),
 )
 if err := ctx.Run(); err != nil { ... }
@@ -141,7 +142,7 @@ return mserrors.NewAPIError("API request failed", err)
 
 `ReportsListCmd` writes to `os.Stdout` directly. Tests redirect `os.Stdout` via `os.Pipe()` to capture output.
 
-`ChartCmd`, `CoachCmd`, `ReportsGetCmd`, `ReportsInspectCmd`, `CompareCmd`, `OverviewCmd`, `WatchlistListCmd`, `WatchlistGetCmd`, and `IndustryCmd` expose an internal `run(client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
+`ChartCmd`, `CoachCmd`, `ReportsGetCmd`, `ReportsInspectCmd`, `CompareCmd`, `OverviewCmd`, `ReportsListCmd`, `WatchlistListCmd`, `WatchlistGetCmd`, and `IndustryCmd` expose an internal `run(ctx, client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
 
 ### Test pattern
 
@@ -161,8 +162,8 @@ func TestReportsListSuccess(t *testing.T) {
     )
     require.NoError(t, err)
 
-    // redirect stdout, run command, restore stdout
-    err = (&agentcmd.ReportsListCmd{}).Run(client)
+    var output bytes.Buffer
+    err = (&agentcmd.ReportsListCmd{}).RunForTest(client, &output)
     require.NoError(t, err)
 }
 ```
@@ -177,7 +178,7 @@ Binary-level tests in `root_test.go` build the binary in `TestMain` and run it a
 
 1. Add a new struct to `cmd/root.go` (or a new file for larger commands) with kong struct tags
 2. Embed the struct in the appropriate parent (`ReportsCmd`, `WatchlistCmd`, or a new group on `CLI`)
-3. Implement `Run(client *marketsurge.Client) error` on the struct
-4. Write JSON output to `os.Stdout` (or accept `io.Writer` via an internal `run` method for testability)
+3. Implement `Run(ctx context.Context, client *marketsurge.Client) error` for auth-backed commands, or `Run() error` for local no-auth commands
+4. Write JSON output to `os.Stdout` and use an internal `run(ctx, client, w io.Writer)` helper when tests need output capture
 5. Map client errors to `mserrors` types before returning
 6. Add tests in `cmd/<command>_test.go` using the external `cmd_test` package

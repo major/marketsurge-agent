@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/major/marketsurge-go/marketsurge"
 
@@ -18,19 +20,31 @@ type ReportsGetCmd struct {
 }
 
 // Run executes the report query and writes row objects as a JSON array.
-func (c *ReportsGetCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *ReportsGetCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *ReportsGetCmd) run(client *marketsurge.Client, w io.Writer) error {
-	columns := make([]marketsurge.RunScreenResponseColumn, len(c.Columns))
-	for i, name := range c.Columns {
-		columns[i] = marketsurge.RunScreenResponseColumn{Name: marketsurge.ColumnName(name)}
+func (c *ReportsGetCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
+	screenID := strings.TrimSpace(c.ScreenID)
+	if screenID == "" {
+		return mserrors.NewValidationError("screen ID is required", errors.New("empty screen ID"))
+	}
+
+	columns := make([]marketsurge.RunScreenResponseColumn, 0, len(c.Columns))
+	for _, name := range c.Columns {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			return mserrors.NewValidationError("column names must not be empty", errors.New("empty column name"))
+		}
+		columns = append(columns, marketsurge.RunScreenResponseColumn{Name: marketsurge.ColumnName(trimmed)})
+	}
+	if len(columns) == 0 {
+		return mserrors.NewValidationError("at least one column is required", errors.New("empty columns"))
 	}
 
 	resp, err := client.RunScreen(
-		context.Background(),
-		marketsurge.NewRunScreenRequest(c.ScreenID, columns),
+		ctx,
+		marketsurge.NewRunScreenRequest(screenID, columns),
 	)
 	if err != nil {
 		if marketsurge.IsAuthError(err) {

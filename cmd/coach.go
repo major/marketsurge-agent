@@ -17,12 +17,12 @@ type CoachCmd struct {
 }
 
 // Run executes the coach tree query and writes a flat JSON array.
-func (c *CoachCmd) Run(client *marketsurge.Client) error {
-	return c.run(client, os.Stdout)
+func (c *CoachCmd) Run(ctx context.Context, client *marketsurge.Client) error {
+	return c.run(ctx, client, os.Stdout)
 }
 
-func (c *CoachCmd) run(client *marketsurge.Client, w io.Writer) error {
-	resp, err := client.CoachTree(context.Background(), marketsurge.NewCoachTreeRequest())
+func (c *CoachCmd) run(ctx context.Context, client *marketsurge.Client, w io.Writer) error {
+	resp, err := client.CoachTree(ctx, marketsurge.NewCoachTreeRequest())
 	if err != nil {
 		return clientError("coach tree request failed", err)
 	}

@@ -22,15 +22,15 @@ func main() {
 		kong.Name("marketsurge-agent"),
 		kong.Description("Query the MarketSurge stock research API."),
 		kong.Vars{"version": version},
+		// Lazy client creation: only commands whose Run method accepts
+		// *marketsurge.Client will trigger authentication. Commands like
+		// "columns" and "reports catalog" work without cookies.
+		kong.BindSingletonProvider(func() (*marketsurge.Client, error) {
+			return newClient(cli.CookieDB)
+		}),
 	)
 
-	client, err := newClient(cli.CookieDB)
-	if err != nil {
-		mserrors.WriteJSON(os.Stderr, err)
-		os.Exit(mserrors.ExitCodeFor(err))
-	}
-
-	if err := ctx.Run(client); err != nil {
+	if err := ctx.Run(); err != nil {
 		mserrors.WriteJSON(os.Stderr, err)
 		os.Exit(mserrors.ExitCodeFor(err))
 	}

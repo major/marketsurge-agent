@@ -67,7 +67,7 @@ func TestMissingSubcommandFailsBeforeAuth(t *testing.T) {
 	var exitErr *exec.ExitError
 	require.ErrorAs(t, err, &exitErr, "error should be *exec.ExitError")
 	assert.Equal(t, 80, exitErr.ExitCode(), "kong missing-subcommand exit code")
-	assert.Contains(t, string(out), `expected one of "chart", "coach", "compare", "industry", "overview", ...`)
+	assert.Contains(t, string(out), `expected one of "chart", "coach", "columns", "compare", "industry", ...`)
 }
 
 func TestAuthErrorWritesJSONAndExits32(t *testing.T) {

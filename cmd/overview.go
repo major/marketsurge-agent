@@ -25,20 +25,30 @@ type OverviewCmd struct {
 }
 
 type overviewItem struct {
-	Ticker                string                `json:"ticker"`
-	Name                  *string               `json:"name,omitempty"`
-	Type                  *string               `json:"type,omitempty"`
-	Ratings               *overviewRatings      `json:"ratings,omitempty"`
-	Price                 *overviewPrice        `json:"price,omitempty"`
-	RelativeStrengthTrend *overviewRS           `json:"relativeStrengthTrend,omitempty"`
-	ANTs                  *overviewANTs         `json:"ants,omitempty"`
-	Patterns              []overviewPattern     `json:"patterns,omitempty"`
-	TightAreas            []overviewTight       `json:"tightAreas,omitempty"`
-	Industry              *overviewIndustry     `json:"industry,omitempty"`
-	Ownership             *overviewOwnership    `json:"ownership,omitempty"`
-	Fundamentals          *overviewFundamentals `json:"fundamentals,omitempty"`
-	Risk                  *overviewRisk         `json:"risk,omitempty"`
-	WeeklyTrend           *overviewWeeklyTrend  `json:"weeklyTrend,omitempty"`
+	Ticker                string                   `json:"ticker"`
+	Name                  *string                  `json:"name,omitempty"`
+	BusinessDescription   *string                  `json:"businessDescription,omitempty"`
+	Type                  *string                  `json:"type,omitempty"`
+	IPODate               *string                  `json:"ipoDate,omitempty"`
+	IPOPrice              *overviewFloat            `json:"ipoPrice,omitempty"`
+	Ratings               *overviewRatings          `json:"ratings,omitempty"`
+	Valuation             *overviewValuation        `json:"valuation,omitempty"`
+	Price                 *overviewPrice            `json:"price,omitempty"`
+	HistoricalPrices      []overviewHistoricalPrice `json:"historicalPrices,omitempty"`
+	VolumeAverages        []overviewVolumeAvg       `json:"volumeAverages,omitempty"`
+	RelativeStrengthTrend *overviewRS               `json:"relativeStrengthTrend,omitempty"`
+	ANTs                  *overviewANTs             `json:"ants,omitempty"`
+	Patterns              []overviewPattern         `json:"patterns,omitempty"`
+	TightAreas            []overviewTight           `json:"tightAreas,omitempty"`
+	Industry              *overviewIndustry         `json:"industry,omitempty"`
+	Ownership             *overviewOwnership        `json:"ownership,omitempty"`
+	Fundamentals          *overviewFundamentals     `json:"fundamentals,omitempty"`
+	EarningsCalendar      *overviewEarningsCalendar `json:"earningsCalendar,omitempty"`
+	CorporateActions      *overviewCorporateActions `json:"corporateActions,omitempty"`
+	ProfitMargins         []overviewProfitMargin    `json:"profitMargins,omitempty"`
+	GrowthRates           *overviewGrowthRates      `json:"growthRates,omitempty"`
+	Risk                  *overviewRisk             `json:"risk,omitempty"`
+	WeeklyTrend           *overviewWeeklyTrend      `json:"weeklyTrend,omitempty"`
 }
 
 type overviewRatings struct {
@@ -131,13 +141,15 @@ type overviewFundHolder struct {
 }
 
 type overviewFundamentals struct {
-	DebtPct        *overviewFloat             `json:"debtPct,omitempty"`
-	RNDPct         *overviewFloat             `json:"rndPct,omitempty"`
-	CEODate        *string                    `json:"ceoDate,omitempty"`
-	ReportedEPS    *overviewFundamentalPeriod `json:"reportedEPS,omitempty"`
-	ReportedSales  *overviewFundamentalPeriod `json:"reportedSales,omitempty"`
-	EstimatedEPS   *overviewFundamentalPeriod `json:"estimatedEPS,omitempty"`
-	EstimatedSales *overviewFundamentalPeriod `json:"estimatedSales,omitempty"`
+	DebtPct              *overviewFloat             `json:"debtPct,omitempty"`
+	RNDPct               *overviewFloat             `json:"rndPct,omitempty"`
+	CashFlowPerShare     *overviewFloat             `json:"cashFlowPerShare,omitempty"`
+	EarningsStability    *int                       `json:"earningsStability,omitempty"`
+	CEODate              *string                    `json:"ceoDate,omitempty"`
+	ReportedEPS          *overviewFundamentalPeriod `json:"reportedEPS,omitempty"`
+	ReportedSales        *overviewFundamentalPeriod `json:"reportedSales,omitempty"`
+	EstimatedEPS         *overviewFundamentalPeriod `json:"estimatedEPS,omitempty"`
+	EstimatedSales       *overviewFundamentalPeriod `json:"estimatedSales,omitempty"`
 }
 
 type overviewFloat struct {
@@ -165,6 +177,72 @@ type overviewShortInterest struct {
 	DaysToCoverPercentChange *overviewFloat `json:"daysToCoverPercentChange,omitempty"`
 	PercentOfFloat           *overviewFloat `json:"percentOfFloat,omitempty"`
 	Volume                   *overviewFloat `json:"volume,omitempty"`
+}
+
+type overviewValuation struct {
+	PriceToEarnings        *overviewFloat `json:"priceToEarnings,omitempty"`
+	ForwardPriceToEarnings *overviewFloat `json:"forwardPriceToEarnings,omitempty"`
+	PriceToSales           *overviewFloat `json:"priceToSales,omitempty"`
+	PriceToCashFlow        *overviewFloat `json:"priceToCashFlow,omitempty"`
+	Yield                  *overviewFloat `json:"yield,omitempty"`
+	PriceToEarningsVsSP500 *overviewFloat `json:"priceToEarningsVsSP500,omitempty"`
+}
+
+type overviewHistoricalPrice struct {
+	Period       *string        `json:"period,omitempty"`
+	Offset       *string        `json:"offset,omitempty"`
+	EndDate      *string        `json:"endDate,omitempty"`
+	High         *overviewFloat `json:"high,omitempty"`
+	HighDate     *string        `json:"highDate,omitempty"`
+	Low          *overviewFloat `json:"low,omitempty"`
+	LowDate      *string        `json:"lowDate,omitempty"`
+	Close        *overviewFloat `json:"close,omitempty"`
+	PercentChange *overviewFloat `json:"percentChange,omitempty"`
+}
+
+type overviewVolumeAvg struct {
+	Value  *float64 `json:"value,omitempty"`
+	Period *string  `json:"period,omitempty"`
+	Offset *string  `json:"offset,omitempty"`
+}
+
+type overviewEarningsCalendar struct {
+	EPSDueDate       *string `json:"epsDueDate,omitempty"`
+	EPSDueDateStatus *string `json:"epsDueDateStatus,omitempty"`
+	LastReportedDate *string `json:"lastReportedDate,omitempty"`
+}
+
+type overviewCorporateActions struct {
+	NextExDividendDate *string            `json:"nextExDividendDate,omitempty"`
+	Dividends          []overviewDividend `json:"dividends,omitempty"`
+	Splits             []string           `json:"splits,omitempty"`
+	Spinoffs           []string           `json:"spinoffs,omitempty"`
+}
+
+type overviewDividend struct {
+	Amount *overviewFloat `json:"amount,omitempty"`
+	Change *string        `json:"change,omitempty"`
+	ExDate *string        `json:"exDate,omitempty"`
+}
+
+type overviewProfitMargin struct {
+	Period         *string        `json:"period,omitempty"`
+	Offset         *string        `json:"offset,omitempty"`
+	EndDate        *string        `json:"endDate,omitempty"`
+	GrossMargin    *overviewFloat `json:"grossMargin,omitempty"`
+	PreTaxMargin   *overviewFloat `json:"preTaxMargin,omitempty"`
+	AfterTaxMargin *overviewFloat `json:"afterTaxMargin,omitempty"`
+	ReturnOnEquity *overviewFloat `json:"returnOnEquity,omitempty"`
+}
+
+type overviewGrowthRates struct {
+	EPS   []overviewGrowthRate `json:"eps,omitempty"`
+	Sales []overviewGrowthRate `json:"sales,omitempty"`
+}
+
+type overviewGrowthRate struct {
+	Value  *overviewFloat `json:"value,omitempty"`
+	Period *string        `json:"period,omitempty"`
 }
 
 type overviewWeeklyTrend struct {
@@ -251,19 +329,29 @@ func newOverviewItem(symbol string, data *marketsurge.MarketDataItem) overviewIt
 	if data.Symbology != nil {
 		if data.Symbology.Company != nil {
 			item.Name = data.Symbology.Company.CompanyName
+			item.BusinessDescription = data.Symbology.Company.BusinessDescription
 		}
 		if data.Symbology.Instrument != nil {
 			item.Type = data.Symbology.Instrument.SubType
+			item.IPODate = dateValue(data.Symbology.Instrument.IPODate)
+			item.IPOPrice = overviewCurrencyFloat(data.Symbology.Instrument.IPOPrice)
 		}
 	}
 	item.Ratings = overviewRatingsFrom(data.Ratings)
+	item.Valuation = overviewValuationFrom(data.PricingStatistics)
 	item.Price = overviewPriceFrom(data.PricingStatistics)
+	item.HistoricalPrices = overviewHistoricalPricesFrom(data.PricingStatistics)
+	item.VolumeAverages = overviewVolumeAvgsFrom(data.PricingStatistics)
 	item.ANTs = overviewANTsFrom(data.PricingStatistics)
 	item.Patterns = overviewPatternsFrom(data.PatternInfo)
 	item.TightAreas = overviewTightAreasFrom(data.PatternInfo)
 	item.Industry = overviewIndustryFrom(data.Industry)
 	item.Ownership = overviewMarketDataOwnershipFrom(data.Ownership)
-	item.Fundamentals = overviewFundFrom(data.Fundamentals)
+	item.Fundamentals = overviewFundFrom(data.Fundamentals, data.Financials)
+	item.CorporateActions = overviewCorporateActionsFrom(data.CorporateActions)
+	item.EarningsCalendar = overviewEarningsCalendarFrom(data.Financials)
+	item.ProfitMargins = overviewProfitMarginsFrom(data.Financials)
+	item.GrowthRates = overviewGrowthRatesFrom(data.Financials)
 	item.Risk = overviewRiskFrom(data.PricingStatistics)
 	return item
 }
@@ -383,15 +471,25 @@ func overviewMarketDataOwnershipFrom(ownership *marketsurge.MDOwnership) *overvi
 	return &overviewOwnership{FundsFloatPct: overviewScaledFloat(ownership.FundsFloatPercentHeld)}
 }
 
-func overviewFundFrom(fund *marketsurge.MDFundamentals) *overviewFundamentals {
-	if fund == nil {
+// overviewFundFrom extracts fundamentals from MDFundamentals (OtherMarketData)
+// and enriches with cash flow and earnings stability from MDFinancials.
+func overviewFundFrom(fund *marketsurge.MDFundamentals, fin *marketsurge.MDFinancials) *overviewFundamentals {
+	if fund == nil && fin == nil {
 		return nil
 	}
-	return &overviewFundamentals{
-		DebtPct: overviewFormattedFloat(fund.DebtPercent),
-		RNDPct:  overviewScaledFloat(fund.ResearchAndDevelopmentPercentLastQtr),
-		CEODate: dateValue(fund.NewCEODate),
+	result := &overviewFundamentals{}
+	if fund != nil {
+		result.DebtPct = overviewFormattedFloat(fund.DebtPercent)
+		result.RNDPct = overviewScaledFloat(fund.ResearchAndDevelopmentPercentLastQtr)
+		result.CEODate = dateValue(fund.NewCEODate)
 	}
+	if fin != nil {
+		result.CashFlowPerShare = overviewFormattedFloat(fin.CashFlowPerShareLastYear)
+		if fin.ConsensusFinancials != nil && fin.ConsensusFinancials.EPS != nil {
+			result.EarningsStability = fin.ConsensusFinancials.EPS.EarningsStability
+		}
+	}
+	return result
 }
 
 func addRSOverview(item *overviewItem, resp *marketsurge.RSRatingRIPanelResponse) {
@@ -445,6 +543,9 @@ func addFundamentalsOverview(item *overviewItem, resp *marketsurge.FundamentalsR
 		item.Fundamentals = &overviewFundamentals{}
 	}
 	financials := resp.MarketData[0].Financials
+
+
+
 	if financials.ConsensusFinancials != nil {
 		consensus := financials.ConsensusFinancials
 		if consensus.EPS != nil && len(consensus.EPS.ReportedEarnings) > 0 {
@@ -698,6 +799,213 @@ func ownershipFormattedValue(value *marketsurge.OwnershipFormattedValue) *string
 		return nil
 	}
 	return value.FormattedValue
+}
+
+func overviewValuationFrom(stats *marketsurge.MDPricingStatistics) *overviewValuation {
+	if stats == nil || stats.IntradayStatistics == nil {
+		return nil
+	}
+	intra := stats.IntradayStatistics
+	result := &overviewValuation{
+		PriceToEarnings:        overviewScaledFloat(intra.PriceToEarningsRatio),
+		ForwardPriceToEarnings: overviewScaledFloat(intra.ForwardPriceToEarningsRatio),
+		PriceToSales:           overviewScaledFloat(intra.PriceToSalesRatio),
+		PriceToCashFlow:        overviewScaledFloat(intra.PriceToCashFlowRatio),
+		Yield:                  overviewScaledFloat(intra.Yield),
+		PriceToEarningsVsSP500: overviewScaledFloat(intra.PriceToEarningsVsSP500),
+	}
+	if result.PriceToEarnings == nil && result.ForwardPriceToEarnings == nil &&
+		result.PriceToSales == nil && result.PriceToCashFlow == nil &&
+		result.Yield == nil && result.PriceToEarningsVsSP500 == nil {
+		return nil
+	}
+	return result
+}
+
+func overviewHistoricalPricesFrom(stats *marketsurge.MDPricingStatistics) []overviewHistoricalPrice {
+	if stats == nil || stats.EndOfDayStatistics == nil || len(stats.EndOfDayStatistics.HistoricalPriceStatistics) == 0 {
+		return nil
+	}
+	hps := stats.EndOfDayStatistics.HistoricalPriceStatistics
+	result := make([]overviewHistoricalPrice, 0, len(hps))
+	for i := range hps {
+		h := &hps[i]
+		result = append(result, overviewHistoricalPrice{
+			Period:        h.Period,
+			Offset:        h.PeriodOffset,
+			EndDate:       formattedStringValue(h.PeriodEndDate),
+			High:          overviewFormattedFloat(h.PriceHigh),
+			HighDate:      formattedStringValue(h.PriceHighDate),
+			Low:           overviewFormattedFloat(h.PriceLow),
+			LowDate:       formattedStringValue(h.PriceLowDate),
+			Close:         overviewFormattedFloat(h.PriceClose),
+			PercentChange: overviewFormattedFloat(h.PricePercentChange),
+		})
+	}
+	return result
+}
+
+func overviewVolumeAvgsFrom(stats *marketsurge.MDPricingStatistics) []overviewVolumeAvg {
+	if stats == nil || stats.EndOfDayStatistics == nil || len(stats.EndOfDayStatistics.VolumeMovingAverages) == 0 {
+		return nil
+	}
+	vmas := stats.EndOfDayStatistics.VolumeMovingAverages
+	result := make([]overviewVolumeAvg, 0, len(vmas))
+	for i := range vmas {
+		v := &vmas[i]
+		result = append(result, overviewVolumeAvg{
+			Value:  v.Value,
+			Period: v.Period,
+			Offset: v.PeriodOffset,
+		})
+	}
+	return result
+}
+
+func overviewCorporateActionsFrom(ca *marketsurge.MDCorporateActions) *overviewCorporateActions {
+	if ca == nil {
+		return nil
+	}
+	result := &overviewCorporateActions{}
+
+	if ca.DividendNextReportedExDate != nil {
+		if ca.DividendNextReportedExDate.Value != nil && *ca.DividendNextReportedExDate.Value != "" {
+			result.NextExDividendDate = ca.DividendNextReportedExDate.Value
+		} else if ca.DividendNextReportedExDate.FormattedValue != nil && *ca.DividendNextReportedExDate.FormattedValue != "" {
+			result.NextExDividendDate = ca.DividendNextReportedExDate.FormattedValue
+		}
+	}
+
+	if len(ca.Dividends) > 0 {
+		result.Dividends = make([]overviewDividend, 0, len(ca.Dividends))
+		for i := range ca.Dividends {
+			d := &ca.Dividends[i]
+			result.Dividends = append(result.Dividends, overviewDividend{
+				Amount: overviewFormattedFloat(d.Amount),
+				Change: d.ChangeIndicator,
+				ExDate: dateValue(d.ExDate),
+			})
+		}
+	}
+
+	if len(ca.Splits) > 0 {
+		result.Splits = make([]string, 0, len(ca.Splits))
+		for _, s := range ca.Splits {
+			if d := dateValue(s.SplitDate); d != nil {
+				result.Splits = append(result.Splits, *d)
+			}
+		}
+	}
+
+	if len(ca.Spinoffs) > 0 {
+		result.Spinoffs = make([]string, 0, len(ca.Spinoffs))
+		for _, s := range ca.Spinoffs {
+			if d := dateValue(s.ExDate); d != nil {
+				result.Spinoffs = append(result.Spinoffs, *d)
+			}
+		}
+	}
+
+	// Return nil if nothing was populated.
+	if result.NextExDividendDate == nil && len(result.Dividends) == 0 &&
+		len(result.Splits) == 0 && len(result.Spinoffs) == 0 {
+		return nil
+	}
+	return result
+}
+
+func overviewEarningsCalendarFrom(fin *marketsurge.MDFinancials) *overviewEarningsCalendar {
+	if fin == nil {
+		return nil
+	}
+	result := &overviewEarningsCalendar{
+		EPSDueDateStatus: fin.EPSDueDateStatus,
+		LastReportedDate: dateValue(fin.EPSLastReportedDate),
+	}
+	if fin.EPSDueDate != nil {
+		if fin.EPSDueDate.Value != nil && *fin.EPSDueDate.Value != "" {
+			result.EPSDueDate = fin.EPSDueDate.Value
+		} else if fin.EPSDueDate.FormattedValue != nil && *fin.EPSDueDate.FormattedValue != "" {
+			result.EPSDueDate = fin.EPSDueDate.FormattedValue
+		}
+	}
+	if result.EPSDueDate == nil && result.EPSDueDateStatus == nil && result.LastReportedDate == nil {
+		return nil
+	}
+	return result
+}
+
+func overviewProfitMarginsFrom(fin *marketsurge.MDFinancials) []overviewProfitMargin {
+	if fin == nil || len(fin.ProfitMarginValues) == 0 {
+		return nil
+	}
+	result := make([]overviewProfitMargin, 0, len(fin.ProfitMarginValues))
+	for i := range fin.ProfitMarginValues {
+		pm := &fin.ProfitMarginValues[i]
+		result = append(result, overviewProfitMargin{
+			Period:         pm.Period,
+			Offset:         pm.PeriodOffset,
+			EndDate:        formattedStringValue(pm.PeriodEndDate),
+			GrossMargin:    overviewValueWrapperFloat(pm.GrossMargin),
+			PreTaxMargin:   overviewScaledFloat(pm.PreTaxMargin),
+			AfterTaxMargin: overviewValueWrapperFloat(pm.AfterTaxMargin),
+			ReturnOnEquity: overviewFormattedFloat(pm.ReturnOnEquity),
+		})
+	}
+	return result
+}
+
+func overviewGrowthRatesFrom(fin *marketsurge.MDFinancials) *overviewGrowthRates {
+	if fin == nil || fin.ConsensusFinancials == nil {
+		return nil
+	}
+	result := &overviewGrowthRates{}
+	if fin.ConsensusFinancials.EPS != nil && len(fin.ConsensusFinancials.EPS.GrowthRate) > 0 {
+		result.EPS = overviewGrowthRateSlice(fin.ConsensusFinancials.EPS.GrowthRate)
+	}
+	if fin.ConsensusFinancials.Sales != nil && len(fin.ConsensusFinancials.Sales.GrowthRate) > 0 {
+		result.Sales = overviewGrowthRateSlice(fin.ConsensusFinancials.Sales.GrowthRate)
+	}
+	if len(result.EPS) == 0 && len(result.Sales) == 0 {
+		return nil
+	}
+	return result
+}
+
+func overviewGrowthRateSlice(rates []marketsurge.MDGrowthRate) []overviewGrowthRate {
+	result := make([]overviewGrowthRate, 0, len(rates))
+	for i := range rates {
+		r := &rates[i]
+		var val *overviewFloat
+		if r.Value != nil {
+			val = &overviewFloat{Value: r.Value, Formatted: r.FormattedValue}
+		}
+		result = append(result, overviewGrowthRate{
+			Value:  val,
+			Period: r.Period,
+		})
+	}
+	return result
+}
+
+func overviewValueWrapperFloat(value *marketsurge.MDValueWrapper) *overviewFloat {
+	if value == nil || value.Value == nil {
+		return nil
+	}
+	return &overviewFloat{Value: value.Value}
+}
+
+func formattedStringValue(value *marketsurge.MDFormattedString) *string {
+	if value == nil {
+		return nil
+	}
+	if value.Value != nil && *value.Value != "" {
+		return value.Value
+	}
+	if value.FormattedValue != nil && *value.FormattedValue != "" {
+		return value.FormattedValue
+	}
+	return nil
 }
 
 func clientError(message string, err error) error {

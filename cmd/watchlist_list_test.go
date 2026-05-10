@@ -30,7 +30,7 @@ func TestWatchlistListSuccess(t *testing.T) {
 	require.NoError(t, err, "WatchlistListCmd.Run(success) error = %v, want nil", err)
 
 	var watchlists []marketsurge.WatchlistSummary
-	require.NoError(t, json.Unmarshal([]byte(output), &watchlists), "json.Unmarshal(WatchlistListCmd.Run(success) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &watchlists), "json.Unmarshal(WatchlistListCmd.Run(success) output)")
 	require.Len(t, watchlists, 2, "WatchlistListCmd.Run(success) decoded watchlists length = %d, want %d", len(watchlists), 2)
 
 	assert.Equal(t, "101", watchlists[0].ID)

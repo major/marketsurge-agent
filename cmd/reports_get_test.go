@@ -33,7 +33,7 @@ func TestReportsGetSuccess(t *testing.T) {
 	require.NoError(t, err, "ReportsGetCmd.Run(success) error = %v, want nil", err)
 
 	var rows []map[string]string
-	require.NoError(t, json.Unmarshal([]byte(output), &rows), "json.Unmarshal(ReportsGetCmd.Run(success) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &rows), "json.Unmarshal(ReportsGetCmd.Run(success) output)")
 	require.Len(t, rows, 2, "ReportsGetCmd.Run(success) decoded rows length = %d, want %d", len(rows), 2)
 	assert.Equal(t, "AAPL", rows[0]["Symbol"])
 	assert.Equal(t, "213.50", rows[0]["Price"])

@@ -53,7 +53,7 @@ func TestReportsInspectSuccess(t *testing.T) {
 		CreatedAt *string `json:"createdAt"`
 		UpdatedAt *string `json:"updatedAt"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(ReportsInspectCmd.Run(success) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(ReportsInspectCmd.Run(success) output)")
 	require.Len(t, items, 1, "ReportsInspectCmd.Run(success) decoded items length = %d, want %d", len(items), 1)
 
 	item := items[0]
@@ -114,7 +114,7 @@ func TestReportsInspectNilResponse(t *testing.T) {
 	var items []struct {
 		Filters []struct{} `json:"filters"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(ReportsInspectCmd.Run(nil response) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(ReportsInspectCmd.Run(nil response) output)")
 	require.Len(t, items, 1, "ReportsInspectCmd.Run(nil response) decoded items length = %d, want %d", len(items), 1)
 	assert.Empty(t, items[0].Filters, "ReportsInspectCmd.Run(nil response) filters = %v, want empty", items[0].Filters)
 }

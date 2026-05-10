@@ -18,7 +18,7 @@ import (
 // ChartCmd retrieves daily OHLCV chart data and live quotes for a stock or ETF.
 type ChartCmd struct {
 	Symbol   string `arg:"" help:"Stock or ETF symbol to chart, such as AAPL."`
-	Days     int    `help:"Number of trading days to retrieve." default:"90"`
+	Days     int    `help:"Number of calendar days to retrieve." default:"90"`
 	Exchange string `help:"Exchange name for holiday calendar." default:"XNYS"`
 }
 

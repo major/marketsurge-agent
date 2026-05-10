@@ -33,7 +33,7 @@ func TestIndustrySuccess(t *testing.T) {
 		Ticker          string `json:"ticker"`
 		IndustryGroupRS *int   `json:"industryGroupRS"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(IndustryCmd.Run(success) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(IndustryCmd.Run(success) output)")
 	require.Len(t, items, 2, "IndustryCmd.Run(success) decoded items length = %d, want %d", len(items), 2)
 
 	assert.Equal(t, "AAPL", items[0].Ticker)
@@ -60,7 +60,7 @@ func TestIndustrySingleSymbol(t *testing.T) {
 		Ticker          string `json:"ticker"`
 		IndustryGroupRS *int   `json:"industryGroupRS"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(IndustryCmd.Run(single symbol) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(IndustryCmd.Run(single symbol) output)")
 	require.Len(t, items, 1, "IndustryCmd.Run(single symbol) decoded items length = %d, want %d", len(items), 1)
 	assert.Equal(t, "AAPL", items[0].Ticker)
 }
@@ -80,7 +80,7 @@ func TestIndustryNilGroupRS(t *testing.T) {
 		Ticker          string `json:"ticker"`
 		IndustryGroupRS *int   `json:"industryGroupRS"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(IndustryCmd.Run(nil RS) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(IndustryCmd.Run(nil RS) output)")
 	require.Len(t, items, 1, "IndustryCmd.Run(nil RS) decoded items length = %d, want %d", len(items), 1)
 	assert.Equal(t, "AAPL", items[0].Ticker)
 	assert.Nil(t, items[0].IndustryGroupRS, "IndustryCmd.Run(nil RS) items[0].industryGroupRS = %v, want nil", items[0].IndustryGroupRS)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/alecthomas/kong"
@@ -39,7 +40,13 @@ func main() {
 func newClient(cookieDBPath string) (*marketsurge.Client, error) {
 	jwt, err := auth.ResolveJWT(context.Background(), cookieDBPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve jwt: %w", err)
 	}
-	return marketsurge.NewClient(marketsurge.WithJWT(jwt))
+
+	client, err := marketsurge.NewClient(marketsurge.WithJWT(jwt))
+	if err != nil {
+		return nil, fmt.Errorf("create marketsurge client: %w", err)
+	}
+
+	return client, nil
 }

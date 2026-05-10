@@ -30,7 +30,7 @@ func TestReportsListSuccess(t *testing.T) {
 	require.NoError(t, err, "ReportsListCmd.Run(success) error = %v, want nil", err)
 
 	var screens []marketsurge.ScreenEntry
-	require.NoError(t, json.Unmarshal([]byte(output), &screens), "json.Unmarshal(ReportsListCmd.Run(success) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &screens), "json.Unmarshal(ReportsListCmd.Run(success) output)")
 	require.Len(t, screens, 2, "ReportsListCmd.Run(success) decoded screens length = %d, want %d", len(screens), 2)
 
 	assert.Equal(t, "42", stringValue(t, screens[0].ID, "screens[0].id"))

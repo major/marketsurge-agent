@@ -2,12 +2,14 @@ package cmd_test
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testBinary string
@@ -35,16 +37,14 @@ func TestHelpShowsGlobalFlagsAndCommands(t *testing.T) {
 
 	cmd := exec.Command(testBinary, "--help")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("%s --help error = %v, output = %q, want nil error", testBinary, err, string(out))
-	}
+	require.NoError(t, err, "--help should succeed")
 
 	output := string(out)
-	assertContains(t, output, "compare", "--help")
-	assertContains(t, output, "overview", "--help")
-	assertContains(t, output, "reports", "--help")
-	assertContains(t, output, "cookie-db", "--help")
-	assertContains(t, output, "verbose", "--help")
+	assert.Contains(t, output, "compare")
+	assert.Contains(t, output, "overview")
+	assert.Contains(t, output, "reports")
+	assert.Contains(t, output, "cookie-db")
+	assert.Contains(t, output, "verbose")
 }
 
 func TestVersionPrintsDev(t *testing.T) {
@@ -52,13 +52,9 @@ func TestVersionPrintsDev(t *testing.T) {
 
 	cmd := exec.Command(testBinary, "--version")
 	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("%s --version error = %v, output = %q, want nil error", testBinary, err, string(out))
-	}
+	require.NoError(t, err, "--version should succeed")
 
-	if got, want := strings.TrimSpace(string(out)), "dev"; got != want {
-		t.Errorf("%s --version = %q, want %q", testBinary, got, want)
-	}
+	assert.Equal(t, "dev", strings.TrimSpace(string(out)))
 }
 
 func TestMissingSubcommandFailsBeforeAuth(t *testing.T) {
@@ -66,18 +62,12 @@ func TestMissingSubcommandFailsBeforeAuth(t *testing.T) {
 
 	cmd := exec.Command(testBinary)
 	out, err := cmd.CombinedOutput()
-	if err == nil {
-		t.Fatalf("%s error = nil, output = %q, want non-zero exit", testBinary, string(out))
-	}
+	require.Error(t, err, "missing subcommand should fail")
 
 	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatalf("%s error type = %T, want *exec.ExitError", testBinary, err)
-	}
-	if got, want := exitErr.ExitCode(), 80; got != want {
-		t.Errorf("%s exit code = %d, want %d", testBinary, got, want)
-	}
-	assertContains(t, string(out), `expected one of "chart", "coach", "compare", "industry", "overview", ...`, "missing subcommand")
+	require.ErrorAs(t, err, &exitErr, "error should be *exec.ExitError")
+	assert.Equal(t, 80, exitErr.ExitCode(), "kong missing-subcommand exit code")
+	assert.Contains(t, string(out), `expected one of "chart", "coach", "compare", "industry", "overview", ...`)
 }
 
 func TestAuthErrorWritesJSONAndExits32(t *testing.T) {
@@ -87,36 +77,17 @@ func TestAuthErrorWritesJSONAndExits32(t *testing.T) {
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	if err == nil {
-		t.Fatalf("%s --cookie-db /nonexistent/path/cookies.sqlite reports list error = nil, want non-zero exit", testBinary)
-	}
+	require.Error(t, err, "nonexistent cookie-db should fail")
 
 	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatalf("%s --cookie-db /nonexistent/path/cookies.sqlite reports list error type = %T, want *exec.ExitError", testBinary, err)
-	}
-	if got, want := exitErr.ExitCode(), 32; got != want {
-		t.Errorf("%s --cookie-db /nonexistent/path/cookies.sqlite reports list exit code = %d, want %d", testBinary, got, want)
-	}
+	require.ErrorAs(t, err, &exitErr, "error should be *exec.ExitError")
+	assert.Equal(t, 32, exitErr.ExitCode(), "auth error exit code")
 
 	var payload struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	}
-	if err := json.Unmarshal([]byte(stderr.String()), &payload); err != nil {
-		t.Fatalf("json.Unmarshal(%q) error = %v, want nil error", stderr.String(), err)
-	}
-	if got, want := payload.Code, "AUTH_FAILED"; got != want {
-		t.Errorf("auth error JSON code = %q, want %q", got, want)
-	}
-	if payload.Message == "" {
-		t.Errorf("auth error JSON message = %q, want non-empty", payload.Message)
-	}
-}
-
-func assertContains(t *testing.T, output, substring, command string) {
-	t.Helper()
-	if !strings.Contains(output, substring) {
-		t.Errorf("%s output = %q, want substring %q", command, output, substring)
-	}
+	require.NoError(t, json.Unmarshal([]byte(stderr.String()), &payload), "stderr should be valid JSON")
+	assert.Equal(t, "AUTH_FAILED", payload.Code)
+	assert.NotEmpty(t, payload.Message, "auth error message should not be empty")
 }

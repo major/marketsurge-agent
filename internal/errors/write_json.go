@@ -18,6 +18,10 @@ type errorJSON struct {
 // For typed MarketSurge errors, the code comes from ErrorCode().
 // For plain errors, code is "GENERAL_ERROR".
 func WriteJSON(w io.Writer, err error) {
+	if err == nil {
+		return
+	}
+
 	code := "GENERAL_ERROR"
 
 	type errorCoder interface {

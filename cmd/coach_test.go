@@ -45,7 +45,7 @@ func TestCoachSuccess(t *testing.T) {
 		URL         *string `json:"url"`
 		ReferenceID *string `json:"referenceId"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(CoachCmd.Run(success) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(CoachCmd.Run(success) output)")
 	require.Len(t, items, 3, "CoachCmd.Run(success) decoded items length = %d, want %d", len(items), 3)
 
 	require.NotNil(t, items[0].ID)
@@ -87,7 +87,7 @@ func TestCoachWatchlistOnly(t *testing.T) {
 	var items []struct {
 		Category string `json:"category"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(CoachCmd.Run(watchlist only) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(CoachCmd.Run(watchlist only) output)")
 	require.Len(t, items, 2, "CoachCmd.Run(watchlist only) decoded items length = %d, want %d", len(items), 2)
 	assert.Equal(t, "watchlist", items[0].Category)
 	assert.Equal(t, "watchlist", items[1].Category)
@@ -107,7 +107,7 @@ func TestCoachScreenOnly(t *testing.T) {
 	var items []struct {
 		Category string `json:"category"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(CoachCmd.Run(screen only) output) error = %v, want nil", err)
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(CoachCmd.Run(screen only) output)")
 	require.Len(t, items, 1, "CoachCmd.Run(screen only) decoded items length = %d, want %d", len(items), 1)
 	assert.Equal(t, "screen", items[0].Category)
 }

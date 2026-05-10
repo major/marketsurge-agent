@@ -9,6 +9,7 @@ type CLI struct {
 	Verbose  bool             `help:"Enable verbose logging to stderr." env:"MARKETSURGE_AGENT_VERBOSE"`
 	Version  kong.VersionFlag `help:"Show version and exit." short:"V"`
 
+	Compare  CompareCmd  `cmd:"" help:"Compare key MarketSurge data for multiple stocks or ETFs."`
 	Overview OverviewCmd `cmd:"" help:"Summarize high-level MarketSurge data for a stock or ETF."`
 	Reports  ReportsCmd  `cmd:"" help:"List and retrieve MarketSurge predefined reports."`
 }

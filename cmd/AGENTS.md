@@ -4,7 +4,8 @@ Kong command tree for marketsurge-agent.
 
 ## Structure
 
-- `root.go` - `CLI` root struct, top-level `OverviewCmd`, `ReportsCmd` group; kong flag tags
+- `root.go` - `CLI` root struct, top-level `CompareCmd`, `OverviewCmd`, `ReportsCmd` group; kong flag tags
+- `compare.go` - `CompareCmd.Run(client)` - calls `client.MarketDataAdhocScreen()` for multi-symbol comparison data
 - `overview.go` - `OverviewCmd.Run(client)` - calls `client.OtherMarketData()`, `client.RSRatingRIPanel()`, `client.Ownership()`, `client.Fundamentals()`, and `client.ChartMarketDataWeekly()`
 - `reports_list.go` - `ReportsListCmd.Run(client)` - calls `client.Screens()`
 - `reports_get.go` - `ReportsGetCmd.Run(client)` - calls `client.RunScreen()`
@@ -23,6 +24,7 @@ type CLI struct {
     CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
     Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
     Version  kong.VersionFlag `help:"..." short:"V"`
+    Compare  CompareCmd       `cmd:"" help:"..."`
     Overview OverviewCmd       `cmd:"" help:"..."`
     Reports  ReportsCmd        `cmd:"" help:"..."`
 }
@@ -60,6 +62,10 @@ type ReportsGetCmd struct {
 ### Output
 
 Commands write raw JSON arrays to stdout (no envelope wrapper). Empty results are `[]`, never `null`. Errors are returned to `main.go`, which calls `mserrors.WriteJSON(os.Stderr, err)`. `overview <symbol>` is a single-symbol porcelain command, but it still returns a one-element JSON array to preserve this contract.
+
+### Porcelain compare output
+
+`CompareCmd` uses `MarketDataAdhocScreen` with `IncludeSource.Instruments` to compare a short list of stock or ETF symbols. Normalize symbols by trimming whitespace, uppercasing, and de-duplicating while preserving first occurrence. The response keeps every returned MarketSurge value in the `columns` map and also groups curated defaults into LLM-oriented keys (`ratings`, `price`, `volume`, `momentum`, `fundamentals`, `industry`, `ownership`, `events`). Empty API results are a successful `[]`; blank or missing symbols are validation errors.
 
 ### Porcelain overview output
 

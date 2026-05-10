@@ -40,6 +40,7 @@ func TestHelpShowsGlobalFlagsAndCommands(t *testing.T) {
 	}
 
 	output := string(out)
+	assertContains(t, output, "compare", "--help")
 	assertContains(t, output, "overview", "--help")
 	assertContains(t, output, "reports", "--help")
 	assertContains(t, output, "cookie-db", "--help")
@@ -76,7 +77,7 @@ func TestMissingSubcommandFailsBeforeAuth(t *testing.T) {
 	if got, want := exitErr.ExitCode(), 80; got != want {
 		t.Errorf("%s exit code = %d, want %d", testBinary, got, want)
 	}
-	assertContains(t, string(out), `expected one of "overview", "reports"`, "missing subcommand")
+	assertContains(t, string(out), `expected one of "compare", "overview", "reports"`, "missing subcommand")
 }
 
 func TestAuthErrorWritesJSONAndExits32(t *testing.T) {

@@ -37,6 +37,9 @@ export MARKETSURGE_AGENT_VERBOSE=true
 ## Usage
 
 ```bash
+# Compare key data for several stocks or ETFs
+marketsurge-agent compare AMD NVDA MSFT
+
 # Summarize high-level data for one stock or ETF
 marketsurge-agent overview AMD
 
@@ -60,6 +63,7 @@ marketsurge-agent --version
 
 | Command | Description |
 | --- | --- |
+| `compare <symbols...>` | Compare key MarketSurge data for multiple stocks or ETFs |
 | `overview <symbol>` | Summarize high-level stock or ETF data for LLM context |
 | `reports list` | List all available screens and reports |
 | `reports get <screen-id>` | Get report data for a specific screen ID |
@@ -71,6 +75,32 @@ marketsurge-agent --version
 | `--cookie-db PATH` | `MARKETSURGE_AGENT_COOKIE_DB` | Path to Firefox `cookies.sqlite` |
 | `--verbose` | `MARKETSURGE_AGENT_VERBOSE` | Enable verbose logging to stderr |
 | `--version` / `-V` | | Show version and exit |
+
+### compare
+
+Fetches a compact side-by-side snapshot for a short list of stocks or ETFs. The command uses MarketSurge screen columns and returns one JSON object per returned symbol. Curated columns are grouped into LLM-oriented keys, while every requested MarketSurge value remains available under `columns` for exact column-level inspection.
+
+```bash
+marketsurge-agent compare AMD NVDA MSFT
+marketsurge-agent compare AMD NVDA --columns Symbol,Price,CompositeRating,RSRating
+```
+
+The `--columns` flag (env: `MARKETSURGE_AGENT_COMPARE_COLUMNS`) controls which fields MarketSurge returns. If omitted, the command requests a default trader-focused set covering ratings, price, volume, moving-average momentum, fundamentals, industry, ownership, earnings dates, IPO date, market cap, and Blue Dot events.
+
+Example output:
+
+```json
+[
+  {
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices",
+    "ratings": {"composite": "96", "relativeStrength": "91"},
+    "price": {"last": "212.30", "atrPercent21d": "4.1%"},
+    "industry": {"groupRSRating": "A"},
+    "columns": {"Symbol": "AMD", "Price": "212.30", "CompositeRating": "96", "RSRating": "91"}
+  }
+]
+```
 
 ### overview
 
@@ -198,6 +228,7 @@ make clean     # Remove binary and build artifacts
 cmd/
   marketsurge-agent/     Entry point (main.go)
   root.go                Root command struct (kong)
+  compare.go             compare command
   overview.go            overview command
   reports_list.go        reports list command
   reports_get.go         reports get command

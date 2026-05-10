@@ -7,6 +7,7 @@ Focus on correctness, credential safety, broken command contracts, data loss, AP
 ## Project invariants
 
 - Commands write raw JSON arrays to stdout; no envelope wrapper.
+- `compare <symbols...>` compares short symbol lists through `MarketDataAdhocScreen`, preserves requested data under `columns`, and also emits LLM-oriented grouped keys.
 - `overview <symbol>` is a single-symbol porcelain command, but it still returns a one-element JSON array and uses compact LLM-oriented keys.
 - Errors must use the `MarketSurgeError` hierarchy and constructor functions.
 - Error output goes to stderr as `{"code":"...","message":"..."}` via `mserrors.WriteJSON`.

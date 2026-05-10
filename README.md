@@ -43,8 +43,21 @@ marketsurge-agent compare AMD NVDA MSFT
 # Summarize high-level data for one stock or ETF
 marketsurge-agent overview AMD
 
+# Show daily OHLCV chart data and live quotes
+marketsurge-agent chart AMD
+
 # Show industry group relative strength
 marketsurge-agent industry AMD NVDA MSFT
+
+# Discover curated watchlists and screens
+marketsurge-agent coach
+
+# List available data columns (no auth required)
+marketsurge-agent columns
+marketsurge-agent columns --category Ratings
+
+# List built-in report screens (no auth required)
+marketsurge-agent reports catalog
 
 # List available reports
 marketsurge-agent reports list
@@ -54,6 +67,9 @@ marketsurge-agent reports get <screen-id>
 
 # Get report with custom columns
 marketsurge-agent reports get <screen-id> --columns Symbol,Price,EPSRating,RSRating
+
+# Inspect a screen's definition and filter criteria
+marketsurge-agent reports inspect <screen-id>
 
 # List saved watchlists
 marketsurge-agent watchlist list
@@ -72,11 +88,16 @@ marketsurge-agent --version
 
 | Command | Description |
 | --- | --- |
+| `chart <symbol>` | Show daily OHLCV chart data and live quotes |
+| `coach` | Discover MarketSurge curated watchlists and screens |
+| `columns` | List available MarketSurge data columns (no auth required) |
 | `compare <symbols...>` | Compare key MarketSurge data for multiple stocks or ETFs |
 | `industry <symbols...>` | Show industry group relative strength for stocks or ETFs |
 | `overview <symbol>` | Summarize high-level stock or ETF data for LLM context |
-| `reports list` | List all available screens and reports |
+| `reports catalog` | List built-in MarketSurge report screens (no auth required) |
 | `reports get <screen-id>` | Get report data for a specific screen ID |
+| `reports inspect <screen-id>` | Inspect screen definition and filter criteria |
+| `reports list` | List all available screens and reports |
 | `watchlist list` | List all saved watchlists |
 | `watchlist get <watchlist-id>` | Get symbols in a watchlist by ID |
 
@@ -87,6 +108,28 @@ marketsurge-agent --version
 | `--cookie-db PATH` | `MARKETSURGE_AGENT_COOKIE_DB` | Path to Firefox `cookies.sqlite` |
 | `--verbose` | `MARKETSURGE_AGENT_VERBOSE` | Enable verbose logging to stderr |
 | `--version` / `-V` | | Show version and exit |
+
+### columns
+
+Lists the available MarketSurge data columns from the local catalog. No authentication required. Use `--category` to filter by category (exact match).
+
+```bash
+marketsurge-agent columns
+marketsurge-agent columns --category Ratings
+```
+
+Example output:
+
+```json
+[
+  {
+    "name": "CompositeRating",
+    "displayName": "Composite Rating",
+    "description": "Overall rating combining EPS, RS, and other factors",
+    "category": "Ratings"
+  }
+]
+```
 
 ### compare
 
@@ -136,7 +179,7 @@ A `null` value for `industryGroupRS` means the API returned no RS data for that 
 
 ### overview
 
-Fetches a token-efficient, symbol-centered summary for one stock or ETF. The command combines MarketSurge market data, relative strength history, chart pattern metadata, ANTs event dates, industry ranks, ownership history, fundamentals, risk context, and a compact weekly trend snapshot into a compact JSON object. Output is still a JSON array, so a successful single-symbol response is `[{}]` rather than `{}`.
+Fetches a token-efficient, symbol-centered summary for one stock or ETF. The command combines MarketSurge market data, relative strength history, chart pattern metadata, ANTs event dates, industry ranks, ownership history, fundamentals, risk context, and a compact weekly trend snapshot into a compact JSON object. It also includes valuation ratios (P/E, forward P/E, P/S, P/CF, yield), historical price statistics, volume averages, earnings calendar, corporate actions (dividends, splits, spinoffs), profit margins, growth rates, business description, and IPO date/price. Output is still a JSON array, so a successful single-symbol response is `[{}]` rather than `{}`.
 
 ```bash
 marketsurge-agent overview AMD
@@ -164,6 +207,26 @@ Example output:
 ```
 
 Missing symbols return a `SYMBOL_NOT_FOUND` error with exit code 31. MarketSurge exposes RS Rating and RS line data through the current client; the command does not invent a technical RSI value when that indicator is unavailable.
+
+### reports catalog
+
+Lists the built-in MarketSurge report screens from the local catalog. No authentication required. Use these IDs with `reports get` to fetch report data.
+
+```bash
+marketsurge-agent reports catalog
+```
+
+Example output:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "IBD 50",
+    "description": "Top-rated growth stocks based on CAN SLIM criteria"
+  }
+]
+```
 
 ### reports list
 
@@ -303,13 +366,18 @@ make clean     # Remove binary and build artifacts
 cmd/
   marketsurge-agent/     Entry point (main.go)
   root.go                Root command struct (kong)
+  chart.go               chart command
+  coach.go               coach command
+  columns.go             columns command (no auth)
   compare.go             compare command
   industry.go            industry command
   overview.go            overview command
-  reports_list.go        reports list command
+  reports_catalog.go     reports catalog command (no auth)
   reports_get.go         reports get command
-  watchlist_list.go      watchlist list command
+  reports_inspect.go     reports inspect command
+  reports_list.go        reports list command
   watchlist_get.go       watchlist get command
+  watchlist_list.go      watchlist list command
 internal/
   auth/                  Cookie-based JWT exchange
   cookies/               Firefox cookie extraction

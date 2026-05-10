@@ -50,12 +50,12 @@ reviews:
     - path: "cmd/**/*.go"
       instructions: |
         Focus on correctness and project conventions:
-        - Commands are kong structs; each implements Run(client *marketsurge.Client) error
+        - Commands are kong structs; each implements Run(client *marketsurge.Client) error or Run() error (no auth)
+        - Auth is lazy via kong.BindSingletonProvider; only commands accepting *marketsurge.Client trigger it
         - Error wrapping must use fmt.Errorf("context: %w", err) with %w verb
         - Use errors.As() for typed error matching, constructor functions to create errors
         - Success output is a raw JSON array to stdout; no envelope wrapper
         - Error output goes to stderr via mserrors.WriteJSON in main.go; commands return errors
-        - Auth runs in main.go before ctx.Run; no per-command auth hook
         - Don't nitpick style (golangci-lint handles formatting and lint)
 
     - path: "internal/auth/**/*.go"

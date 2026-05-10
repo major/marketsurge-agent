@@ -4,12 +4,14 @@ Kong command tree for marketsurge-agent.
 
 ## Structure
 
-- `root.go` - `CLI` root struct, top-level `ChartCmd`, `CoachCmd`, `CompareCmd`, `IndustryCmd`, `OverviewCmd`, `ReportsCmd` group, `WatchlistCmd` group; kong flag tags
+- `root.go` - `CLI` root struct, top-level `ChartCmd`, `CoachCmd`, `ColumnsCmd`, `CompareCmd`, `IndustryCmd`, `OverviewCmd`, `ReportsCmd` group, `WatchlistCmd` group; kong flag tags
 - `chart.go` - `ChartCmd.Run(client)` - calls `client.ChartMarketData()` for daily OHLCV + live quotes
 - `coach.go` - `CoachCmd.Run(client)` - calls `client.CoachTree()` for curated watchlist/screen discovery
+- `columns.go` - `ColumnsCmd.Run()` - calls `marketsurge.Columns()`/`ColumnsByCategory()` for local column catalog (no auth)
 - `compare.go` - `CompareCmd.Run(client)` - calls `client.MarketDataAdhocScreen()` for multi-symbol comparison data
 - `industry.go` - `IndustryCmd.Run(client)` - calls `client.IndustryGroupRS()` for 6-month industry group RS
 - `overview.go` - `OverviewCmd.Run(client)` - calls `client.OtherMarketData()`, `client.RSRatingRIPanel()`, `client.Ownership()`, `client.Fundamentals()`, and `client.ChartMarketDataWeekly()`
+- `reports_catalog.go` - `ReportsCatalogCmd.Run()` - calls `marketsurge.ReportScreens()` for built-in report catalog (no auth)
 - `reports_list.go` - `ReportsListCmd.Run(client)` - calls `client.Screens()`
 - `reports_get.go` - `ReportsGetCmd.Run(client)` - calls `client.RunScreen()`
 - `reports_inspect.go` - `ReportsInspectCmd.Run(client)` - calls `client.Screen()` for screen definition/filter criteria
@@ -18,9 +20,13 @@ Kong command tree for marketsurge-agent.
 - `root_test.go` - Binary-level tests (help, version, auth error, missing subcommand)
 - `chart_test.go` - Unit tests for chart
 - `coach_test.go` - Unit tests for coach
+- `columns_test.go` - Unit tests for columns
+- `compare_test.go` - Unit tests for compare
+- `reports_catalog_test.go` - Unit tests for reports catalog
 - `reports_list_test.go` - Unit tests for reports list
 - `reports_get_test.go` - Unit tests for reports get
 - `reports_inspect_test.go` - Unit tests for reports inspect
+- `overview_test.go` - Unit tests for overview
 - `watchlist_list_test.go` - Unit tests for watchlist list
 - `watchlist_get_test.go` - Unit tests for watchlist get
 - `industry_test.go` - Unit tests for industry
@@ -38,6 +44,7 @@ type CLI struct {
     Version  kong.VersionFlag `help:"..." short:"V"`
     Chart     ChartCmd     `cmd:"" help:"..."`
     Coach     CoachCmd     `cmd:"" help:"..."`
+    Columns   ColumnsCmd   `cmd:"" help:"..."`
     Compare   CompareCmd   `cmd:"" help:"..."`
     Industry  IndustryCmd  `cmd:"" help:"..."`
     Overview  OverviewCmd  `cmd:"" help:"..."`
@@ -46,6 +53,7 @@ type CLI struct {
 }
 
 type ReportsCmd struct {
+    Catalog ReportsCatalogCmd `cmd:"" help:"..."`
     Get     ReportsGetCmd     `cmd:"" help:"..."`
     Inspect ReportsInspectCmd `cmd:"" help:"..."`
     List    ReportsListCmd    `cmd:"" help:"..."`
@@ -57,17 +65,20 @@ type WatchlistCmd struct {
 }
 ```
 
-Each leaf command struct implements `Run(client *marketsurge.Client) error`. Kong dispatches to it via `ctx.Run(client)` in `main.go`.
+Each leaf command struct implements `Run(client *marketsurge.Client) error`. Kong dispatches to it via `ctx.Run()` in `main.go`. Commands that need no auth implement `Run() error` instead.
 
 ### Client injection
 
-Auth runs in `main.go` before `ctx.Run`. The client is constructed once and passed directly to `ctx.Run(client)`. Commands receive an already-authenticated client; there is no per-command auth hook.
+Auth is wired lazily via `kong.BindSingletonProvider` in `main.go`. The client is only created when a command's `Run` method requests `*marketsurge.Client`. Commands with `Run() error` signatures (columns, reports catalog) skip auth entirely.
 
 ```go
 // main.go
-client, err := newClient(cli.CookieDB)
-// ...
-if err := ctx.Run(client); err != nil { ... }
+ctx := kong.Parse(&cli, ...,
+    kong.BindSingletonProvider(func() (*marketsurge.Client, error) {
+        return newClient(cli.CookieDB)
+    }),
+)
+if err := ctx.Run(); err != nil { ... }
 ```
 
 ### Command flags

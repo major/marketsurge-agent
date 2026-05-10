@@ -10,13 +10,15 @@ Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/inst
 
 ```text
 cmd/
-  marketsurge-agent/main.go   Entry point: kong.Parse, auth, ctx.Run(client)
-  root.go                     CLI struct (CLI, ChartCmd, CoachCmd, CompareCmd, IndustryCmd, OverviewCmd, ReportsCmd, WatchlistCmd), kong flag tags
+  marketsurge-agent/main.go   Entry point: kong.Parse, lazy auth via BindSingletonProvider, ctx.Run()
+  root.go                     CLI struct (CLI, ChartCmd, CoachCmd, ColumnsCmd, CompareCmd, IndustryCmd, OverviewCmd, ReportsCmd, WatchlistCmd), kong flag tags
   chart.go                    ChartCmd.Run(client) - calls ChartMarketData for daily OHLCV + live quotes
   coach.go                    CoachCmd.Run(client) - calls CoachTree for curated watchlist/screen discovery
+  columns.go                  ColumnsCmd.Run() - calls Columns()/ColumnsByCategory() for local column catalog (no auth)
   compare.go                  CompareCmd.Run(client) - calls MarketDataAdhocScreen for multi-symbol comparison data
   industry.go                 IndustryCmd.Run(client) - calls IndustryGroupRS for 6-month industry group RS
   overview.go                 OverviewCmd.Run(client) - calls OtherMarketData, RSRatingRIPanel, Ownership, Fundamentals, ChartMarketDataWeekly APIs
+  reports_catalog.go          ReportsCatalogCmd.Run() - calls ReportScreens() for built-in report catalog (no auth)
   reports_list.go             ReportsListCmd.Run(client) - calls Screens API
   reports_get.go              ReportsGetCmd.Run(client) - calls RunScreen API
   reports_inspect.go          ReportsInspectCmd.Run(client) - calls Screen API for screen definition/filter criteria
@@ -25,9 +27,13 @@ cmd/
   root_test.go                Binary-level tests (help, version, auth error, missing subcommand)
   chart_test.go               Unit tests for chart
   coach_test.go               Unit tests for coach
+  columns_test.go             Unit tests for columns
+  compare_test.go             Unit tests for compare
+  reports_catalog_test.go     Unit tests for reports catalog
   reports_list_test.go        Unit tests for reports list
   reports_get_test.go         Unit tests for reports get
   reports_inspect_test.go     Unit tests for reports inspect
+  overview_test.go            Unit tests for overview
   watchlist_list_test.go      Unit tests for watchlist list
   watchlist_get_test.go       Unit tests for watchlist get
   industry_test.go            Unit tests for industry
@@ -40,9 +46,9 @@ internal/
 ### Request flow
 
 1. `main.go` calls `kong.Parse(&cli, ...)` which parses flags and selects the matched command
-2. `newClient(cli.CookieDB)` calls `auth.ResolveJWT` then `marketsurge.NewClient(marketsurge.WithJWT(jwt))`
-3. On auth failure, `mserrors.WriteJSON(os.Stderr, err)` writes a JSON error and `os.Exit` uses `mserrors.ExitCodeFor(err)`
-4. `ctx.Run(client)` dispatches to the matched command's `Run(client *marketsurge.Client) error` method
+2. `kong.BindSingletonProvider` registers a lazy `newClient` factory; the client is only created when a command's `Run` method accepts `*marketsurge.Client`
+3. Commands with `Run() error` (columns, reports catalog) skip auth entirely
+4. Commands with `Run(client *marketsurge.Client) error` trigger `newClient`, which calls `auth.ResolveJWT` then `marketsurge.NewClient(marketsurge.WithJWT(jwt))`
 5. The command calls the marketsurge-go client, marshals the result as JSON to stdout
 6. On command error, `mserrors.WriteJSON(os.Stderr, err)` and `os.Exit(mserrors.ExitCodeFor(err))`
 
@@ -55,7 +61,7 @@ Cookie database precedence:
 
 Cookies are exchanged at `investors.com` using the JWT exchange URL constant, then the resulting JWT is used for API requests at `dowjones.io`. The CLI does not accept JWT injection through arguments, environment variables, or config files.
 
-Auth is wired in `main.go` before `ctx.Run`. Kong's `BindToProvider` pattern is not used; instead, `newClient` runs unconditionally and the client is passed directly to `ctx.Run`.
+Auth is wired lazily via `kong.BindSingletonProvider` in `main.go`. The client is only created when a command's `Run` method requests `*marketsurge.Client`. Commands with `Run() error` signatures (columns, reports catalog) skip auth entirely.
 
 ### Error hierarchy (`internal/errors/errors.go`)
 
@@ -88,6 +94,7 @@ type CLI struct {
     Version  kong.VersionFlag `help:"..." short:"V"`
     Chart     ChartCmd     `cmd:"" help:"..."`
     Coach     CoachCmd     `cmd:"" help:"..."`
+    Columns   ColumnsCmd   `cmd:"" help:"..."`
     Compare   CompareCmd   `cmd:"" help:"..."`
     Industry  IndustryCmd  `cmd:"" help:"..."`
     Overview  OverviewCmd  `cmd:"" help:"..."`
@@ -96,6 +103,7 @@ type CLI struct {
 }
 
 type ReportsCmd struct {
+    Catalog ReportsCatalogCmd `cmd:"" help:"..."`
     Get     ReportsGetCmd     `cmd:"" help:"..."`
     Inspect ReportsInspectCmd `cmd:"" help:"..."`
     List    ReportsListCmd    `cmd:"" help:"..."`
@@ -112,6 +120,7 @@ Key behaviors:
 - `--version` / `-V` prints the version set via ldflags and exits
 - Kong exits with code 80 when a required subcommand is missing
 - `[]string` flags use `sep:","` to accept comma-separated values
+- `columns` is a top-level porcelain command for local column catalog (no auth); supports `--category` filtering
 - `chart <symbol>` is a top-level porcelain command for daily OHLCV chart data and live/extended-hours quotes
 - `coach` is a top-level porcelain command for discovering MarketSurge curated watchlists and screens
 - `compare <symbols...>` is a top-level porcelain command for comparing short symbol lists before deeper review
@@ -124,7 +133,7 @@ Key behaviors:
 ### Code style
 
 - **Kong struct pattern**: Commands are structs with kong struct tags; no `init()` wiring needed
-- **Command dispatch**: Each command struct implements `Run(client *marketsurge.Client) error`; kong calls it via `ctx.Run(client)`
+- **Command dispatch**: Each command struct implements `Run(client *marketsurge.Client) error`; kong calls it via `ctx.Run(client)`. Commands that need no auth implement `Run() error` instead
 - **Error wrapping**: Always use `fmt.Errorf("context: %w", err)` with `%w`
 - **Typed errors**: Use `errors.As()` to match, constructor functions to create
 - **Output**: Commands write JSON directly to `os.Stdout` (or an `io.Writer` for testability); no envelope wrapper
@@ -136,6 +145,9 @@ Key behaviors:
 - `coach` emits a flat JSON array of `coachNode` objects with a synthetic `category` field (`"watchlist"` or `"screen"`); supports `--type=watchlist|screen|all` filtering; empty result is `[]`
 - `compare` emits one JSON object per returned symbol, keeps all requested MarketSurge columns under `columns`, and groups default columns into LLM-friendly keys (`ratings`, `price`, `volume`, `momentum`, `fundamentals`, `industry`, `ownership`, `events`)
 - `overview` emits a one-element JSON array with LLM-oriented keys (`ticker`, `ratings`, `price`, `relativeStrengthTrend`, `ants`, `patterns`, `tightAreas`, `industry`, `ownership`, `fundamentals`, `risk`, `weeklyTrend`) and returns `SymbolNotFoundError` when `OtherMarketData` returns no rows
+- `overview` also includes enrichment sections from the same OtherMarketData response: `businessDescription`, `ipoDate`, `ipoPrice`, `valuation` (P/E, fwd P/E, P/S, P/CF, yield, P/E vs S&P), `historicalPrices` (multi-period high/low/close/change), `volumeAverages`, `earningsCalendar` (EPSDueDate, status, last reported), `corporateActions` (dividends, splits, spinoffs), `profitMargins` (gross, pre-tax, after-tax, ROE per period), `growthRates` (EPS and sales from consensus)
+- `columns` emits a JSON array of `columnItem` objects with keys `name`, `displayName`, `description`, `category`; supports `--category` filtering; empty result is `[]`
+- `reports catalog` emits a JSON array of `reportScreenItem` objects with keys `id`, `name`, `description`; uses local catalog, no auth required
 - `reports get` accepts `--columns` as a comma-separated list with `sep:","` and a default of 23 column names
 - `reports list` emits a JSON array of `marketsurge.ScreenEntry` objects; empty result is `[]`, not `null`
 - `reports get` reshapes `[][]RunScreenCell` into `[]map[string]any` keyed by `MDItem.Name`

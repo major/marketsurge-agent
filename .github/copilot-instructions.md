@@ -14,7 +14,7 @@ Focus on correctness, credential safety, broken command contracts, data loss, AP
 - `watchlist get <id>` emits a one-element array with LLM-oriented keys including a `symbols` list extracted from watchlist items.
 - Errors must use the `MarketSurgeError` hierarchy and constructor functions.
 - Error output goes to stderr as `{"code":"...","message":"..."}` via `mserrors.WriteJSON`.
-- Auth runs in `main.go` before `ctx.Run`; there is no per-command auth hook.
+- Auth is lazy via `kong.BindSingletonProvider`; only commands whose `Run` accepts `*marketsurge.Client` trigger it. Commands with `Run() error` (columns, reports catalog) skip auth.
 - Keep README, `AGENTS.md`, CodeRabbit, and Copilot review guidance updated when command behavior or review priorities change.
 
 ## Security and API checks

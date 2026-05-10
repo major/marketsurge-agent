@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,7 +30,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestHelpShowsGlobalFlagsAndReports(t *testing.T) {
+func TestHelpShowsGlobalFlagsAndCommands(t *testing.T) {
 	t.Parallel()
 
 	cmd := exec.Command(testBinary, "--help")
@@ -39,6 +40,7 @@ func TestHelpShowsGlobalFlagsAndReports(t *testing.T) {
 	}
 
 	output := string(out)
+	assertContains(t, output, "overview", "--help")
 	assertContains(t, output, "reports", "--help")
 	assertContains(t, output, "cookie-db", "--help")
 	assertContains(t, output, "verbose", "--help")
@@ -67,14 +69,14 @@ func TestMissingSubcommandFailsBeforeAuth(t *testing.T) {
 		t.Fatalf("%s error = nil, output = %q, want non-zero exit", testBinary, string(out))
 	}
 
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
 		t.Fatalf("%s error type = %T, want *exec.ExitError", testBinary, err)
 	}
 	if got, want := exitErr.ExitCode(), 80; got != want {
 		t.Errorf("%s exit code = %d, want %d", testBinary, got, want)
 	}
-	assertContains(t, string(out), `expected "reports"`, "missing subcommand")
+	assertContains(t, string(out), `expected one of "overview", "reports"`, "missing subcommand")
 }
 
 func TestAuthErrorWritesJSONAndExits32(t *testing.T) {
@@ -88,8 +90,8 @@ func TestAuthErrorWritesJSONAndExits32(t *testing.T) {
 		t.Fatalf("%s --cookie-db /nonexistent/path/cookies.sqlite reports list error = nil, want non-zero exit", testBinary)
 	}
 
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
 		t.Fatalf("%s --cookie-db /nonexistent/path/cookies.sqlite reports list error type = %T, want *exec.ExitError", testBinary, err)
 	}
 	if got, want := exitErr.ExitCode(), 32; got != want {

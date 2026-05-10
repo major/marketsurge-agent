@@ -11,7 +11,8 @@ Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/inst
 ```text
 cmd/
   marketsurge-agent/main.go   Entry point: kong.Parse, auth, ctx.Run(client)
-  root.go                     CLI struct (CLI, ReportsCmd), kong flag tags
+  root.go                     CLI struct (CLI, OverviewCmd, ReportsCmd), kong flag tags
+  overview.go                 OverviewCmd.Run(client) - calls OtherMarketData, RSRatingRIPanel, Ownership, Fundamentals, ChartMarketDataWeekly APIs
   reports_list.go             ReportsListCmd.Run(client) - calls Screens API
   reports_get.go              ReportsGetCmd.Run(client) - calls RunScreen API
   root_test.go                Binary-level tests (help, version, auth error, missing subcommand)
@@ -72,7 +73,8 @@ type CLI struct {
     CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
     Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
     Version  kong.VersionFlag `help:"..." short:"V"`
-    Reports ReportsCmd `cmd:"" help:"..."`
+    Overview OverviewCmd `cmd:"" help:"..."`
+    Reports  ReportsCmd  `cmd:"" help:"..."`
 }
 
 type ReportsCmd struct {
@@ -86,6 +88,7 @@ Key behaviors:
 - `--version` / `-V` prints the version set via ldflags and exits
 - Kong exits with code 80 when a required subcommand is missing
 - `[]string` flags use `sep:","` to accept comma-separated values
+- `overview <symbol>` is a top-level porcelain command for one stock or ETF, not part of the `reports` group
 
 ## Conventions
 
@@ -100,6 +103,7 @@ Key behaviors:
 ### Critical constraints
 
 - Auth runs in `main.go` before `ctx.Run`; there is no per-command auth hook
+- `overview` emits a one-element JSON array with LLM-oriented keys (`ticker`, `ratings`, `price`, `relativeStrengthTrend`, `ants`, `patterns`, `tightAreas`, `industry`, `ownership`, `fundamentals`, `risk`, `weeklyTrend`) and returns `SymbolNotFoundError` when `OtherMarketData` returns no rows
 - `reports get` accepts `--columns` as a comma-separated list with `sep:","` and a default of 23 column names
 - `reports list` emits a JSON array of `marketsurge.ScreenEntry` objects; empty result is `[]`, not `null`
 - `reports get` reshapes `[][]RunScreenCell` into `[]map[string]any` keyed by `MDItem.Name`

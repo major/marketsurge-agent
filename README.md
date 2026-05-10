@@ -37,6 +37,9 @@ export MARKETSURGE_AGENT_VERBOSE=true
 ## Usage
 
 ```bash
+# Summarize high-level data for one stock or ETF
+marketsurge-agent overview AMD
+
 # List available reports
 marketsurge-agent reports list
 
@@ -57,6 +60,7 @@ marketsurge-agent --version
 
 | Command | Description |
 | --- | --- |
+| `overview <symbol>` | Summarize high-level stock or ETF data for LLM context |
 | `reports list` | List all available screens and reports |
 | `reports get <screen-id>` | Get report data for a specific screen ID |
 
@@ -67,6 +71,37 @@ marketsurge-agent --version
 | `--cookie-db PATH` | `MARKETSURGE_AGENT_COOKIE_DB` | Path to Firefox `cookies.sqlite` |
 | `--verbose` | `MARKETSURGE_AGENT_VERBOSE` | Enable verbose logging to stderr |
 | `--version` / `-V` | | Show version and exit |
+
+### overview
+
+Fetches a token-efficient, symbol-centered summary for one stock or ETF. The command combines MarketSurge market data, relative strength history, chart pattern metadata, ANTs event dates, industry ranks, ownership history, fundamentals, risk context, and a compact weekly trend snapshot into a compact JSON object. Output is still a JSON array, so a successful single-symbol response is `[{}]` rather than `{}`.
+
+```bash
+marketsurge-agent overview AMD
+```
+
+Example output:
+
+```json
+[
+  {
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices",
+    "type": "COMMON_STOCK",
+    "ratings": {"composite": 96, "epsRating": 83, "relativeStrength": 91, "salesMarginsROE": "A", "accumulationDistribution": "B+"},
+    "price": {"marketCap": {"v": 300000000000, "f": "300B"}, "avgDollarVolume50d": {"v": 2500000000, "f": "2.5B"}},
+    "relativeStrengthTrend": {"newHigh": true, "history": [{"value": 91, "letter": "A", "period": "P12M", "offset": "CURRENT"}]},
+    "ants": {"count": 2, "dates": ["2026-05-01", "2026-05-08"]},
+    "industry": {"name": "Electronics-Semiconductor Fabless", "sector": "Technology", "ranks": [{"value": 5, "period": "P1M", "offset": "CURRENT"}]},
+    "ownership": {"fundsFloatPct": {"v": 49.5, "f": "49.5%"}, "funds": [{"date": "2026-03-31", "funds": "3,210"}]},
+    "fundamentals": {"debtPct": {"v": 20.1, "f": "20.1%"}, "reportedEPS": {"value": {"v": 1.65, "f": "$1.65"}}},
+    "risk": {"beta": {"v": 1.4, "f": "1.4"}},
+    "weeklyTrend": {"period": "ONE_WEEK", "latest": {"last": {"v": 212.3}}, "quote": {"timeliness": "REAL_TIME"}}
+  }
+]
+```
+
+Missing symbols return a `SYMBOL_NOT_FOUND` error with exit code 31. MarketSurge exposes RS Rating and RS line data through the current client; the command does not invent a technical RSI value when that indicator is unavailable.
 
 ### reports list
 
@@ -163,6 +198,7 @@ make clean     # Remove binary and build artifacts
 cmd/
   marketsurge-agent/     Entry point (main.go)
   root.go                Root command struct (kong)
+  overview.go            overview command
   reports_list.go        reports list command
   reports_get.go         reports get command
 internal/

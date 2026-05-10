@@ -4,7 +4,8 @@ Kong command tree for marketsurge-agent.
 
 ## Structure
 
-- `root.go` - `CLI` root struct, `ReportsCmd` group; kong flag tags
+- `root.go` - `CLI` root struct, top-level `OverviewCmd`, `ReportsCmd` group; kong flag tags
+- `overview.go` - `OverviewCmd.Run(client)` - calls `client.OtherMarketData()`, `client.RSRatingRIPanel()`, `client.Ownership()`, `client.Fundamentals()`, and `client.ChartMarketDataWeekly()`
 - `reports_list.go` - `ReportsListCmd.Run(client)` - calls `client.Screens()`
 - `reports_get.go` - `ReportsGetCmd.Run(client)` - calls `client.RunScreen()`
 - `root_test.go` - Binary-level tests (help, version, auth error, missing subcommand)
@@ -22,7 +23,8 @@ type CLI struct {
     CookieDB string           `help:"..." env:"MARKETSURGE_AGENT_COOKIE_DB" name:"cookie-db"`
     Verbose  bool             `help:"..." env:"MARKETSURGE_AGENT_VERBOSE"`
     Version  kong.VersionFlag `help:"..." short:"V"`
-    Reports  ReportsCmd       `cmd:"" help:"..."`
+    Overview OverviewCmd       `cmd:"" help:"..."`
+    Reports  ReportsCmd        `cmd:"" help:"..."`
 }
 
 type ReportsCmd struct {
@@ -57,7 +59,11 @@ type ReportsGetCmd struct {
 
 ### Output
 
-Commands write raw JSON arrays to stdout (no envelope wrapper). Empty results are `[]`, never `null`. Errors are returned to `main.go`, which calls `mserrors.WriteJSON(os.Stderr, err)`.
+Commands write raw JSON arrays to stdout (no envelope wrapper). Empty results are `[]`, never `null`. Errors are returned to `main.go`, which calls `mserrors.WriteJSON(os.Stderr, err)`. `overview <symbol>` is a single-symbol porcelain command, but it still returns a one-element JSON array to preserve this contract.
+
+### Porcelain overview output
+
+`OverviewCmd` gathers high-level context from `OtherMarketData`, then enriches it with `RSRatingRIPanel`, `Ownership`, `Fundamentals`, and `ChartMarketDataWeekly`. Keep its JSON keys LLM-oriented and explicit enough to avoid MarketSurge shorthand confusion (`ticker`, `ratings`, `price`, `relativeStrengthTrend`, `ants`, `patterns`, `tightAreas`, `industry`, `ownership`, `fundamentals`, `risk`, `weeklyTrend`). Do not expose MarketSurge internal IDs in the overview payload. Treat empty `OtherMarketData.marketData` as `mserrors.NewSymbolNotFoundError(...)` rather than an empty success array.
 
 ### Error mapping
 
@@ -74,7 +80,7 @@ return mserrors.NewAPIError("API request failed", err)
 
 `ReportsListCmd` writes to `os.Stdout` directly. Tests redirect `os.Stdout` via `os.Pipe()` to capture output.
 
-`ReportsGetCmd` exposes an internal `run(client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
+`ReportsGetCmd` and `OverviewCmd` expose an internal `run(client, w io.Writer)` method so tests can pass a `bytes.Buffer` without redirecting `os.Stdout`.
 
 ### Test pattern
 

@@ -14,7 +14,7 @@ test:
 	go test -v -race -coverprofile=coverage.out ./...
 
 smoke:
-	go test -v -tags=smoke ./cmd/
+	go test -v ./cmd/
 
 lint:
 	golangci-lint run ./...

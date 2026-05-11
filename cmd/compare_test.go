@@ -39,7 +39,8 @@ func TestCompareSuccess(t *testing.T) {
 	assert.Contains(t, requestColumnNames(&request), "ATRPct21D")
 
 	var rows []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(output), &rows), "json.Unmarshal(CompareCmd.Run(success) output) error = %v, want nil", err)
+	unmarshalErr := json.Unmarshal([]byte(output), &rows)
+	require.NoError(t, unmarshalErr, "json.Unmarshal(CompareCmd.Run(success) output) error = %v, want nil", unmarshalErr)
 	require.Len(t, rows, 2, "CompareCmd.Run(success) decoded rows length = %d, want %d", len(rows), 2)
 	assert.Equal(t, "AMD", rows[0]["ticker"])
 	assert.Equal(t, "Advanced Micro Devices", rows[0]["name"])
@@ -73,7 +74,8 @@ func TestCompareCustomColumns(t *testing.T) {
 	assert.Equal(t, []string{"Symbol", "Price"}, requestColumnNames(&request))
 
 	var rows []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(output), &rows), "json.Unmarshal(CompareCmd.Run(custom columns) output) error = %v, want nil", err)
+	unmarshalErr := json.Unmarshal([]byte(output), &rows)
+	require.NoError(t, unmarshalErr, "json.Unmarshal(CompareCmd.Run(custom columns) output) error = %v, want nil", unmarshalErr)
 	assert.Equal(t, "213.50", rows[0]["columns"].(map[string]any)["Price"])
 }
 
@@ -98,7 +100,8 @@ func TestCompareCustomColumnsPrependsSymbol(t *testing.T) {
 	assert.Equal(t, []string{"Symbol", "Price"}, requestColumnNames(&request))
 
 	var rows []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(output), &rows), "json.Unmarshal(CompareCmd.Run(custom columns without symbol) output) error = %v, want nil", err)
+	unmarshalErr := json.Unmarshal([]byte(output), &rows)
+	require.NoError(t, unmarshalErr, "json.Unmarshal(CompareCmd.Run(custom columns without symbol) output) error = %v, want nil", unmarshalErr)
 	assert.Equal(t, "AAPL", rows[0]["ticker"])
 }
 

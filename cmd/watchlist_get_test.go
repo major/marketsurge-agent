@@ -28,11 +28,11 @@ func TestWatchlistGetSuccess(t *testing.T) {
 	require.NoError(t, err, "WatchlistGetCmd.Run(success) error = %v, want nil", err)
 
 	var items []struct {
-		ID                 string   `json:"id"`
-		Name               string   `json:"name"`
+		ID                  string   `json:"id"`
+		Name                string   `json:"name"`
 		LastModifiedDateUtc string   `json:"lastModifiedDateUtc"`
-		Description        string   `json:"description"`
-		Symbols            []string `json:"symbols"`
+		Description         string   `json:"description"`
+		Symbols             []string `json:"symbols"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(WatchlistGetCmd.Run(success) output) error = %v, want nil", err)
 	require.Len(t, items, 1, "WatchlistGetCmd.Run(success) decoded items length = %d, want %d", len(items), 1)
@@ -61,6 +61,25 @@ func TestWatchlistGetEmptyItems(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(WatchlistGetCmd.Run(empty items) output) error = %v, want nil", err)
 	require.Len(t, items, 1, "WatchlistGetCmd.Run(empty items) decoded items length = %d, want %d", len(items), 1)
 	assert.Equal(t, []string{}, items[0].Symbols, "WatchlistGetCmd.Run(empty items) symbols = %v, want empty", items[0].Symbols)
+}
+
+func TestWatchlistGetNullWatchlist(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"watchlist":null}}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := watchlistGetClient(t, server)
+	output, err := runWatchlistGet(t, client, agentcmd.WatchlistGetCmd{ID: "404"})
+	require.NoError(t, err, "WatchlistGetCmd.Run(null watchlist) error = %v, want nil", err)
+
+	var items []struct {
+		Symbols []string `json:"symbols"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(WatchlistGetCmd.Run(null watchlist) output) error = %v, want nil", err)
+	require.Len(t, items, 1, "WatchlistGetCmd.Run(null watchlist) decoded items length = %d, want %d", len(items), 1)
+	assert.Equal(t, []string{}, items[0].Symbols, "WatchlistGetCmd.Run(null watchlist) symbols = %v, want empty", items[0].Symbols)
 }
 
 func TestWatchlistGetAuthError(t *testing.T) {

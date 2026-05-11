@@ -173,5 +173,5 @@ func TestExchangeJWT_InvalidJSON(t *testing.T) {
 
 	var authErr *errors.AuthenticationError
 	require.ErrorAs(t, err, &authErr)
-	assert.Contains(t, authErr.Message, "JWT exchange request failed")
+	assert.Equal(t, "JWT exchange request failed", authErr.Message)
 }

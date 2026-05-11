@@ -32,6 +32,10 @@ func (c *ChartCmd) run(ctx context.Context, client *marketsurge.Client, w io.Wri
 	if symbol == "" {
 		return mserrors.NewValidationError("symbol is required", errors.New("empty symbol"))
 	}
+	exchange := strings.ToUpper(strings.TrimSpace(c.Exchange))
+	if exchange == "" {
+		exchange = "XNYS"
+	}
 
 	if c.Days <= 0 {
 		return mserrors.NewValidationError(
@@ -49,7 +53,7 @@ func (c *ChartCmd) run(ctx context.Context, client *marketsurge.Client, w io.Wri
 		start.Format(chartDateTimeLayout),
 		end.Format(chartDateTimeLayout),
 		"ONE_DAY",
-		c.Exchange,
+		exchange,
 	)
 
 	resp, err := client.ChartMarketData(ctx, req)
@@ -57,7 +61,7 @@ func (c *ChartCmd) run(ctx context.Context, client *marketsurge.Client, w io.Wri
 		return clientError("chart data request failed", err)
 	}
 
-	item := chartItemFrom(symbol, resp)
+	item := chartItemFrom(symbol, exchange, resp)
 
 	if err := json.NewEncoder(w).Encode([]chartItem{item}); err != nil {
 		return mserrors.NewAPIError("failed to write chart output", err)
@@ -98,9 +102,10 @@ type chartQuote struct {
 	Volume        *float64 `json:"volume,omitempty"`
 }
 
-func chartItemFrom(symbol string, resp *marketsurge.ChartMarketDataResponse) chartItem {
+func chartItemFrom(symbol, exchange string, resp *marketsurge.ChartMarketDataResponse) chartItem {
 	item := chartItem{
 		Ticker:     symbol,
+		Exchange:   &exchange,
 		DataPoints: []chartDataPoint{},
 	}
 

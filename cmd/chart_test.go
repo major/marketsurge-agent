@@ -95,13 +95,34 @@ func TestChartEmptyResponse(t *testing.T) {
 	var items []struct {
 		Ticker     string `json:"ticker"`
 		Days       int    `json:"days"`
+		Exchange   string `json:"exchange"`
 		DataPoints []any  `json:"dataPoints"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(output), &items))
 	require.Len(t, items, 1)
 	assert.Equal(t, "AAPL", items[0].Ticker)
 	assert.Equal(t, 0, items[0].Days)
+	assert.Equal(t, "XNYS", items[0].Exchange)
 	assert.Empty(t, items[0].DataPoints)
+}
+
+func TestChartDefaultsExchange(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"marketData":[]}}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := chartClient(t, server)
+	output, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 90})
+	require.NoError(t, err, "ChartCmd.Run(default exchange) error = %v, want nil", err)
+
+	var items []struct {
+		Exchange string `json:"exchange"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output), &items))
+	require.Len(t, items, 1)
+	assert.Equal(t, "XNYS", items[0].Exchange)
 }
 
 func TestChartEmptySymbol(t *testing.T) {

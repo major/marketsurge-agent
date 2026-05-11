@@ -75,7 +75,7 @@ func mapJWTExchangeError(err error) error {
 	}
 
 	return mserrors.NewAuthenticationError(
-		fmt.Sprintf("JWT exchange request failed: %s", err),
+		"JWT exchange request failed",
 		err,
 	)
 }

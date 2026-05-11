@@ -392,20 +392,13 @@ go test -v -race ./...
 
 Tests use `httptest.NewServer` for HTTP mocking with no external mock libraries.
 
-### Local live smoke tests
+### Smoke target
 
-Smoke tests run every API command against live MarketSurge data. They're excluded from normal test runs and CI by the `smoke` build tag.
+The smoke target runs the command package test suite with `go test -v ./cmd/`. This keeps command-level coverage quick and local without the removed `smoke` build tag or live-only `cmd/smoke_test.go` setup.
 
-Sign into MarketSurge in Firefox first, then run:
-
-```bash
-make smoke
-```
-
-For a specific Firefox profile:
+Run the smoke target with:
 
 ```bash
-export MARKETSURGE_AGENT_COOKIE_DB="$HOME/.mozilla/firefox/profile/cookies.sqlite"
 make smoke
 ```
 

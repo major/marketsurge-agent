@@ -34,7 +34,8 @@ func TestWatchlistGetSuccess(t *testing.T) {
 		Description         string   `json:"description"`
 		Symbols             []string `json:"symbols"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(WatchlistGetCmd.Run(success) output) error = %v, want nil", err)
+	unmarshalErr := json.Unmarshal([]byte(output), &items)
+	require.NoError(t, unmarshalErr, "json.Unmarshal(WatchlistGetCmd.Run(success) output) error = %v, want nil", unmarshalErr)
 	require.Len(t, items, 1, "WatchlistGetCmd.Run(success) decoded items length = %d, want %d", len(items), 1)
 
 	assert.Equal(t, "101", items[0].ID)
@@ -58,7 +59,8 @@ func TestWatchlistGetEmptyItems(t *testing.T) {
 	var items []struct {
 		Symbols []string `json:"symbols"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(WatchlistGetCmd.Run(empty items) output) error = %v, want nil", err)
+	unmarshalErr := json.Unmarshal([]byte(output), &items)
+	require.NoError(t, unmarshalErr, "json.Unmarshal(WatchlistGetCmd.Run(empty items) output) error = %v, want nil", unmarshalErr)
 	require.Len(t, items, 1, "WatchlistGetCmd.Run(empty items) decoded items length = %d, want %d", len(items), 1)
 	assert.Equal(t, []string{}, items[0].Symbols, "WatchlistGetCmd.Run(empty items) symbols = %v, want empty", items[0].Symbols)
 }
@@ -77,7 +79,8 @@ func TestWatchlistGetNullWatchlist(t *testing.T) {
 	var items []struct {
 		Symbols []string `json:"symbols"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(output), &items), "json.Unmarshal(WatchlistGetCmd.Run(null watchlist) output) error = %v, want nil", err)
+	unmarshalErr := json.Unmarshal([]byte(output), &items)
+	require.NoError(t, unmarshalErr, "json.Unmarshal(WatchlistGetCmd.Run(null watchlist) output) error = %v, want nil", unmarshalErr)
 	require.Len(t, items, 1, "WatchlistGetCmd.Run(null watchlist) decoded items length = %d, want %d", len(items), 1)
 	assert.Equal(t, []string{}, items[0].Symbols, "WatchlistGetCmd.Run(null watchlist) symbols = %v, want empty", items[0].Symbols)
 }

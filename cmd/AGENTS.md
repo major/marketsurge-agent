@@ -170,9 +170,9 @@ func TestReportsListSuccess(t *testing.T) {
 
 Binary-level tests in `root_test.go` build the binary in `TestMain` and run it as a subprocess to verify exit codes, help output, and auth error JSON shape.
 
-### Local live smoke tests
+### Smoke target
 
-`smoke_test.go` is guarded by `//go:build smoke` and is local-only. Run it with `make smoke`. It requires a live Firefox MarketSurge session or `MARKETSURGE_AGENT_COOKIE_DB`. Keep smoke cases serial; do not use `t.Parallel()`.
+`make smoke` runs `go test -v ./cmd/`. There is no `cmd/smoke_test.go` or `smoke` build tag in this tree, so keep this target aligned with command package tests unless dedicated API smoke tests are reintroduced.
 
 ## Adding a new command
 

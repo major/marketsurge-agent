@@ -3,76 +3,79 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/major/marketsurge-agent/internal/constants"
-	"github.com/major/marketsurge-agent/internal/errors"
-	"resty.dev/v3"
+	mserrors "github.com/major/marketsurge-agent/internal/errors"
+	"github.com/major/marketsurge-go/marketsurge"
 )
 
-// exchangeURL is the JWT exchange endpoint URL. It defaults to
-// constants.JWTExchangeURL and can be overridden in tests.
-var exchangeURL = constants.JWTExchangeURL
+// jwtExchangeURL is the investors.com JWT exchange endpoint.
+const jwtExchangeURL = "https://www.investors.com/client"
 
-// clientResponse represents the JSON response from the JWT exchange endpoint.
-type clientResponse struct {
-	IsLoggedIn bool   `json:"isLoggedIn"`
-	JWT        string `json:"jwt"`
-	GivenName  string `json:"given_name"`
-	FamilyName string `json:"family_name"`
-}
+// exchangeURL is the JWT exchange endpoint URL. It can be overridden in tests.
+var exchangeURL = jwtExchangeURL
 
-// ExchangeJWT exchanges browser cookies for a JWT token by calling the
-// investors.com client endpoint. It sends a GET request with the provided
-// cookies and extracts the JWT from the JSON response.
+// ExchangeJWT exchanges browser cookies for a JWT token through marketsurge-go
+// while preserving this CLI's authentication error contract.
 func ExchangeJWT(ctx context.Context, cookies []*http.Cookie) (string, error) {
-	rc := resty.New()
-	defer rc.Close()
-
-	rc.SetTimeout(constants.HTTPTimeout).SetResponseBodyLimit(constants.MaxResponseSize)
-
-	var data clientResponse
-	req := rc.R().SetContext(ctx).SetResult(&data)
-
-	// Set required headers from constants.
-	for key, values := range constants.JWTExchangeHeaders() {
-		for _, v := range values {
-			req.SetHeader(key, v)
-		}
-	}
-
-	// Forward all cookies to the request.
-	req.SetCookies(cookies)
-
-	resp, err := req.Get(exchangeURL)
+	client, err := marketsurge.NewClient(
+		marketsurge.WithInvestorsBaseURL(investorsBaseURL(exchangeURL)),
+	)
 	if err != nil {
-		return "", errors.NewAuthenticationError(
-			fmt.Sprintf("JWT exchange request failed: %s", err),
-			err,
-		)
+		return "", mserrors.NewAuthenticationError("JWT exchange client setup failed", err)
 	}
 
-	if !resp.IsSuccess() {
-		return "", errors.NewAuthenticationError(
-			fmt.Sprintf("JWT exchange failed: HTTP %d", resp.StatusCode()),
-			nil,
-		)
+	info, err := client.ExchangeJWT(ctx, marketsurge.NewSession(cookies))
+	if err != nil {
+		return "", mapJWTExchangeError(err)
 	}
 
-	if !data.IsLoggedIn {
-		return "", errors.NewAuthenticationError(
+	if !info.IsLoggedIn {
+		return "", mserrors.NewAuthenticationError(
 			"not logged in -- make sure you're signed into MarketSurge in the browser",
 			nil,
 		)
 	}
 
-	if data.JWT == "" {
-		return "", errors.NewAuthenticationError(
+	if info.JWT == "" {
+		return "", mserrors.NewAuthenticationError(
 			"no JWT found in response",
 			nil,
 		)
 	}
 
-	return data.JWT, nil
+	return info.JWT, nil
+}
+
+func investorsBaseURL(rawExchangeURL string) string {
+	return strings.TrimSuffix(rawExchangeURL, "/client")
+}
+
+func mapJWTExchangeError(err error) error {
+	statusErr, ok := errors.AsType[*marketsurge.StatusError](err)
+	if ok {
+		return mserrors.NewAuthenticationError(
+			fmt.Sprintf("JWT exchange failed: HTTP %d", statusErr.StatusCode),
+			err,
+		)
+	}
+
+	if strings.Contains(err.Error(), "not logged in") {
+		return mserrors.NewAuthenticationError(
+			"not logged in -- make sure you're signed into MarketSurge in the browser",
+			err,
+		)
+	}
+
+	if strings.Contains(err.Error(), "JWT not found") {
+		return mserrors.NewAuthenticationError("no JWT found in response", err)
+	}
+
+	return mserrors.NewAuthenticationError(
+		"JWT exchange request failed",
+		err,
+	)
 }

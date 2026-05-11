@@ -44,3 +44,4 @@ bin/
 
 # Agent artifacts
 .sisyphus/
+*.har

@@ -1,429 +1,206 @@
-package cmd
+package cmd_test
 
 import (
-	"context"
-	"reflect"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
-	"time"
 
+	"github.com/major/marketsurge-go/marketsurge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/major/marketsurge-agent/internal/client"
+	agentcmd "github.com/major/marketsurge-agent/cmd"
 	mserrors "github.com/major/marketsurge-agent/internal/errors"
-	"github.com/major/marketsurge-agent/internal/models"
 )
 
-func TestChartMarkupsSuccess(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(chartMarkupsFixture())
-	defer server.Close()
-	c := testClient(t, server)
+const chartSuccessResponse = `{"data":{"marketData":[{"id":"1","originRequest":{"fromDialect":"CHARTING","symbol":"AAPL"},"pricing":{"timeSeries":{"period":"ONE_DAY","dataPoints":[{"startDateTime":"2025-05-01T13:30:00.000Z","endDateTime":"2025-05-01T20:00:00.000Z","volume":{"value":45000000},"last":{"value":210.45},"low":{"value":208.10},"high":{"value":211.90},"open":{"value":209.50}},{"startDateTime":"2025-05-02T13:30:00.000Z","endDateTime":"2025-05-02T20:00:00.000Z","volume":{"value":38000000},"last":{"value":212.30},"low":{"value":209.80},"high":{"value":213.50},"open":{"value":210.00}}]},"quote":{"tradeDateTime":"2025-05-02T20:00:00.000Z","timeliness":"DELAYED","quoteType":"REGULAR","volume":{"value":38000000,"formattedValue":"38M"},"percentChange":{"value":0.88,"formattedValue":"0.88%"},"netChange":{"value":1.85,"formattedValue":"1.85"},"last":{"value":212.30,"formattedValue":"212.30"}},"premarketQuote":{"tradeDateTime":"2025-05-02T13:00:00.000Z","quoteType":"PREMARKET","last":{"value":211.00,"formattedValue":"211.00"}},"postmarketQuote":{"tradeDateTime":"2025-05-02T22:00:00.000Z","quoteType":"POSTMARKET","last":{"value":212.50,"formattedValue":"212.50"}},"currentMarketState":"REGULAR_MARKET"}}],"exchangeData":{"city":"New York","countryCode":"US","exchangeISO":"XNYS","id":"1"}}}`
 
-	output, err := executeChartCmd(t, c, "markups", "AAPL")
-	require.NoError(t, err)
-	result := parseJSONEnvelope(t, output)
-	assertSymbolMeta(t, result, "AAPL")
-}
+func TestChartSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, chartSuccessResponse)
+	}))
+	t.Cleanup(server.Close)
 
-func TestChartMarkupsSymbolFlag(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(chartMarkupsFixture())
-	defer server.Close()
-	c := testClient(t, server)
+	client := chartClient(t, server)
+	output, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 90, Exchange: "XNYS"})
+	require.NoError(t, err, "ChartCmd.Run(success) error = %v, want nil", err)
 
-	output, err := executeChartCmd(t, c, "markups", "--symbol", "AAPL")
-	require.NoError(t, err)
-	result := parseJSONEnvelope(t, output)
-	assertSymbolMeta(t, result, "AAPL")
-}
-
-func TestChartMarkupsWithFlags(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(chartMarkupsFixture())
-	defer server.Close()
-	c := testClient(t, server)
-
-	output, err := executeChartCmd(t, c, "markups", "--frequency", "WEEKLY", "--sort-dir", "DESC", "AAPL")
-	require.NoError(t, err)
-	parseJSONEnvelope(t, output)
-}
-
-func TestChartMarkupsMissingSymbol(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c, "markups")
-	require.Error(t, err)
-}
-
-func TestChartHistorySuccessWithExplicitDates(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(chartResponseFixture())
-	defer server.Close()
-	c := testClient(t, server)
-
-	output, err := executeChartCmd(t, c,
-		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "AAPL")
-	require.NoError(t, err)
-	result := parseJSONEnvelope(t, output)
-	assertSymbolMeta(t, result, "AAPL")
-}
-
-func TestChartHistorySuccessWithLookback(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(chartResponseFixture())
-	defer server.Close()
-	c := testClient(t, server)
-
-	output, err := executeChartCmd(t, c,
-		"history", "--lookback", "3M", "AAPL")
-	require.NoError(t, err)
-	parseJSONEnvelope(t, output)
-}
-
-func TestChartHistorySymbolFlag(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(chartResponseFixture())
-	defer server.Close()
-	c := testClient(t, server)
-
-	output, err := executeChartCmd(t, c,
-		"history", "--symbol", "AAPL", "--lookback", "3M")
-	require.NoError(t, err)
-	result := parseJSONEnvelope(t, output)
-	assertSymbolMeta(t, result, "AAPL")
-}
-
-func TestChartHistorySymbolNotFound(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(emptyMarketDataFixture())
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c,
-		"history", "--lookback", "1M", "MISSING")
-	require.Error(t, err)
-
-	var snf *mserrors.SymbolNotFoundError
-	assert.ErrorAs(t, err, &snf)
-}
-
-func TestChartHistoryMissingSymbol(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c,
-		"history", "--lookback", "1M")
-	require.Error(t, err)
-}
-
-func TestChartHistoryMutualExclusion(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c,
-		"history", "--start-date", "2024-01-01", "--end-date", "2024-06-30", "--lookback", "3M", "AAPL")
-	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "conflicting date flags: use either --lookback 3M or --start-date 2024-01-01 --end-date 2024-04-21, not both")
-}
-
-func TestChartHistoryNeitherDatesNorLookback(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c, "history", "AAPL")
-	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "missing date range: provide either --lookback 3M or both --start-date 2024-01-01 --end-date 2024-04-21")
-}
-
-func TestChartHistoryPartialExplicitDates(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c,
-		"history", "--start-date", "2024-01-01", "AAPL")
-	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "missing --end-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21")
-}
-
-func TestChartHistoryEndDateWithoutStartDate(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c,
-		"history", "--end-date", "2024-06-30", "AAPL")
-	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "missing --start-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21")
-}
-
-func TestChartHistoryInvalidLookback(t *testing.T) {
-	t.Parallel()
-	server := jsonServer(`{}`)
-	defer server.Close()
-	c := testClient(t, server)
-
-	_, err := executeChartCmd(t, c,
-		"history", "--lookback", "2W", "AAPL")
-	require.Error(t, err)
-
-	var verr *mserrors.ValidationError
-	assert.ErrorAs(t, err, &verr)
-	assert.Contains(t, err.Error(), "invalid --lookback value \"2W\": use one of 1W, 1M, 3M, 6M, 1Y, YTD")
-}
-
-func TestResolveLookback(t *testing.T) {
-	t.Parallel()
-	// Fixed reference date: 2025-06-15
-	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		lookback string
-		expected string
-	}{
-		{"1W", "2025-06-08"},
-		{"1M", "2025-05-15"},
-		{"3M", "2025-03-15"},
-		{"6M", "2024-12-15"},
-		{"1Y", "2024-06-15"},
-		{"YTD", "2025-01-01"},
+	var items []struct {
+		Ticker             string `json:"ticker"`
+		Days               int    `json:"days"`
+		Exchange           string `json:"exchange"`
+		CurrentMarketState string `json:"currentMarketState"`
+		DataPoints         []struct {
+			Date   string   `json:"date"`
+			Open   *float64 `json:"open"`
+			High   *float64 `json:"high"`
+			Low    *float64 `json:"low"`
+			Close  *float64 `json:"close"`
+			Volume *float64 `json:"volume"`
+		} `json:"dataPoints"`
+		Quote *struct {
+			Last *float64 `json:"last"`
+		} `json:"quote"`
+		PremarketQuote *struct {
+			Last *float64 `json:"last"`
+		} `json:"premarketQuote"`
+		PostmarketQuote *struct {
+			Last *float64 `json:"last"`
+		} `json:"postmarketQuote"`
 	}
+	require.NoError(t, json.Unmarshal([]byte(output), &items))
+	require.Len(t, items, 1)
 
-	for _, tt := range tests {
-		t.Run(tt.lookback, func(t *testing.T) {
-			t.Parallel()
-			result := resolveLookback(tt.lookback, now)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	item := items[0]
+	assert.Equal(t, "AAPL", item.Ticker)
+	assert.Equal(t, 2, item.Days)
+	assert.Equal(t, "XNYS", item.Exchange)
+	assert.Equal(t, "REGULAR_MARKET", item.CurrentMarketState)
+
+	require.Len(t, item.DataPoints, 2)
+	assert.Equal(t, "2025-05-01T13:30:00.000Z", item.DataPoints[0].Date)
+	require.NotNil(t, item.DataPoints[0].Close)
+	assert.InDelta(t, 210.45, *item.DataPoints[0].Close, 0.001)
+	require.NotNil(t, item.DataPoints[0].Open)
+	assert.InDelta(t, 209.50, *item.DataPoints[0].Open, 0.001)
+
+	require.NotNil(t, item.Quote)
+	require.NotNil(t, item.Quote.Last)
+	assert.InDelta(t, 212.30, *item.Quote.Last, 0.001)
+
+	require.NotNil(t, item.PremarketQuote)
+	require.NotNil(t, item.PremarketQuote.Last)
+	assert.InDelta(t, 211.00, *item.PremarketQuote.Last, 0.001)
+
+	require.NotNil(t, item.PostmarketQuote)
+	require.NotNil(t, item.PostmarketQuote.Last)
+	assert.InDelta(t, 212.50, *item.PostmarketQuote.Last, 0.001)
 }
 
-func TestMapPeriod(t *testing.T) {
-	t.Parallel()
-	period, daily := mapPeriod("daily")
-	assert.Equal(t, "P1D", period)
-	assert.True(t, daily)
+func TestChartEmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"marketData":[]}}`)
+	}))
+	t.Cleanup(server.Close)
 
-	period, daily = mapPeriod("weekly")
-	assert.Equal(t, "P1W", period)
-	assert.False(t, daily)
+	client := chartClient(t, server)
+	output, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 90, Exchange: "XNYS"})
+	require.NoError(t, err, "ChartCmd.Run(empty response) error = %v, want nil", err)
+
+	var items []struct {
+		Ticker     string `json:"ticker"`
+		Days       int    `json:"days"`
+		Exchange   string `json:"exchange"`
+		DataPoints []any  `json:"dataPoints"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output), &items))
+	require.Len(t, items, 1)
+	assert.Equal(t, "AAPL", items[0].Ticker)
+	assert.Equal(t, 0, items[0].Days)
+	assert.Equal(t, "XNYS", items[0].Exchange)
+	assert.Empty(t, items[0].DataPoints)
 }
 
-func TestChartHistoryOptionsValidate(t *testing.T) {
-	t.Parallel()
+func TestChartDefaultsExchange(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"marketData":[]}}`)
+	}))
+	t.Cleanup(server.Close)
 
-	tests := []struct {
-		name    string
-		opts    ChartHistoryOptions
-		wantErr string
-	}{
-		{
-			name:    "both explicit dates and lookback",
-			opts:    ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30", Lookback: "3M"},
-			wantErr: "conflicting date flags: use either --lookback 3M or --start-date 2024-01-01 --end-date 2024-04-21, not both",
-		},
-		{
-			name:    "neither dates nor lookback",
-			opts:    ChartHistoryOptions{},
-			wantErr: "missing date range: provide either --lookback 3M or both --start-date 2024-01-01 --end-date 2024-04-21",
-		},
-		{
-			name:    "only start-date without end-date",
-			opts:    ChartHistoryOptions{StartDate: "2024-01-01"},
-			wantErr: "missing --end-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21",
-		},
-		{
-			name:    "only end-date without start-date",
-			opts:    ChartHistoryOptions{EndDate: "2024-04-21"},
-			wantErr: "missing --start-date: explicit date ranges require both --start-date 2024-01-01 --end-date 2024-04-21",
-		},
-		{
-			name: "valid explicit dates",
-			opts: ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30"},
-		},
-		{
-			name: "valid lookback",
-			opts: ChartHistoryOptions{Lookback: "3M"},
-		},
-		{
-			name:    "invalid lookback value",
-			opts:    ChartHistoryOptions{Lookback: "2W"},
-			wantErr: "invalid --lookback value \"2W\": use one of 1W, 1M, 3M, 6M, 1Y, YTD",
-		},
-	}
+	client := chartClient(t, server)
+	output, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 90})
+	require.NoError(t, err, "ChartCmd.Run(default exchange) error = %v, want nil", err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			errs := tt.opts.Validate(context.Background())
-			if tt.wantErr != "" {
-				require.Len(t, errs, 1)
-				var verr *mserrors.ValidationError
-				assert.ErrorAs(t, errs[0], &verr)
-				assert.Equal(t, tt.wantErr, errs[0].Error())
-			} else {
-				assert.Empty(t, errs)
-			}
-		})
+	var items []struct {
+		Exchange string `json:"exchange"`
 	}
+	require.NoError(t, json.Unmarshal([]byte(output), &items))
+	require.Len(t, items, 1)
+	assert.Equal(t, "XNYS", items[0].Exchange)
 }
 
-func TestChartHistoryOptionsResolveDates(t *testing.T) {
-	t.Parallel()
-	// Fixed reference date: 2025-06-15
-	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+func TestChartEmptySymbol(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("ChartCmd.Run(empty symbol) sent unexpected HTTP request")
+	}))
+	t.Cleanup(server.Close)
 
-	t.Run("explicit dates pass through", func(t *testing.T) {
-		t.Parallel()
-		opts := ChartHistoryOptions{StartDate: "2024-01-01", EndDate: "2024-06-30"}
-		start, end := opts.ResolveDates(now)
-		assert.Equal(t, "2024-01-01", start)
-		assert.Equal(t, "2024-06-30", end)
-	})
+	client := chartClient(t, server)
+	_, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "  ", Days: 90, Exchange: "XNYS"})
+	require.Error(t, err, "ChartCmd.Run(empty symbol) error = nil, want non-nil")
 
-	t.Run("lookback computes dates", func(t *testing.T) {
-		t.Parallel()
-		opts := ChartHistoryOptions{Lookback: "3M"}
-		start, end := opts.ResolveDates(now)
-		assert.Equal(t, "2025-03-15", start)
-		assert.Equal(t, "2025-06-15", end)
-	})
+	var validationErr *mserrors.ValidationError
+	require.ErrorAs(t, err, &validationErr, "ChartCmd.Run(empty symbol) error type = %T, want *mserrors.ValidationError", err)
 }
 
-func TestChartMarkupsStructTags(t *testing.T) {
-	t.Parallel()
+func TestChartInvalidDays(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("ChartCmd.Run(invalid days) sent unexpected HTTP request")
+	}))
+	t.Cleanup(server.Close)
 
-	tests := []struct {
-		field    string
-		tag      string
-		value    string
-		wantType reflect.Type
-	}{
-		{"Symbol", "flag", "symbol", reflect.TypeFor[string]()},
-		{"Symbol", "flagshort", "s", reflect.TypeFor[string]()},
-		{"Symbol", "flaggroup", "Input", reflect.TypeFor[string]()},
-		{"Symbol", "flagdescr", "Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use", reflect.TypeFor[string]()},
-		{"Frequency", "flag", "frequency", reflect.TypeFor[models.Frequency]()},
-		{"Frequency", "flaggroup", "Options", reflect.TypeFor[models.Frequency]()},
-		{"Frequency", "flagdescr", "Chart candle frequency for markup lookup (DAILY or WEEKLY)", reflect.TypeFor[models.Frequency]()},
-		{"Frequency", "default", "DAILY", reflect.TypeFor[models.Frequency]()},
-		{"SortDir", "flag", "sort-dir", reflect.TypeFor[models.SortDirection]()},
-		{"SortDir", "flaggroup", "Options", reflect.TypeFor[models.SortDirection]()},
-		{"SortDir", "flagdescr", "Sort direction for markup annotations (ASC or DESC)", reflect.TypeFor[models.SortDirection]()},
-		{"SortDir", "default", "ASC", reflect.TypeFor[models.SortDirection]()},
-	}
+	client := chartClient(t, server)
+	_, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 0, Exchange: "XNYS"})
+	require.Error(t, err, "ChartCmd.Run(invalid days) error = nil, want non-nil")
 
-	rt := reflect.TypeFor[ChartMarkupsOptions]()
-	for _, tt := range tests {
-		t.Run(tt.field+"/"+tt.tag, func(t *testing.T) {
-			t.Parallel()
-			f, ok := rt.FieldByName(tt.field)
-			require.True(t, ok, "field %s not found", tt.field)
-			assert.Equal(t, tt.value, f.Tag.Get(tt.tag), "tag %q on field %s", tt.tag, tt.field)
-			if tt.tag == "flag" {
-				assert.Equal(t, tt.wantType, f.Type, "field %s type mismatch", tt.field)
-			}
-		})
-	}
+	var validationErr *mserrors.ValidationError
+	require.ErrorAs(t, err, &validationErr, "ChartCmd.Run(invalid days) error type = %T, want *mserrors.ValidationError", err)
 }
 
-func TestChartHistoryStructTags(t *testing.T) {
-	t.Parallel()
+func TestChartAuthError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	t.Cleanup(server.Close)
 
-	tests := []struct {
-		field    string
-		tag      string
-		value    string
-		wantType reflect.Type
-	}{
-		{"Symbol", "flag", "symbol", reflect.TypeFor[string]()},
-		{"Symbol", "flagshort", "s", reflect.TypeFor[string]()},
-		{"Symbol", "flaggroup", "Input", reflect.TypeFor[string]()},
-		{"Symbol", "flagdescr", "Stock symbol to fetch, for example AAPL; positional <symbol> remains supported for shell use", reflect.TypeFor[string]()},
-		{"StartDate", "flag", "start-date", reflect.TypeFor[string]()},
-		{"StartDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
-		{"StartDate", "flagdescr", "Start date in YYYY-MM-DD format, for example 2024-01-01; must be paired with --end-date; mutually exclusive with --lookback. Example explicit range: --start-date 2024-01-01 --end-date 2024-06-30", reflect.TypeFor[string]()},
-		{"EndDate", "flag", "end-date", reflect.TypeFor[string]()},
-		{"EndDate", "flaggroup", "Date Range", reflect.TypeFor[string]()},
-		{"EndDate", "flagdescr", "End date in YYYY-MM-DD format, for example 2024-06-30; must be paired with --start-date; mutually exclusive with --lookback. Example explicit range: --start-date 2024-01-01 --end-date 2024-06-30", reflect.TypeFor[string]()},
-		{"Lookback", "flag", "lookback", reflect.TypeFor[string]()},
-		{"Lookback", "flaggroup", "Date Range", reflect.TypeFor[string]()},
-		{"Lookback", "flagdescr", "Relative lookback period (1W, 1M, 3M, 6M, 1Y, YTD); mutually exclusive with --start-date/--end-date. Example relative range: --lookback 3M", reflect.TypeFor[string]()},
-		{"Period", "flag", "period", reflect.TypeFor[models.Period]()},
-		{"Period", "flaggroup", "Options", reflect.TypeFor[models.Period]()},
-		{"Period", "flagdescr", "Data period granularity (daily or weekly)", reflect.TypeFor[models.Period]()},
-		{"Period", "default", "daily", reflect.TypeFor[models.Period]()},
-		{"Benchmark", "flag", "benchmark", reflect.TypeFor[string]()},
-		{"Benchmark", "flaggroup", "Options", reflect.TypeFor[string]()},
-		{"Benchmark", "flagdescr", "Benchmark symbol for relative strength comparison", reflect.TypeFor[string]()},
-	}
+	client := chartClient(t, server)
+	output, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 90, Exchange: "XNYS"})
+	require.Error(t, err, "ChartCmd.Run(auth error) error = nil, want non-nil")
 
-	rt := reflect.TypeFor[ChartHistoryOptions]()
-	for _, tt := range tests {
-		t.Run(tt.field+"/"+tt.tag, func(t *testing.T) {
-			t.Parallel()
-			f, ok := rt.FieldByName(tt.field)
-			require.True(t, ok, "field %s not found", tt.field)
-			assert.Equal(t, tt.value, f.Tag.Get(tt.tag), "tag %q on field %s", tt.tag, tt.field)
-			if tt.tag == "flag" {
-				assert.Equal(t, tt.wantType, f.Type, "field %s type mismatch", tt.field)
-			}
-		})
-	}
+	var authErr *mserrors.AuthenticationError
+	require.ErrorAs(t, err, &authErr, "ChartCmd.Run(auth error) error type = %T, want *mserrors.AuthenticationError", err)
+	assert.Empty(t, output, "ChartCmd.Run(auth error) stdout = %q, want empty", output)
 }
 
-func TestChartHistoryExamples(t *testing.T) {
-	t.Parallel()
+func TestChartAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"errors":[{"message":"Service unavailable","path":["marketData"]}]}`)
+	}))
+	t.Cleanup(server.Close)
 
-	cmd := newChartHistoryCmd()
-	assert.Contains(t, cmd.Example, "marketsurge-agent chart history AAPL --lookback 3M")
-	assert.Contains(t, cmd.Example, "--start-date 2024-01-01 --end-date 2024-06-30")
-	assert.Contains(t, cmd.Example, "--period weekly --benchmark 0S&P5")
+	client := chartClient(t, server)
+	output, err := runChart(t, client, agentcmd.ChartCmd{Symbol: "AAPL", Days: 90, Exchange: "XNYS"})
+	require.Error(t, err, "ChartCmd.Run(API error) error = nil, want non-nil")
 
-	typ := reflect.TypeFor[ChartHistoryOptions]()
-	for _, fieldName := range []string{"StartDate", "EndDate", "Lookback"} {
-		t.Run(fieldName, func(t *testing.T) {
-			field, ok := typ.FieldByName(fieldName)
-			require.True(t, ok)
-			descr := field.Tag.Get("flagdescr")
-			assert.Contains(t, descr, "Example")
-			assert.Contains(t, descr, "--")
-		})
-	}
+	var apiErr *mserrors.APIError
+	require.ErrorAs(t, err, &apiErr, "ChartCmd.Run(API error) error type = %T, want *mserrors.APIError", err)
+	assert.Empty(t, output, "ChartCmd.Run(API error) stdout = %q, want empty", output)
 }
 
-// executeChartCmd creates a chart command tree, injects the client into subcommand
-// contexts, and executes with the given args. structcli.Bind sets a scope context on
-// subcommands, which prevents cobra's parent-to-child context propagation. This helper
-// layers the client onto each subcommand's existing context so both the structcli scope
-// and the test client are available during RunE.
-func executeChartCmd(t *testing.T, c *client.Client, args ...string) (string, error) {
+func chartClient(t *testing.T, server *httptest.Server) *marketsurge.Client {
 	t.Helper()
-	cmd := newChartCmd()
-	setClientContext(cmd, ContextWithClient(context.Background(), c), c)
-	return executeCommand(t, cmd, args...)
+
+	client, err := marketsurge.NewClient(
+		marketsurge.WithJWT("test-token"),
+		marketsurge.WithHTTPClient(server.Client()),
+		marketsurge.WithGraphQLURL(server.URL),
+	)
+	require.NoError(t, err, "marketsurge.NewClient(test server %q) error = %v, want nil", server.URL, err)
+	return client
+}
+
+func runChart(t *testing.T, client *marketsurge.Client, cmd agentcmd.ChartCmd) (string, error) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	runErr := cmd.RunForTest(client, &buf)
+
+	return buf.String(), runErr
 }

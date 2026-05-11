@@ -4,6 +4,5 @@ applyTo: "queries/**/*.graphql"
 
 # GraphQL review instructions
 
-- Verify query variables match the Go caller.
-- Check for unused fields that add unnecessary payload.
-- Queries are embedded at build time with go:embed and should not be duplicated as string literals.
+- This project no longer uses embedded GraphQL queries. The marketsurge-go client handles API communication.
+- If GraphQL files are added back, verify query variables match the Go caller and check for unused fields.

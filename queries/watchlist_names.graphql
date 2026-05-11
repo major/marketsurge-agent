@@ -1,8 +1,0 @@
-query GetAllWatchlistNames($pub: String!) {
-  watchlists(pub: $pub) {
-    id
-    name
-    lastModifiedDateUtc
-    description
-  }
-}

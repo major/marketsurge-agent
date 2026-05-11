@@ -1,4 +1,4 @@
-.PHONY: build test smoke lint clean docs
+.PHONY: build test smoke lint clean
 
 VERSION ?= dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -14,10 +14,7 @@ test:
 	go test -v -race -coverprofile=coverage.out ./...
 
 smoke:
-	go test -v -tags=smoke -run TestSmoke ./cmd
-
-docs:
-	go run ./cmd/generate-docs/
+	go test -v ./cmd/
 
 lint:
 	golangci-lint run ./...

@@ -1,6 +1,6 @@
 # marketsurge-agent
 
-CLI tool that gives AI agents structured access to [MarketSurge](https://marketsurge.investors.com) stock research data. Every command returns JSON, making it easy to integrate with agent frameworks, pipelines, or scripts.
+CLI tool that gives AI agents structured access to [MarketSurge](https://marketsurge.investors.com) stock research data. Every command writes JSON to stdout, making it easy to integrate with agent frameworks, pipelines, or scripts.
 
 > **Disclaimer**: This project is unofficial and is not affiliated with, approved by, or endorsed by MarketSurge or Investor's Business Daily. Use at your own risk.
 
@@ -21,226 +21,332 @@ MarketSurge requires an active browser session. The CLI exchanges Firefox cookie
 1. `--cookie-db` path to a Firefox `cookies.sqlite` file
 2. Auto-discovery from local Firefox profiles
 
-Sign into MarketSurge in Firefox before running API commands. For automation, point the CLI at the Firefox cookie database used by that logged-in profile:
+Sign into MarketSurge in Firefox before running any command. For automation, point the CLI at the Firefox cookie database used by that logged-in profile:
 
 ```bash
-marketsurge-agent --cookie-db "$HOME/.mozilla/firefox/profile/cookies.sqlite" stock get AAPL
+marketsurge-agent --cookie-db "$HOME/.mozilla/firefox/profile/cookies.sqlite" reports list
 ```
 
-Non-secret root options can also come from structcli-managed environment variables:
+You can also set environment variables instead of passing flags every time:
 
 ```bash
 export MARKETSURGE_AGENT_COOKIE_DB="$HOME/.mozilla/firefox/profile/cookies.sqlite"
 export MARKETSURGE_AGENT_VERBOSE=true
 ```
 
-## Configuration file
-
-Config files can provide non-secret root options such as `cookie-db` and `verbose`:
-
-```yaml
-cookie-db: /home/alice/.mozilla/firefox/profile/cookies.sqlite
-verbose: false
-```
-
-Use `--config` to load a specific file:
-
-```bash
-marketsurge-agent --config ~/.config/marketsurge-agent/config.yaml stock get AAPL
-```
-
-Without `--config`, structcli searches its default config locations for `config.yaml`, `config.json`, or `config.toml`, including `/etc/marketsurge-agent`, an executable-adjacent `.marketsurge-agent` directory, and `$HOME/.marketsurge-agent`. Set `MARKETSURGE_AGENT_CONFIG` to point at a config file from the environment. For root options managed by structcli, precedence is CLI flag, environment variable, config file, then default.
-
 ## Usage
 
 ```bash
-# Get stock data for a single symbol
-marketsurge-agent stock get AAPL
+# Compare key data for several stocks or ETFs
+marketsurge-agent compare AMD NVDA MSFT
 
-# Equivalent schema-visible flag form for agents and MCP clients
-marketsurge-agent stock get --symbol AAPL
+# Summarize high-level data for one stock or ETF
+marketsurge-agent overview AMD
 
-# Analyze multiple symbols concurrently
-marketsurge-agent stock analyze AAPL MSFT NVDA GOOG
+# Show daily OHLCV chart data and live quotes
+marketsurge-agent chart AMD
 
-# Analyze a comma-separated batch and remove low-value fields
-marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact
+# Show industry group relative strength
+marketsurge-agent industry AMD NVDA MSFT
 
-# Return screening fields for ranking many candidates
-marketsurge-agent stock analyze --summary AAPL MSFT NVDA
+# Discover curated watchlists and screens
+marketsurge-agent coach
 
-# Flatten each analysis result for lower-token agent parsing
-marketsurge-agent stock analyze AAPL --flat
+# List available data columns (no auth required)
+marketsurge-agent columns
+marketsurge-agent columns --category Ratings
 
-# Fundamental data
-marketsurge-agent fundamental get TSLA
+# List built-in report screens (no auth required)
+marketsurge-agent reports catalog
 
-# Institutional ownership
-marketsurge-agent ownership get AMZN
+# List available reports
+marketsurge-agent reports list
 
-# Relative strength history for one or more symbols
-marketsurge-agent rs-history get META NVDA
+# Get IBD 50 report data (uses 23 default columns)
+marketsurge-agent reports get <screen-id>
 
-# Chart price history (daily, last 3 months)
-marketsurge-agent chart history --symbol AAPL --lookback 3M
+# Get report with custom columns
+marketsurge-agent reports get <screen-id> --columns Symbol,Price,EPSRating,RSRating
 
-# Chart markups and annotations
-marketsurge-agent chart markups AAPL
+# Inspect a screen's definition and filter criteria
+marketsurge-agent reports inspect <screen-id>
 
-# List available watchlists, screens, and reports
-marketsurge-agent catalog list
+# List saved watchlists
+marketsurge-agent watchlist list
 
-# Run a specific watchlist
-marketsurge-agent catalog run --kind watchlist --watchlist-id 12345
+# Get symbols in a watchlist
+marketsurge-agent watchlist get <watchlist-id>
 
-# Run a report with filters
-marketsurge-agent catalog run --kind report --report-id 67890 --min-composite 90 --min-rs 80
-```
+# Use environment variable for cookie path
+MARKETSURGE_AGENT_COOKIE_DB=/path/to/cookies.sqlite marketsurge-agent reports list
 
-All commands return a JSON envelope:
-
-```json
-{
-  "data": { ... },
-  "metadata": { "symbol": "AAPL" }
-}
-```
-
-Errors follow the same pattern:
-
-```json
-{
-  "error": {
-    "code": "SYMBOL_NOT_FOUND",
-    "message": "XYZZY: no matching symbol",
-    "details": "symbol: XYZZY"
-  }
-}
+# Print version
+marketsurge-agent --version
 ```
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `stock get <symbol>` / `stock get --symbol SYMBOL` | Stock data (ratings, pricing, financials) |
-| `stock analyze [symbols...]` / `stock analyze --symbols SYMBOLS` | Concurrent single-symbol or multi-symbol analysis with optional compact, flat, summary, and comma-separated batch modes |
-| `fundamental get <symbol>` / `fundamental get --symbol SYMBOL` | Fundamental analysis data |
-| `ownership get <symbol>` / `ownership get --symbol SYMBOL` | Institutional ownership |
-| `rs-history get [symbols...]` / `rs-history get --symbols SYMBOLS` | Relative strength rating history for one or more symbols |
-| `chart history <symbol>` / `chart history --symbol SYMBOL` | Price history (daily or weekly) |
-| `chart markups <symbol>` / `chart markups --symbol SYMBOL` | Chart annotations and markups |
-| `catalog list` | List watchlists, screens, reports |
-| `catalog run` | Run a watchlist, coach screen, or report |
-| `completion <shell>` | Generate shell completion script (bash, zsh, fish, powershell) |
-| `--version` | Print version information |
+| `chart <symbol>` | Show daily OHLCV chart data and live quotes |
+| `coach` | Discover MarketSurge curated watchlists and screens |
+| `columns` | List available MarketSurge data columns (no auth required) |
+| `compare <symbols...>` | Compare key MarketSurge data for multiple stocks or ETFs |
+| `industry <symbols...>` | Show industry group relative strength for stocks or ETFs |
+| `overview <symbol>` | Summarize high-level stock or ETF data for LLM context |
+| `reports catalog` | List built-in MarketSurge report screens (no auth required) |
+| `reports get <screen-id>` | Get report data for a specific screen ID |
+| `reports inspect <screen-id>` | Inspect screen definition and filter criteria |
+| `reports list` | List all available screens and reports |
+| `watchlist list` | List all saved watchlists |
+| `watchlist get <watchlist-id>` | Get symbols in a watchlist by ID |
 
-### Shell completion and self-documentation
+### Global flags
 
-```bash
-# Generate shell completion (bash, zsh, fish, powershell)
-marketsurge-agent completion zsh > ~/.zsh/completions/_marketsurge-agent
+| Flag | Env var | Description |
+| --- | --- | --- |
+| `--cookie-db PATH` | `MARKETSURGE_AGENT_COOKIE_DB` | Path to Firefox `cookies.sqlite` |
+| `--verbose` | `MARKETSURGE_AGENT_VERBOSE` | Enable verbose logging to stderr |
+| `--version` / `-V` | | Show version and exit |
 
-# Print the full command tree JSON schema for LLM tool definitions
-marketsurge-agent --jsonschema
+### columns
 
-# Explicit full-tree mode, kept for scripts that already request it
-marketsurge-agent --jsonschema=tree
-
-# Run as an MCP server over stdio for agent tool discovery and calls
-marketsurge-agent --mcp
-
-# List all supported environment variables
-marketsurge-agent help env-vars
-
-# List all supported config file keys
-marketsurge-agent help config-keys
-
-# Load config from a specific file
-marketsurge-agent --config ~/.config/marketsurge-agent/config.yaml --debug-options
-
-# Print resolved flag values for debugging
-marketsurge-agent --debug-options
-
-# Print version
-marketsurge-agent --version
-```
-
-## Agent integration
-
-marketsurge-agent is built for coding agents and LLM tools that need structured stock research data without scraping MarketSurge pages. The repository uses a generated root `SKILL.md` for skill-aware tools plus hand-maintained `AGENTS.md` files, live `--jsonschema`, `--help`, and `--mcp` output from the binary.
-
-### Claude Code and skill-aware tools
-
-Use the checked-in root `SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and MCP server hints generated from the live Cobra and structcli command tree.
-
-For Claude Code, copy or symlink the generated skill into your local skills directory if you want it available outside this repository:
+Lists the available MarketSurge data columns from the local catalog. No authentication required. Use `--category` to filter by category (exact match).
 
 ```bash
-mkdir -p ~/.claude/skills/marketsurge-agent
-ln -sf "$(pwd)/SKILL.md" ~/.claude/skills/marketsurge-agent/SKILL.md
+marketsurge-agent columns
+marketsurge-agent columns --category Ratings
 ```
 
-If you already have a custom skill at that path, review or back it up first because `ln -sf` replaces the existing file or symlink. Regenerate `SKILL.md` after command, flag, default, or help text changes so the skill matches the current command surface:
+Example output:
+
+```json
+[
+  {
+    "name": "CompositeRating",
+    "displayName": "Composite Rating",
+    "description": "Overall rating combining EPS, RS, and other factors",
+    "category": "Ratings"
+  }
+]
+```
+
+### compare
+
+Fetches a compact side-by-side snapshot for a short list of stocks or ETFs. The command uses MarketSurge screen columns and returns one JSON object per returned symbol. Curated columns are grouped into LLM-oriented keys, while every requested MarketSurge value remains available under `columns` for exact column-level inspection.
 
 ```bash
-make docs
+marketsurge-agent compare AMD NVDA MSFT
+marketsurge-agent compare AMD NVDA --columns Symbol,Price,CompositeRating,RSRating
 ```
 
-### OpenCode and Codex
+The `--columns` flag (env: `MARKETSURGE_AGENT_COMPARE_COLUMNS`) controls which fields MarketSurge returns. If omitted, the command requests a default trader-focused set covering ratings, price, volume, moving-average momentum, fundamentals, industry, ownership, earnings dates, IPO date, market cap, and Blue Dot events.
 
-OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the root `AGENTS.md`; package-specific guidance lives in `cmd/AGENTS.md` and `internal/client/AGENTS.md` for command wiring, MCP behavior, JSON Schema behavior, client methods, and test patterns.
+Example output:
 
-Use `--jsonschema`, `--help`, `help env-vars`, and `help config-keys` for the generated command and configuration contract. Update the relevant `AGENTS.md` files by hand when project structure, command patterns, build steps, auth behavior, or safety rules change.
+```json
+[
+  {
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices",
+    "ratings": {"composite": "96", "relativeStrength": "91"},
+    "price": {"last": "212.30", "atrPercent21d": "4.1%"},
+    "industry": {"groupRSRating": "A"},
+    "columns": {"Symbol": "AMD", "Price": "212.30", "CompositeRating": "96", "RSRating": "91"}
+  }
+]
+```
 
-### Token-efficient stock analysis
+### industry
 
-`stock analyze` supports output modes designed for AI agents and batch comparison workflows:
+Fetches the 6-month industry group relative strength ranking for one or more symbols. Accepts comma-separated or space-separated tickers.
 
 ```bash
-marketsurge-agent stock analyze --symbols AAPL,MSFT,NVDA --compact --flat
+marketsurge-agent industry AMD NVDA
+marketsurge-agent industry AMD,NVDA,MSFT
 ```
 
-- `--symbols AAPL,MSFT,NVDA` analyzes comma-separated symbols in one command. Positional symbols still work and can be combined with `--symbols`.
-- `--tickers AAPL,MSFT,NVDA` remains supported as a backward-compatible alias for `stock analyze`.
-- `--compact` removes low-value fields such as formatted duplicates, profile metadata, internal IDs, empty fields, and stale arrays, while keeping decision-relevant raw values.
-- `--summary` returns one small screening object per symbol with rankings, signal flags, ANTS dates and explanation, base details, liquidity, volatility, and ownership fields. Response metadata includes `mode: "summary"`.
-- `--flat` flattens each analysis result inside the standard JSON envelope, for example `stock.pricing.market_cap` becomes `pricing_market_cap`.
+Example output:
 
-`stock analyze` also includes MarketSurge technical context for chart-driven screening: `stock.base_pattern` summarizes the current base with pattern type, base stage, pivot price, base length, depth, and volume at pivot; `stock.signals` reports blue dot and ANTS signal flags when the API provides them. ANTS marks flag institutional accumulation: repeated upside price action with rising volume over a recent 15-day window. Full output exposes the mark dates at `stock.pricing.ant_dates`; summary output includes `ant_dates` and `ant_explanation` whenever `ant_signal` is true.
+```json
+[
+  {"ticker": "AMD", "industryGroupRS": 85},
+  {"ticker": "NVDA", "industryGroupRS": 92}
+]
+```
 
-`rs-history get` accepts multiple symbols in one request through positional arguments or `--symbols`. Multi-symbol output uses a `data` object keyed by ticker so agents can compare RS trends without shell loops.
+A `null` value for `industryGroupRS` means the API returned no RS data for that symbol.
 
-### Schema discovery
+### overview
 
-`--jsonschema` prints a machine-readable JSON schema for the full command tree and exits without making any API calls. Agents see every subcommand plus flag groups, enum values, defaults, environment bindings, and descriptions in one response. `--jsonschema=tree` remains supported and returns the same full-tree contract for scripts that already request it:
+Fetches a token-efficient, symbol-centered summary for one stock or ETF. The command combines MarketSurge market data, relative strength history, chart pattern metadata, ANTs event dates, industry ranks, ownership history, fundamentals, risk context, and a compact weekly trend snapshot into a compact JSON object. It also includes valuation ratios (P/E, forward P/E, P/S, P/CF, yield), historical price statistics, volume averages, earnings calendar, corporate actions (dividends, splits, spinoffs), profit margins, growth rates, business description, and IPO date/price. Output is still a JSON array, so a successful single-symbol response is `[{}]` rather than `{}`.
 
 ```bash
-marketsurge-agent --jsonschema
-marketsurge-agent --jsonschema=tree
+marketsurge-agent overview AMD
 ```
 
-The schema is a JSON array. Each entry is one command schema with `title`, `description`, `properties`, `x-structcli-groups`, `x-structcli-env-prefix`, and `x-structcli-config-flag` metadata. Enum flags expose both machine-readable `enum` arrays and the original enum tokens in their descriptions, for example `{DAILY,WEEKLY}` or `{daily,weekly}`.
+Example output:
 
-Required and conditional inputs are documented in flag descriptions with concrete examples. Some rules are intentionally validated by the command instead of structcli tags so errors keep the normal JSON envelope and MarketSurge exit codes, for example `chart history` requires either `--lookback` or `--start-date/--end-date`, and `catalog run` requires the ID flag that matches `--kind`. Complex command descriptions and flag descriptions include copyable valid invocation shapes so LLM agents can infer usable calls from schema output.
+```json
+[
+  {
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices",
+    "type": "COMMON_STOCK",
+    "ratings": {"composite": 96, "epsRating": 83, "relativeStrength": 91, "salesMarginsROE": "A", "accumulationDistribution": "B+"},
+    "price": {"marketCap": {"v": 300000000000, "f": "300B"}, "avgDollarVolume50d": {"v": 2500000000, "f": "2.5B"}},
+    "relativeStrengthTrend": {"newHigh": true, "history": [{"value": 91, "letter": "A", "period": "P12M", "offset": "CURRENT"}]},
+    "ants": {"count": 2, "dates": ["2026-05-01", "2026-05-08"]},
+    "industry": {"name": "Electronics-Semiconductor Fabless", "sector": "Technology", "ranks": [{"value": 5, "period": "P1M", "offset": "CURRENT"}]},
+    "ownership": {"fundsFloatPct": {"v": 49.5, "f": "49.5%"}, "funds": [{"date": "2026-03-31", "funds": "3,210"}]},
+    "fundamentals": {"debtPct": {"v": 20.1, "f": "20.1%"}, "reportedEPS": {"value": {"v": 1.65, "f": "$1.65"}}},
+    "risk": {"beta": {"v": 1.4, "f": "1.4"}},
+    "weeklyTrend": {"period": "ONE_WEEK", "latest": {"last": {"v": 212.3}}, "quote": {"timeliness": "REAL_TIME"}}
+  }
+]
+```
 
-Each command also carries a detailed `--help` description covering inputs, outputs, and gotchas. The `env-vars` and `config-keys` help topics list every supported environment variable and config file key:
+Missing symbols return a `SYMBOL_NOT_FOUND` error with exit code 31. MarketSurge exposes RS Rating and RS line data through the current client; the command does not invent a technical RSI value when that indicator is unavailable.
+
+### reports catalog
+
+Lists the built-in MarketSurge report screens from the local catalog. No authentication required. Use these IDs with `reports get` to fetch report data.
 
 ```bash
-marketsurge-agent help env-vars
-marketsurge-agent stock analyze --help
+marketsurge-agent reports catalog
 ```
 
-### MCP server
+Example output:
 
-`--mcp` runs `marketsurge-agent` as a Model Context Protocol server over stdio. Agents can use MCP `initialize`, `tools/list`, and `tools/call` requests to discover and invoke CLI commands without scraping help output:
+```json
+[
+  {
+    "id": 1,
+    "name": "IBD 50",
+    "description": "Top-rated growth stocks based on CAN SLIM criteria"
+  }
+]
+```
+
+### reports list
+
+Lists all screens and reports available in your MarketSurge account. Output is a JSON array of screen entries, each with an ID, name, type, and description.
 
 ```bash
-marketsurge-agent --mcp
+marketsurge-agent reports list
 ```
 
-MCP discovery does not require MarketSurge authentication. Tool calls that fetch MarketSurge data still use the same Firefox cookie authentication chain as normal CLI commands and return the same JSON envelopes.
+Example output:
 
-MCP tool names use underscores between command path segments, such as `stock_analyze`, `chart_history`, and `catalog_run`. Existing dashes inside a command segment remain, so `rs-history get` becomes `rs-history_get`. The tool list is limited to runnable MarketSurge data commands; shell completion and parent help commands are not exposed.
+```json
+[
+  {
+    "id": "12345",
+    "name": "IBD 50",
+    "type": "screen",
+    "description": "Top-rated growth stocks"
+  }
+]
+```
+
+### reports get
+
+Fetches report data for a screen ID from `reports list`. Output is a JSON array where each element is an object with column names as keys.
+
+```bash
+marketsurge-agent reports get <screen-id>
+marketsurge-agent reports get <screen-id> --columns Symbol,Price,EPSRating,RSRating
+```
+
+The `--columns` flag (env: `MARKETSURGE_AGENT_COLUMNS`) controls which fields appear in each row. Pass a comma-separated list. The default set of 23 columns is:
+
+```text
+Symbol, CompanyName, ListRank, Price, PriceNetChg, PricePctChg, PricePctOff52WHigh,
+VolumePctChgVs50DAvgVolume, VolumeAvg50Day, MarketCapIntraday, CompositeRating,
+EPSRating, RSRating, AccDisRating, SMRRating, IndustryGroupRank, IndustryName,
+VolumeDollarAvg50D, IPODate, DowJonesKey, ChartingSymbol, DowJonesInstrumentType,
+DowJonesInstrumentSubType
+```
+
+Example output:
+
+```json
+[
+  {
+    "Symbol": "NVDA",
+    "CompanyName": "NVIDIA Corp",
+    "CompositeRating": 99,
+    "EPSRating": 99,
+    "RSRating": 97
+  }
+]
+```
+
+### watchlist list
+
+Lists all saved watchlists in your MarketSurge account. Output is a JSON array of watchlist entries, each with an ID, name, description, and last-modified timestamp.
+
+```bash
+marketsurge-agent watchlist list
+```
+
+Example output:
+
+```json
+[
+  {
+    "id": "12345",
+    "name": "Growth Leaders",
+    "lastModifiedDateUtc": "2026-05-01T12:00:00Z",
+    "description": "Top growth stocks"
+  }
+]
+```
+
+### watchlist get
+
+Fetches watchlist details and the list of ticker symbols for a watchlist ID from `watchlist list`. Output is a one-element JSON array with an LLM-friendly shape.
+
+```bash
+marketsurge-agent watchlist get <watchlist-id>
+```
+
+Example output:
+
+```json
+[
+  {
+    "id": "12345",
+    "name": "Growth Leaders",
+    "lastModifiedDateUtc": "2026-05-01T12:00:00Z",
+    "description": "Top growth stocks",
+    "symbols": ["AAPL", "NVDA", "AMD"]
+  }
+]
+```
+
+## Output format
+
+All commands write to stdout and stderr separately:
+
+- **stdout**: JSON arrays (one per command). Empty results are `[]`, never `null`.
+- **stderr**: JSON error objects when a command fails.
+
+Error shape on stderr:
+
+```json
+{"code": "AUTH_FAILED", "message": "authentication failed: ..."}
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 30 | Validation error (bad arguments) |
+| 31 | Symbol not found |
+| 32 | Authentication error (missing or expired session) |
+| 33 | API or HTTP error |
 
 ## Development
 
@@ -251,7 +357,6 @@ make build     # Build binary
 make test      # Run tests with race detector
 make smoke     # Run local live-data smoke tests against MarketSurge
 make lint      # Run golangci-lint (install: https://golangci-lint.run/welcome/install/)
-make docs      # Refresh root SKILL.md
 make clean     # Remove binary and build artifacts
 ```
 
@@ -260,18 +365,23 @@ make clean     # Remove binary and build artifacts
 ```text
 cmd/
   marketsurge-agent/     Entry point (main.go)
-  root.go                Root command, auth, Execute()
-  symbol.go              Shared symbol-fetcher pattern
-  <group>.go             One file per command group
+  root.go                Root command struct (kong)
+  chart.go               chart command
+  coach.go               coach command
+  columns.go             columns command (no auth)
+  compare.go             compare command
+  industry.go            industry command
+  overview.go            overview command
+  reports_catalog.go     reports catalog command (no auth)
+  reports_get.go         reports get command
+  reports_inspect.go     reports inspect command
+  reports_list.go        reports list command
+  watchlist_get.go       watchlist get command
+  watchlist_list.go      watchlist list command
 internal/
   auth/                  Cookie-based JWT exchange
-  client/                GraphQL client + API methods
-  constants/             API endpoints, column names
   cookies/               Firefox cookie extraction
   errors/                Typed error hierarchy
-  models/                Data structures
-  output/                JSON envelope formatting
-queries/                 Embedded GraphQL queries
 ```
 
 ### Running tests
@@ -282,32 +392,15 @@ go test -v -race ./...
 
 Tests use `httptest.NewServer` for HTTP mocking with no external mock libraries.
 
-### Local live smoke tests
+### Smoke target
 
-Smoke tests exercise every MarketSurge API leaf command against live data from your local machine. They are excluded from normal test runs and CI by the `smoke` build tag.
+The smoke target runs the command package test suite with `go test -v ./cmd/`. This keeps command-level coverage quick and local without the removed `smoke` build tag or live-only `cmd/smoke_test.go` setup.
 
-Sign into MarketSurge in Firefox first, then run:
+Run the smoke target with:
 
 ```bash
 make smoke
 ```
-
-For a specific Firefox profile, set the same cookie database environment variable used by the CLI:
-
-```bash
-export MARKETSURGE_AGENT_COOKIE_DB="$HOME/.mozilla/firefox/profile/cookies.sqlite"
-make smoke
-```
-
-`catalog run` needs an account-specific ID. Set one of these optional variables to include it; otherwise that subtest is skipped while the schema coverage check still ensures the command has a smoke case:
-
-```bash
-export MARKETSURGE_SMOKE_WATCHLIST_ID=12345
-export MARKETSURGE_SMOKE_REPORT_ID=67890
-export MARKETSURGE_SMOKE_COACH_SCREEN_ID=screen-1
-```
-
-The smoke suite validates exit status and JSON envelope shape, not exact live prices, counts, timestamps, or rankings.
 
 ### Releasing
 
@@ -322,8 +415,7 @@ This produces binaries for linux/darwin on amd64/arm64, published to GitHub Rele
 
 ### Dependencies
 
-- [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI framework
-- [`github.com/leodido/structcli`](https://github.com/leodido/structcli) - Flag binding, validation, self-documentation
-- [`github.com/browserutils/kooky`](https://github.com/nicholasgasior/kooky) - Firefox cookie extraction
-- [`resty.dev/v3`](https://resty.dev) - HTTP client
+- [`github.com/alecthomas/kong`](https://github.com/alecthomas/kong) - CLI framework
+- [`github.com/browserutils/kooky`](https://github.com/browserutils/kooky) - Firefox cookie extraction
+- [`github.com/major/marketsurge-go`](https://github.com/major/marketsurge-go) - MarketSurge API client
 - [`github.com/stretchr/testify`](https://github.com/stretchr/testify) - Test assertions
